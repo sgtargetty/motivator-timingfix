@@ -182,35 +182,46 @@ class _TaskDialogState extends State<TaskDialog> {
   }
 
   // Handle amber alert task creation with proper emergency system integration
+// Handle amber alert task creation with proper emergency system integration
   Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDescription) async {
     try {
       print('🚨 Creating AMBER ALERT task with emergency system integration');
       
-      // First create the regular scheduled notification
+      // Create the scheduled notification
       await TaskScheduler.instance.scheduleNotification(
         taskData, 
         context,
         currentTaskType: widget.currentTaskType,
       );
       
-      // Then create the actual amber alert notification using the service
-      // Calculate time until notification
-      final now = DateTime.now();
-      final timeDiff = _selectedDateTime.difference(now);
-      
-      // For all amber alerts, rely on the regular scheduling system only
       print('🚨 Amber alert scheduled for: $_selectedDateTime');
       
-      // Show user a preview of what the amber alert will look like
-      _showAmberAlertPreview(taskDescription);
+      // Show success message and return to dashboard
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('🚨 Critical Alert Created Successfully!'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
       
     } catch (e) {
       print('❌ Error creating amber alert task: $e');
       
-      // Fallback: show amber alert screen directly
-      _showAmberAlertScreen(taskDescription: taskDescription);
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Failed to create critical alert: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
   }
+
 
   // Show amber alert screen directly (for testing or immediate alerts)
   void _showAmberAlertScreen({String? taskDescription}) {
