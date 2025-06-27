@@ -383,7 +383,7 @@ class NotificationManager {
             );
           },
         ),
-        (route) => false,
+        (route) => route.isFirst,
       );
       
       print('✅ EMERGENCY navigation initiated successfully');
