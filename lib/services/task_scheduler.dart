@@ -88,9 +88,9 @@ class TaskScheduler {
       }
       
       // 🚨 ENHANCED: For amber alerts scheduled soon, create immediate test alert
-      if (isAmberAlert && isImmediate) {
-        print('🚨 Creating immediate amber alert (scheduled within 2 minutes)');
-        await _createImmediateAmberAlert(taskData, line, audioFilePath);
+      // Note: Immediate alerts removed - rely on scheduled notifications only
+      if (isAmberAlert) {
+        print('🚨 Amber alert scheduled for: ${taskData['dateTime']}');
       }
       
     } catch (e) {
