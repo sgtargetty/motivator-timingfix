@@ -162,40 +162,63 @@ class _TaskDialogState extends State<TaskDialog> {
         'neverEnds': _isRecurring ? _neverEnds : false,
       };
       
-      // Handle amber alert tasks differently
-      if (_isAmberAlert) {
-        await _createAmberAlertTask(enhancedTask, task);
-      } else {
-        // Regular task scheduling
-        await TaskScheduler.instance.scheduleNotification(
-          enhancedTask, 
-          context,
-          currentTaskType: widget.currentTaskType,
+      try {
+        // Handle amber alert tasks differently
+        if (_isAmberAlert) {
+          await _createAmberAlertTask(enhancedTask, task);
+        } else {
+          // Regular task scheduling
+          await TaskScheduler.instance.scheduleNotification(
+            enhancedTask, 
+            context,
+            currentTaskType: widget.currentTaskType,
+          );
+        }
+        
+        // ✅ Only add task and navigate if everything succeeded
+        widget.onTaskAdded(widget.selectedDay, enhancedTask);
+        
+        Navigator.of(context).pop();
+        HapticFeedback.heavyImpact();
+        
+        final alertType = _isAmberAlert ? ' (🚨 AMBER ALERT)' : '';
+        final recurringText = _isRecurring 
+            ? ' (${_recurringFrequency.toLowerCase()}${_recurringFrequency == 'Weekly' ? ' on ${_selectedDays.map(_getDayName).join(', ')}' : ''})'
+            : '';
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ $_selectedVoiceStyle reminder scheduled$alertType$recurringText'),
+            backgroundColor: _isAmberAlert ? Colors.green : const Color(0xFFD4AF37),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
         );
+        
+      } catch (e) {
+        print('❌ Error in _createTask: $e');
+        
+        // Show error to user
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Failed to create task: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        
+        // Don't navigate or add task on error
+        
+      } finally {
+        // ✅ ALWAYS reset loading state, even on errors
+        if (mounted) {
+          setState(() {
+            _isCreatingTask = false;
+          });
+        }
       }
-      
-      widget.onTaskAdded(widget.selectedDay, enhancedTask);
-      
-      Navigator.of(context).pop();
-      HapticFeedback.heavyImpact();
-      
-      setState(() {
-        _isCreatingTask = false;
-      });
-      
-      final alertType = _isAmberAlert ? ' (🚨 AMBER ALERT)' : '';
-      final recurringText = _isRecurring 
-          ? ' (${_recurringFrequency.toLowerCase()}${_recurringFrequency == 'Weekly' ? ' on ${_selectedDays.map(_getDayName).join(', ')}' : ''})'
-          : '';
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ $_selectedVoiceStyle reminder scheduled$alertType$recurringText'),
-          backgroundColor: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
     }
   }
 
@@ -204,10 +227,22 @@ Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDes
   print('🚨 Starting _createAmberAlertTask...');
   
   try {
-    // Show progress updates
+    // 1. Show immediate progress - AI content generation
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('🚨 Generating motivational content...'),
+        content: Text('🚨 Step 1/3: Generating motivational content...'),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 2),
+      ),
+    );
+    
+    // Small delay to show the progress message
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    // 2. Show audio generation progress
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🚨 Step 2/3: Creating emergency audio...'),
         backgroundColor: Colors.red,
         duration: Duration(seconds: 2),
       ),
@@ -215,7 +250,7 @@ Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDes
     
     print('🚨 Creating AMBER ALERT task with emergency system integration');
     
-    // Create the scheduled notification
+    // 3. Create the scheduled notification (this is the slow part)
     print('🔄 About to call TaskScheduler.scheduleNotification...');
     await TaskScheduler.instance.scheduleNotification(
       taskData, 
@@ -226,12 +261,12 @@ Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDes
     
     print('🚨 Amber alert scheduled for: $_selectedDateTime');
     
-    // Show final success message
+    // 4. Show final success message
     print('🔄 About to show success snackbar...');
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('🚨 Critical Alert Created Successfully!'),
-        backgroundColor: Colors.green,
+        content: Text('🚨 Step 3/3: Critical Alert Created Successfully!'),
+        backgroundColor: Colors.green,  // Green for final success
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: Duration(seconds: 2),
@@ -251,13 +286,15 @@ Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDes
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 3),
         ),
       );
     } catch (e2) {
       print('❌ Even the error snackbar failed: $e2');
     }
     
-    // Don't rethrow - let the navigation continue
+    // 🚨 CRITICAL FIX: Rethrow the exception so _createTask knows it failed
+    rethrow;
   }
   
   print('✅ _createAmberAlertTask method completed');
