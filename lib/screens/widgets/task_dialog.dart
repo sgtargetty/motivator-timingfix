@@ -124,20 +124,83 @@ class _TaskDialogState extends State<TaskDialog> {
       setState(() {
         _isCreatingTask = true;
       });
-      print('🔧 DEBUG: Loading state set to: $_isCreatingTask');
       
-      // 🔧 FORCE UI UPDATE: Give the widget tree time to rebuild
-      await Future.delayed(const Duration(milliseconds: 100));
-      print('🔧 DEBUG: UI should now show loading state');
-      
-      // Show immediate feedback
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_isAmberAlert ? '🚨 Creating Critical Alert...' : '⏱️ Creating Reminder...'),
-          backgroundColor: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-          duration: const Duration(seconds: 1),
+      // 🚨 IMMEDIATE OVERLAY - Shows instantly like "Summoning Motivation" 
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => WillPopScope(
+          onWillPop: () async => false,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: _isAmberAlert ? Colors.red.shade900 : const Color(0xFFD4AF37),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.5),
+                    blurRadius: 20,
+                    spreadRadius: 5,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 50,
+                    height: 50,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 4,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    _isAmberAlert ? '🚨 Creating Critical Alert...' : '⏱️ Creating Reminder...',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _isAmberAlert 
+                        ? 'Generating emergency-level motivational content...\nThis may take a few moments.'
+                        : 'Generating personalized motivational content...\nPlease wait.',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '⚠️ Please do not close this dialog',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       );
+      
+      // Small delay to ensure overlay appears before heavy work starts
+      await Future.delayed(const Duration(milliseconds: 50));
 
       final enhancedTask = {
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
