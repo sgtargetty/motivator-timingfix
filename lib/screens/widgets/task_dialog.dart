@@ -198,18 +198,11 @@ class _TaskDialogState extends State<TaskDialog> {
       final now = DateTime.now();
       final timeDiff = _selectedDateTime.difference(now);
       
-      if (timeDiff.inMinutes <= 2) {
-        // If it's very soon, create immediate amber alert
-        print('🚨 Creating immediate amber alert (scheduled within 2 minutes)');
-        await AmberAlertService.testImmediateAmberAlert(context);
-      } else {
-        // For future amber alerts, we'll rely on the regular notification system
-        // but mark it properly as an amber alert
-        print('🚨 Amber alert scheduled for: $_selectedDateTime');
-        
-        // Show user a preview of what the amber alert will look like
-        _showAmberAlertPreview(taskDescription);
-      }
+      // For all amber alerts, rely on the regular scheduling system only
+      print('🚨 Amber alert scheduled for: $_selectedDateTime');
+      
+      // Show user a preview of what the amber alert will look like
+      _showAmberAlertPreview(taskDescription);
       
     } catch (e) {
       print('❌ Error creating amber alert task: $e');
