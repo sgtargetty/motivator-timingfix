@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import '../../services/task_scheduler.dart';
 import '../../services/amber_alert_service.dart';
 import '../amber_alert_screen.dart';
-// Add this to the TOP of your ultra_responsive_task_dialog.dart file
 
 // 🚨 NUCLEAR OPTION: Global overlay that ALWAYS works
 class NuclearLoadingOverlay {
@@ -97,106 +96,6 @@ class NuclearLoadingOverlay {
   }
 }
 
-// Then REPLACE your _createTask method with this NUCLEAR version:
-
-Future<void> _createTask() async {
-  final task = _taskController.text.trim();
-  if (task.isEmpty || _isCreating) return;
-
-  print('🚨 NUCLEAR: Starting task creation...');
-  
-  // 🚨 NUCLEAR OPTION: Show overlay IMMEDIATELY
-  NuclearLoadingOverlay.show(context, isAmberAlert: _isAmberAlert);
-  
-  // Immediate haptic feedback
-  HapticFeedback.heavyImpact();
-  
-  setState(() {
-    _isCreating = true;
-  });
-
-  try {
-    print('🚨 NUCLEAR: Building enhanced task...');
-    
-    final enhancedTask = {
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      'isCompleted': false,
-      'completedAt': null,
-      'isArchived': false,
-      'archivedAt': null,
-      'description': task,
-      'dateTime': _selectedDateTime,
-      'voiceCategory': _selectedVoiceCategory,
-      'voiceStyle': _selectedVoiceStyle,
-      'toneStyle': _selectedToneStyle,
-      'backendVoiceStyle': '$_selectedVoiceCategory:$_selectedVoiceStyle',
-      'backendToneStyle': _selectedToneStyle,
-      'forceOverrideSilent': _isAmberAlert,
-      'enableVibration': true,
-      'notificationPriority': _isAmberAlert ? 'Max' : 'High',
-      'isAmberAlert': _isAmberAlert,
-      'isRecurring': false,
-    };
-
-    print('🚨 NUCLEAR: Starting API work...');
-    
-    // Handle amber alert vs regular task
-    if (_isAmberAlert) {
-      await _createAmberAlertTask(enhancedTask, task);
-    } else {
-      await TaskScheduler.instance.scheduleNotification(
-        enhancedTask, 
-        context,
-        currentTaskType: widget.currentTaskType,
-      );
-    }
-
-    print('🚨 NUCLEAR: API work completed!');
-
-    // Add task and navigate
-    widget.onTaskAdded(widget.selectedDay, enhancedTask);
-    
-    if (mounted) {
-      Navigator.of(context).pop(); // Close dialog
-      HapticFeedback.heavyImpact();
-      
-      // Success feedback
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_isAmberAlert ? '🚨 Critical Alert Created!' : '✅ Reminder Scheduled!'),
-          backgroundColor: _isAmberAlert ? Colors.green : const Color(0xFFD4AF37),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-    }
-
-  } catch (e) {
-    print('❌ NUCLEAR: Error occurred: $e');
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Failed: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-    }
-  } finally {
-    print('🚨 NUCLEAR: Cleaning up...');
-    
-    // Hide the nuclear overlay
-    NuclearLoadingOverlay.hide();
-    
-    if (mounted) {
-      setState(() {
-        _isCreating = false;
-      });
-    }
-  }
-}
 class UltraResponsiveTaskDialog extends StatefulWidget {
   final DateTime selectedDay;
   final Function(DateTime, Map<String, dynamic>) onTaskAdded;
@@ -231,8 +130,7 @@ class UltraResponsiveTaskDialog extends StatefulWidget {
   State<UltraResponsiveTaskDialog> createState() => _UltraResponsiveTaskDialogState();
 }
 
-class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog>
-    with TickerProviderStateMixin {
+class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
   final TextEditingController _taskController = TextEditingController();
   
   // Core settings
@@ -242,73 +140,40 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog>
   DateTime _selectedDateTime = DateTime.now().add(const Duration(hours: 1));
   bool _isAmberAlert = false;
   
-  // Loading states - MULTIPLE STATES FOR BETTER UX
+  // Simple loading state
   bool _isCreating = false;
-  String _loadingMessage = '';
-  double _loadingProgress = 0.0;
-  
-  // Animation controllers for ultra-smooth feedback
-  late AnimationController _pulseController;
-  late AnimationController _progressController;
-  late Animation<double> _pulseAnimation;
-  late Animation<double> _progressAnimation;
 
   @override
   void initState() {
     super.initState();
     _selectedDateTime = widget.selectedDay.add(const Duration(hours: 1));
-    
-    // Initialize animations for smooth loading feedback
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    _progressController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-    _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _progressController, curve: Curves.easeOut),
-    );
   }
 
   @override
   void dispose() {
     _taskController.dispose();
-    _pulseController.dispose();
-    _progressController.dispose();
     super.dispose();
   }
 
-  // 🚀 ULTRA-RESPONSIVE TASK CREATION
+  // 🚨 NUCLEAR VERSION - ONLY ONE _createTask METHOD!
   Future<void> _createTask() async {
     final task = _taskController.text.trim();
     if (task.isEmpty || _isCreating) return;
 
-    print('🚀 ULTRA-RESPONSIVE: Starting task creation...');
+    print('🚨 NUCLEAR: Starting task creation...');
     
-    // 🔥 IMMEDIATE STATE CHANGE - NO DELAYS
+    // 🚨 NUCLEAR OPTION: Show overlay IMMEDIATELY
+    NuclearLoadingOverlay.show(context, isAmberAlert: _isAmberAlert);
+    
+    // Immediate haptic feedback
+    HapticFeedback.heavyImpact();
+    
     setState(() {
       _isCreating = true;
-      _loadingMessage = 'Preparing...';
-      _loadingProgress = 0.1;
     });
-    
-    // Start pulse animation immediately
-    _pulseController.repeat(reverse: true);
-    _progressController.forward();
-    
-    // 🔥 IMMEDIATE HAPTIC FEEDBACK
-    HapticFeedback.mediumImpact();
-    
+
     try {
-      // Update progress: AI Content Generation
-      _updateProgress('🎭 Generating motivational content...', 0.3);
-      await Future.delayed(const Duration(milliseconds: 100)); // Allow UI update
+      print('🚨 NUCLEAR: Building enhanced task...');
       
       final enhancedTask = {
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
@@ -330,16 +195,12 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog>
         'isRecurring': false,
       };
 
-      // Update progress: AI Voice Generation
-      _updateProgress('🎤 Creating voice audio...', 0.6);
-      await Future.delayed(const Duration(milliseconds: 100));
-
+      print('🚨 NUCLEAR: Starting API work...');
+      
       // Handle amber alert vs regular task
       if (_isAmberAlert) {
-        _updateProgress('🚨 Setting up emergency alert...', 0.8);
         await _createAmberAlertTask(enhancedTask, task);
       } else {
-        _updateProgress('📅 Scheduling reminder...', 0.8);
         await TaskScheduler.instance.scheduleNotification(
           enhancedTask, 
           context,
@@ -347,15 +208,13 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog>
         );
       }
 
-      // Final success state
-      _updateProgress('✅ Complete!', 1.0);
-      await Future.delayed(const Duration(milliseconds: 300));
+      print('🚨 NUCLEAR: API work completed!');
 
       // Add task and navigate
       widget.onTaskAdded(widget.selectedDay, enhancedTask);
       
       if (mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(); // Close dialog
         HapticFeedback.heavyImpact();
         
         // Success feedback
@@ -370,12 +229,9 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog>
       }
 
     } catch (e) {
-      print('❌ Task creation error: $e');
+      print('❌ NUCLEAR: Error occurred: $e');
       
       if (mounted) {
-        _updateProgress('❌ Error occurred', 0.0);
-        await Future.delayed(const Duration(milliseconds: 500));
-        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('❌ Failed: ${e.toString()}'),
@@ -386,24 +242,16 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog>
         );
       }
     } finally {
+      print('🚨 NUCLEAR: Cleaning up...');
+      
+      // Hide the nuclear overlay
+      NuclearLoadingOverlay.hide();
+      
       if (mounted) {
         setState(() {
           _isCreating = false;
-          _loadingMessage = '';
-          _loadingProgress = 0.0;
         });
-        _pulseController.stop();
-        _progressController.reset();
       }
-    }
-  }
-
-  void _updateProgress(String message, double progress) {
-    if (mounted) {
-      setState(() {
-        _loadingMessage = message;
-        _loadingProgress = progress;
-      });
     }
   }
 
@@ -441,98 +289,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog>
             width: 2,
           ),
         ),
-        child: _isCreating ? _buildLoadingView() : _buildInputView(),
-      ),
-    );
-  }
-
-  Widget _buildLoadingView() {
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Animated loading spinner
-          AnimatedBuilder(
-            animation: _pulseAnimation,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _pulseAnimation.value,
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)),
-                        (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.3),
-                      ],
-                    ),
-                  ),
-                  child: const Center(
-                    child: SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 4,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Loading message
-          Text(
-            _loadingMessage,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Progress bar
-          Container(
-            width: double.infinity,
-            height: 8,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: _loadingProgress,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 16),
-          
-          Text(
-            _isAmberAlert 
-                ? 'Creating emergency-level alert...' 
-                : 'Generating your personalized reminder...',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+        child: _buildInputView(),
       ),
     );
   }
@@ -668,33 +425,32 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog>
               Expanded(
                 flex: 2,
                 child: ElevatedButton(
-                  onPressed: _createTask,
+                  onPressed: _isCreating ? null : _createTask,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     elevation: 8,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _isAmberAlert ? Icons.warning : Icons.rocket_launch,
-                        color: _isAmberAlert ? Colors.white : Colors.black,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _isAmberAlert ? 'Create Critical Alert! 🚨' : 'Create Reminder! 🚀',
-                        style: TextStyle(
-                          color: _isAmberAlert ? Colors.white : Colors.black,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                  child: _isCreating
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          _isAmberAlert ? '🚨 Create Alert' : '✅ Create Reminder',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ],
