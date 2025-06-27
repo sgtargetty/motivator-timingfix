@@ -1542,35 +1542,47 @@ Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDes
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _isCreatingTask 
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            child: _isCreatingTask
+                ? const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       ),
-                    )
-                  : Icon(
-                      _isAmberAlert ? Icons.warning : Icons.add_task, 
-                      color: _isAmberAlert ? Colors.white : Colors.black,
-                    ),
-                const SizedBox(width: 8),
-                Text(
-                  _isCreatingTask 
-                    ? 'Creating...'
-                    : (_isAmberAlert ? 'Create Critical Alert' : 'Create Reminder'),
-                  style: TextStyle(
-                    color: _isAmberAlert ? Colors.white : Colors.black,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 16,
+                      SizedBox(width: 12),
+                      Text(
+                        'Summoning Motivation...',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _isAmberAlert ? Icons.warning : Icons.add_task,
+                        color: _isAmberAlert ? Colors.white : Colors.black,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        _isAmberAlert ? 'Create Critical Alert! 🚨' : 'Create Reminder! 🚀',
+                        style: TextStyle(
+                          color: _isAmberAlert ? Colors.white : Colors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
         ),
       ],
