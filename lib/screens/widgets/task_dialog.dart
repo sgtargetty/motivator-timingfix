@@ -120,9 +120,15 @@ class _TaskDialogState extends State<TaskDialog> {
   void _createTask() async {
     final task = _taskController.text.trim();
     if (task.isNotEmpty && !_isCreatingTask) {
+      print('🔧 DEBUG: About to set loading state...');
       setState(() {
         _isCreatingTask = true;
       });
+      print('🔧 DEBUG: Loading state set to: $_isCreatingTask');
+      
+      // 🔧 FORCE UI UPDATE: Give the widget tree time to rebuild
+      await Future.delayed(const Duration(milliseconds: 100));
+      print('🔧 DEBUG: UI should now show loading state');
       
       // Show immediate feedback
       ScaffoldMessenger.of(context).showSnackBar(
