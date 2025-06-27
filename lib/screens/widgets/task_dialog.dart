@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/task_scheduler.dart';
 import '../../services/amber_alert_service.dart';
-import '../../services/eccentric_voice_system.dart';
 import '../amber_alert_screen.dart';
 
 // 🚨 NUCLEAR OPTION: Global overlay that ALWAYS works
@@ -137,7 +136,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
   
   // Core settings
   String _selectedVoiceCategory = 'male';
-  String _selectedVoiceStyle = 'drill_sergeant'; 
+  String _selectedVoiceStyle = 'Default Male'; 
   String _selectedToneStyle = 'Balanced';
   DateTime _selectedDateTime = DateTime.now().add(const Duration(hours: 1));
   bool _isAmberAlert = false;
@@ -157,11 +156,41 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
   bool _isCreating = false;
   int _currentPage = 0;
 
-  // Voice options from EccentricVoiceSystem
-  final Map<String, List<String>> _voicesByCategory = {
-    'male': ['drill_sergeant', 'wise_mentor', 'hype_beast', 'chill_surfer', 'british_butler', 'sports_coach'],
-    'female': ['sassy_diva', 'supportive_mom', 'queen_boss', 'valley_girl', 'zen_goddess', 'news_anchor'],
-    'character': ['superhero', 'pirate_captain', 'robot_ai', 'game_show_host', 'shakespeare', 'alien_visitor'],
+  // Voice catalog from settings_screen.dart
+  final Map<String, List<Map<String, dynamic>>> _voiceCatalog = {
+    'male': [
+      {'name': 'Default Male', 'description': 'Clear, professional male voice', 'icon': Icons.person},
+      {'name': 'Energetic Male', 'description': 'High-energy, enthusiastic', 'icon': Icons.flash_on},
+      {'name': 'Calm Male', 'description': 'Soothing, peaceful delivery', 'icon': Icons.spa},
+      {'name': 'Professional Male', 'description': 'Business-ready, authoritative', 'icon': Icons.business},
+      {'name': 'Wise Mentor', 'description': 'Experienced, thoughtful guide', 'icon': Icons.school},
+      {'name': 'Sports Announcer', 'description': 'Dynamic, exciting commentary', 'icon': Icons.sports},
+    ],
+    'female': [
+      {'name': 'Default Female', 'description': 'Clear, professional female voice', 'icon': Icons.person_outline},
+      {'name': 'Energetic Female', 'description': 'High-energy, enthusiastic', 'icon': Icons.flash_on},
+      {'name': 'Calm Female', 'description': 'Soothing, peaceful delivery', 'icon': Icons.spa},
+      {'name': 'Professional Female', 'description': 'Business-ready, authoritative', 'icon': Icons.business},
+      {'name': 'Wise Woman', 'description': 'Maternal, nurturing wisdom', 'icon': Icons.favorite},
+      {'name': 'News Anchor', 'description': 'Clear, authoritative reporting', 'icon': Icons.mic},
+    ],
+    'characters': [
+      {'name': 'Robot Assistant', 'description': 'Futuristic AI companion', 'icon': Icons.smart_toy},
+      {'name': 'Pirate Captain', 'description': 'Adventurous seafaring spirit', 'icon': Icons.sailing},
+      {'name': 'Wizard Sage', 'description': 'Mystical, ancient wisdom', 'icon': Icons.auto_fix_high},
+      {'name': 'Superhero', 'description': 'Heroic, inspiring strength', 'icon': Icons.shield},
+      {'name': 'Surfer Dude', 'description': 'Laid-back, chill vibes', 'icon': Icons.surfing},
+      {'name': 'Southern Belle', 'description': 'Charming, warm hospitality', 'icon': Icons.favorite_border},
+      {'name': 'British Butler', 'description': 'Refined, proper etiquette', 'icon': Icons.wine_bar},
+      {'name': 'Valley Girl', 'description': 'Bubbly, enthusiastic energy', 'icon': Icons.celebration},
+      {'name': 'Game Show Host', 'description': 'Exciting, engaging presenter', 'icon': Icons.emoji_events},
+      {'name': 'Meditation Guru', 'description': 'Peaceful, zen guidance', 'icon': Icons.self_improvement},
+      {'name': 'Drill Instructor', 'description': 'Military, commanding presence', 'icon': Icons.military_tech},
+      {'name': 'Cheerleader Coach', 'description': 'Peppy, encouraging spirit', 'icon': Icons.sports_gymnastics},
+      {'name': 'Lana Croft', 'description': 'Adventure hero, tomb raider spirit', 'icon': Icons.explore},
+      {'name': 'Baxter Jordan', 'description': 'Dark analyst, methodical precision', 'icon': Icons.psychology_alt},
+      {'name': 'Argent', 'description': 'Advanced AI assistant, JARVIS-like', 'icon': Icons.android},
+    ],
   };
 
   // Tone styles
@@ -349,7 +378,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
       backgroundColor: Colors.transparent,
       child: Container(
         width: double.maxFinite,
-        height: MediaQuery.of(context).size.height * 0.85,
+        height: MediaQuery.of(context).size.height * 0.8,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -446,9 +475,10 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
   Widget _buildBasicSettingsPage() {
     return Padding(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           const Text(
             'Basic Settings',
             style: TextStyle(
@@ -686,6 +716,8 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
           const SizedBox(height: 8),
           _buildWeekdaySelector(),
         ],
+        
+        const SizedBox(height: 20), // Add bottom padding
       ],
     );
   }
@@ -749,6 +781,14 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
               fontWeight: FontWeight.bold,
             ),
           ),
+          const SizedBox(height: 4),
+          Text(
+            'Choose your motivational coach',
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 14,
+            ),
+          ),
           const SizedBox(height: 20),
           
           Expanded(
@@ -809,37 +849,37 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
                   ),
                   const SizedBox(height: 12),
                   
-                  ...(_voicesByCategory[_selectedVoiceCategory] ?? []).map((voiceKey) {
-                    final voice = EccentricVoiceSystem.getVoiceByKey(voiceKey);
-                    if (voice == null) return const SizedBox.shrink();
-                    
+                  ...(_voiceCatalog[_selectedVoiceCategory] ?? []).map((voice) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: GestureDetector(
                         onTap: () {
                           setState(() {
-                            _selectedVoiceStyle = voiceKey;
+                            _selectedVoiceStyle = voice['name'];
                           });
                           HapticFeedback.selectionClick();
                         },
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: _selectedVoiceStyle == voiceKey 
+                            color: _selectedVoiceStyle == voice['name'] 
                                 ? const Color(0xFFD4AF37).withOpacity(0.2)
                                 : Colors.white.withOpacity(0.05),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: _selectedVoiceStyle == voiceKey 
+                              color: _selectedVoiceStyle == voice['name'] 
                                   ? const Color(0xFFD4AF37)
                                   : Colors.white.withOpacity(0.2),
                             ),
                           ),
                           child: Row(
                             children: [
-                              Text(
-                                voice['icon'] ?? '🎭',
-                                style: const TextStyle(fontSize: 24),
+                              Icon(
+                                voice['icon'] as IconData,
+                                color: _selectedVoiceStyle == voice['name'] 
+                                    ? const Color(0xFFD4AF37)
+                                    : Colors.grey[400],
+                                size: 24,
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -847,14 +887,14 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      voice['name'] ?? voiceKey,
+                                      voice['name'],
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                     Text(
-                                      voice['description'] ?? '',
+                                      voice['description'],
                                       style: TextStyle(
                                         color: Colors.grey[400],
                                         fontSize: 12,
@@ -863,7 +903,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
                                   ],
                                 ),
                               ),
-                              if (_selectedVoiceStyle == voiceKey)
+                              if (_selectedVoiceStyle == voice['name'])
                                 const Icon(Icons.check_circle, color: Color(0xFFD4AF37)),
                             ],
                           ),
@@ -962,6 +1002,14 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Fine-tune your experience',
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 14,
             ),
           ),
           const SizedBox(height: 20),
@@ -1093,7 +1141,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
                   style: TextStyle(color: Colors.grey[300], fontSize: 12),
                 ),
                 Text(
-                  '🎭 Voice: ${EccentricVoiceSystem.getVoiceByKey(_selectedVoiceStyle)?['name'] ?? _selectedVoiceStyle}',
+                  '🎭 Voice: $_selectedVoiceStyle',
                   style: TextStyle(color: Colors.grey[300], fontSize: 12),
                 ),
                 Text(
