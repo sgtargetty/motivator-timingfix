@@ -204,6 +204,15 @@ Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDes
   print('🚨 Starting _createAmberAlertTask...');
   
   try {
+    // Show progress updates
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🚨 Generating motivational content...'),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 2),
+      ),
+    );
+    
     print('🚨 Creating AMBER ALERT task with emergency system integration');
     
     // Create the scheduled notification
@@ -217,15 +226,15 @@ Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDes
     
     print('🚨 Amber alert scheduled for: $_selectedDateTime');
     
-    // Show success message
+    // Show final success message
     print('🔄 About to show success snackbar...');
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('🚨 Critical Alert Created Successfully!'),
-        backgroundColor: Colors.red,
+      const SnackBar(
+        content: Text('🚨 Critical Alert Created Successfully!'),
+        backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: const Duration(seconds: 2),
+        duration: Duration(seconds: 2),
       ),
     );
     print('✅ Success snackbar shown');
@@ -234,8 +243,7 @@ Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDes
     print('❌ Exception in _createAmberAlertTask: $e');
     print('📍 Stack trace: $stackTrace');
     
-    // Show error message  bool _isAmberAlert = false;
-
+    // Show error message
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -251,6 +259,9 @@ Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDes
     
     // Don't rethrow - let the navigation continue
   }
+  
+  print('✅ _createAmberAlertTask method completed');
+}
   
   print('✅ _createAmberAlertTask method completed');
 }
