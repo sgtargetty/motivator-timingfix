@@ -3,13 +3,206 @@ import 'package:flutter/services.dart';
 import '../../services/task_scheduler.dart';
 import '../../services/amber_alert_service.dart';
 import '../amber_alert_screen.dart';
+// Add this to the TOP of your ultra_responsive_task_dialog.dart file
 
-class TaskDialog extends StatefulWidget {
+// 🚨 NUCLEAR OPTION: Global overlay that ALWAYS works
+class NuclearLoadingOverlay {
+  static OverlayEntry? _currentOverlay;
+
+  static void show(BuildContext context, {required bool isAmberAlert}) {
+    hide(); // Remove any existing overlay
+    
+    _currentOverlay = OverlayEntry(
+      builder: (context) => Material(
+        color: Colors.black.withOpacity(0.8),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.all(40),
+            margin: const EdgeInsets.all(40),
+            decoration: BoxDecoration(
+              color: isAmberAlert ? Colors.red.shade900 : const Color(0xFFD4AF37),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: (isAmberAlert ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.5),
+                  blurRadius: 30,
+                  spreadRadius: 10,
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Spinning indicator
+                SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 6,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  isAmberAlert ? '🚨 CREATING CRITICAL ALERT' : '⏱️ CREATING REMINDER',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  isAmberAlert 
+                      ? 'Generating emergency-level\nmotivational content...'
+                      : 'Generating personalized\nmotivational content...',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: Text(
+                    '⚠️ Please wait - this may take 5-10 seconds',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    
+    // Insert the overlay
+    Overlay.of(context).insert(_currentOverlay!);
+    print('🚨 NUCLEAR OVERLAY: Shown successfully!');
+  }
+
+  static void hide() {
+    _currentOverlay?.remove();
+    _currentOverlay = null;
+    print('🚨 NUCLEAR OVERLAY: Hidden successfully!');
+  }
+}
+
+// Then REPLACE your _createTask method with this NUCLEAR version:
+
+Future<void> _createTask() async {
+  final task = _taskController.text.trim();
+  if (task.isEmpty || _isCreating) return;
+
+  print('🚨 NUCLEAR: Starting task creation...');
+  
+  // 🚨 NUCLEAR OPTION: Show overlay IMMEDIATELY
+  NuclearLoadingOverlay.show(context, isAmberAlert: _isAmberAlert);
+  
+  // Immediate haptic feedback
+  HapticFeedback.heavyImpact();
+  
+  setState(() {
+    _isCreating = true;
+  });
+
+  try {
+    print('🚨 NUCLEAR: Building enhanced task...');
+    
+    final enhancedTask = {
+      'id': DateTime.now().millisecondsSinceEpoch.toString(),
+      'isCompleted': false,
+      'completedAt': null,
+      'isArchived': false,
+      'archivedAt': null,
+      'description': task,
+      'dateTime': _selectedDateTime,
+      'voiceCategory': _selectedVoiceCategory,
+      'voiceStyle': _selectedVoiceStyle,
+      'toneStyle': _selectedToneStyle,
+      'backendVoiceStyle': '$_selectedVoiceCategory:$_selectedVoiceStyle',
+      'backendToneStyle': _selectedToneStyle,
+      'forceOverrideSilent': _isAmberAlert,
+      'enableVibration': true,
+      'notificationPriority': _isAmberAlert ? 'Max' : 'High',
+      'isAmberAlert': _isAmberAlert,
+      'isRecurring': false,
+    };
+
+    print('🚨 NUCLEAR: Starting API work...');
+    
+    // Handle amber alert vs regular task
+    if (_isAmberAlert) {
+      await _createAmberAlertTask(enhancedTask, task);
+    } else {
+      await TaskScheduler.instance.scheduleNotification(
+        enhancedTask, 
+        context,
+        currentTaskType: widget.currentTaskType,
+      );
+    }
+
+    print('🚨 NUCLEAR: API work completed!');
+
+    // Add task and navigate
+    widget.onTaskAdded(widget.selectedDay, enhancedTask);
+    
+    if (mounted) {
+      Navigator.of(context).pop(); // Close dialog
+      HapticFeedback.heavyImpact();
+      
+      // Success feedback
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isAmberAlert ? '🚨 Critical Alert Created!' : '✅ Reminder Scheduled!'),
+          backgroundColor: _isAmberAlert ? Colors.green : const Color(0xFFD4AF37),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+
+  } catch (e) {
+    print('❌ NUCLEAR: Error occurred: $e');
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+  } finally {
+    print('🚨 NUCLEAR: Cleaning up...');
+    
+    // Hide the nuclear overlay
+    NuclearLoadingOverlay.hide();
+    
+    if (mounted) {
+      setState(() {
+        _isCreating = false;
+      });
+    }
+  }
+}
+class UltraResponsiveTaskDialog extends StatefulWidget {
   final DateTime selectedDay;
   final Function(DateTime, Map<String, dynamic>) onTaskAdded;
   final String? currentTaskType;
 
-  const TaskDialog({
+  const UltraResponsiveTaskDialog({
     Key? key,
     required this.selectedDay,
     required this.onTaskAdded,
@@ -25,7 +218,7 @@ class TaskDialog extends StatefulWidget {
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
-        return TaskDialog(
+        return UltraResponsiveTaskDialog(
           selectedDay: selectedDay,
           onTaskAdded: onTaskAdded,
           currentTaskType: currentTaskType,
@@ -35,1370 +228,390 @@ class TaskDialog extends StatefulWidget {
   }
 
   @override
-  State<TaskDialog> createState() => _TaskDialogState();
+  State<UltraResponsiveTaskDialog> createState() => _UltraResponsiveTaskDialogState();
 }
 
-class _TaskDialogState extends State<TaskDialog> {
+class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog>
+    with TickerProviderStateMixin {
   final TextEditingController _taskController = TextEditingController();
-
+  
+  // Core settings
   String _selectedVoiceCategory = 'male';
   String _selectedVoiceStyle = 'Default Male'; 
   String _selectedToneStyle = 'Cheerleader';
   DateTime _selectedDateTime = DateTime.now().add(const Duration(hours: 1));
-  bool _forceOverrideSilent = false;
-  bool _enableVibration = true;
-  String _notificationPriority = 'High';
-
   bool _isAmberAlert = false;
-  bool _isCreatingTask = false;
-  bool _isRecurring = false;
-  String _recurringFrequency = 'Weekly';
-  Set<int> _selectedDays = <int>{DateTime.now().weekday};
-  DateTime? _recurringEndDate;
-  bool _neverEnds = true;
-
-  // EXACT SAME VOICE CATALOG AS SETTINGS SCREEN
-  final Map<String, List<Map<String, dynamic>>> _voiceCatalog = {
-    'male': [
-      {'name': 'Default Male', 'description': 'Clear, professional male voice', 'icon': Icons.person},
-      {'name': 'Energetic Male', 'description': 'High-energy, enthusiastic', 'icon': Icons.flash_on},
-      {'name': 'Calm Male', 'description': 'Soothing, peaceful delivery', 'icon': Icons.spa},
-      {'name': 'Professional Male', 'description': 'Business-ready, authoritative', 'icon': Icons.business},
-      {'name': 'Wise Mentor', 'description': 'Experienced, thoughtful guide', 'icon': Icons.school},
-      {'name': 'Sports Announcer', 'description': 'Dynamic, exciting commentary', 'icon': Icons.sports},
-    ],
-    'female': [
-      {'name': 'Default Female', 'description': 'Clear, professional female voice', 'icon': Icons.person_outline},
-      {'name': 'Energetic Female', 'description': 'High-energy, enthusiastic', 'icon': Icons.flash_on},
-      {'name': 'Calm Female', 'description': 'Soothing, peaceful delivery', 'icon': Icons.spa},
-      {'name': 'Professional Female', 'description': 'Business-ready, authoritative', 'icon': Icons.business},
-      {'name': 'Wise Woman', 'description': 'Maternal, nurturing wisdom', 'icon': Icons.favorite},
-      {'name': 'News Anchor', 'description': 'Clear, authoritative reporting', 'icon': Icons.mic},
-    ],
-    'characters': [
-      {'name': 'Robot Assistant', 'description': 'Futuristic AI companion', 'icon': Icons.smart_toy},
-      {'name': 'Pirate Captain', 'description': 'Adventurous seafaring spirit', 'icon': Icons.sailing},
-      {'name': 'Wizard Sage', 'description': 'Mystical, ancient wisdom', 'icon': Icons.auto_fix_high},
-      {'name': 'Superhero', 'description': 'Heroic, inspiring strength', 'icon': Icons.shield},
-      {'name': 'Surfer Dude', 'description': 'Laid-back, chill vibes', 'icon': Icons.surfing},
-      {'name': 'Southern Belle', 'description': 'Charming, warm hospitality', 'icon': Icons.favorite_border},
-      {'name': 'British Butler', 'description': 'Refined, proper etiquette', 'icon': Icons.wine_bar},
-      {'name': 'Valley Girl', 'description': 'Bubbly, enthusiastic energy', 'icon': Icons.celebration},
-      {'name': 'Game Show Host', 'description': 'Exciting, engaging presenter', 'icon': Icons.emoji_events},
-      {'name': 'Meditation Guru', 'description': 'Peaceful, zen guidance', 'icon': Icons.self_improvement},
-      {'name': 'Drill Instructor', 'description': 'Military, commanding presence', 'icon': Icons.military_tech},
-      {'name': 'Cheerleader Coach', 'description': 'Peppy, encouraging spirit', 'icon': Icons.sports_gymnastics},
-      // CUSTOM ELEVENLABS VOICES
-      {'name': 'Lana Croft', 'description': 'Adventure hero, tomb raider spirit', 'icon': Icons.explore},
-      {'name': 'Baxter Jordan', 'description': 'Dark analyst, methodical precision', 'icon': Icons.psychology_alt},
-      {'name': 'Argent', 'description': 'Advanced AI assistant, JARVIS-like', 'icon': Icons.android},
-    ],
-  };
-
-  final List<Map<String, dynamic>> _toneStyles = [
-    {'name': 'Balanced', 'description': 'Even mix of support and challenge', 'color': Colors.blue, 'icon': Icons.balance},
-    {'name': 'Drill Sergeant', 'description': 'Tough & commanding', 'color': Colors.red, 'icon': Icons.military_tech},
-    {'name': 'Cheerleader', 'description': 'Positive & enthusiastic', 'color': Colors.pink, 'icon': Icons.celebration},
-    {'name': 'Sage', 'description': 'Wise & philosophical', 'color': Colors.purple, 'icon': Icons.psychology},
-    {'name': 'Coach', 'description': 'Goal-focused support', 'color': Colors.green, 'icon': Icons.sports},
-    {'name': 'Friend', 'description': 'Casual & encouraging', 'color': Colors.orange, 'icon': Icons.people},
-  ];
+  
+  // Loading states - MULTIPLE STATES FOR BETTER UX
+  bool _isCreating = false;
+  String _loadingMessage = '';
+  double _loadingProgress = 0.0;
+  
+  // Animation controllers for ultra-smooth feedback
+  late AnimationController _pulseController;
+  late AnimationController _progressController;
+  late Animation<double> _pulseAnimation;
+  late Animation<double> _progressAnimation;
 
   @override
   void initState() {
     super.initState();
     _selectedDateTime = widget.selectedDay.add(const Duration(hours: 1));
-    _selectedDays = <int>{DateTime.now().weekday};
+    
+    // Initialize animations for smooth loading feedback
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _progressController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _progressController, curve: Curves.easeOut),
+    );
   }
 
   @override
   void dispose() {
     _taskController.dispose();
+    _pulseController.dispose();
+    _progressController.dispose();
     super.dispose();
   }
 
-void _createTask() async {
+  // 🚀 ULTRA-RESPONSIVE TASK CREATION
+  Future<void> _createTask() async {
     final task = _taskController.text.trim();
-    if (task.isNotEmpty && !_isCreatingTask) {
-      print('🔧 DEBUG: About to set loading state...');
-      setState(() {
-        _isCreatingTask = true;
-      });
-      
-      // 🚨 IMMEDIATE OVERLAY - Shows instantly like "Summoning Motivation" 
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => WillPopScope(
-          onWillPop: () async => false,
-          child: Center(
-            child: Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: _isAmberAlert ? Colors.red.shade900 : const Color(0xFFD4AF37),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.5),
-                    blurRadius: 20,
-                    spreadRadius: 5,
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 50,
-                    height: 50,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 4,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    _isAmberAlert ? '🚨 Creating Critical Alert...' : '⏱️ Creating Reminder...',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _isAmberAlert 
-                        ? 'Generating emergency-level motivational content...\nThis may take a few moments.'
-                        : 'Generating personalized motivational content...\nPlease wait.',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '⚠️ Please do not close this dialog',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-      
-      // Small delay to ensure overlay appears before heavy work starts
-      await Future.delayed(const Duration(milliseconds: 50));
-      print('🔧 DEBUG: Overlay should be visible now!');
+    if (task.isEmpty || _isCreating) return;
 
+    print('🚀 ULTRA-RESPONSIVE: Starting task creation...');
+    
+    // 🔥 IMMEDIATE STATE CHANGE - NO DELAYS
+    setState(() {
+      _isCreating = true;
+      _loadingMessage = 'Preparing...';
+      _loadingProgress = 0.1;
+    });
+    
+    // Start pulse animation immediately
+    _pulseController.repeat(reverse: true);
+    _progressController.forward();
+    
+    // 🔥 IMMEDIATE HAPTIC FEEDBACK
+    HapticFeedback.mediumImpact();
+    
+    try {
+      // Update progress: AI Content Generation
+      _updateProgress('🎭 Generating motivational content...', 0.3);
+      await Future.delayed(const Duration(milliseconds: 100)); // Allow UI update
+      
       final enhancedTask = {
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
         'isCompleted': false,
         'completedAt': null,
         'isArchived': false,
         'archivedAt': null,
-        
         'description': task,
         'dateTime': _selectedDateTime,
-        
         'voiceCategory': _selectedVoiceCategory,
         'voiceStyle': _selectedVoiceStyle,
         'toneStyle': _selectedToneStyle,
-        
-        // Backend compatible format
         'backendVoiceStyle': '$_selectedVoiceCategory:$_selectedVoiceStyle',
         'backendToneStyle': _selectedToneStyle,
-        'forceOverrideSilent': _forceOverrideSilent,
-        'enableVibration': _enableVibration,
-        'notificationPriority': _notificationPriority,
+        'forceOverrideSilent': _isAmberAlert,
+        'enableVibration': true,
+        'notificationPriority': _isAmberAlert ? 'Max' : 'High',
         'isAmberAlert': _isAmberAlert,
-        
-        'isRecurring': _isRecurring,
-        'recurringFrequency': _isRecurring ? _recurringFrequency : null,
-        'selectedDays': _isRecurring ? _selectedDays.toList() : null,
-        'recurringEndDate': _isRecurring && !_neverEnds ? _recurringEndDate : null,
-        'neverEnds': _isRecurring ? _neverEnds : false,
+        'isRecurring': false,
       };
+
+      // Update progress: AI Voice Generation
+      _updateProgress('🎤 Creating voice audio...', 0.6);
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      // Handle amber alert vs regular task
+      if (_isAmberAlert) {
+        _updateProgress('🚨 Setting up emergency alert...', 0.8);
+        await _createAmberAlertTask(enhancedTask, task);
+      } else {
+        _updateProgress('📅 Scheduling reminder...', 0.8);
+        await TaskScheduler.instance.scheduleNotification(
+          enhancedTask, 
+          context,
+          currentTaskType: widget.currentTaskType,
+        );
+      }
+
+      // Final success state
+      _updateProgress('✅ Complete!', 1.0);
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Add task and navigate
+      widget.onTaskAdded(widget.selectedDay, enhancedTask);
       
-      try {
-        // Handle amber alert tasks differently
-        if (_isAmberAlert) {
-          await _createAmberAlertTask(enhancedTask, task);
-        } else {
-          // Regular task scheduling
-          await TaskScheduler.instance.scheduleNotification(
-            enhancedTask, 
-            context,
-            currentTaskType: widget.currentTaskType,
-          );
-        }
-        
-        // ✅ Only add task and navigate if everything succeeded
-        widget.onTaskAdded(widget.selectedDay, enhancedTask);
-        
-        Navigator.of(context).pop(); // Close task dialog
+      if (mounted) {
+        Navigator.of(context).pop();
         HapticFeedback.heavyImpact();
         
-        final alertType = _isAmberAlert ? ' (🚨 AMBER ALERT)' : '';
-        final recurringText = _isRecurring 
-            ? ' (${_recurringFrequency.toLowerCase()}${_recurringFrequency == 'Weekly' ? ' on ${_selectedDays.map(_getDayName).join(', ')}' : ''})'
-            : '';
-        
+        // Success feedback
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ $_selectedVoiceStyle reminder scheduled$alertType$recurringText'),
+            content: Text(_isAmberAlert ? '🚨 Critical Alert Created!' : '✅ Reminder Scheduled!'),
             backgroundColor: _isAmberAlert ? Colors.green : const Color(0xFFD4AF37),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
+      }
+
+    } catch (e) {
+      print('❌ Task creation error: $e');
+      
+      if (mounted) {
+        _updateProgress('❌ Error occurred', 0.0);
+        await Future.delayed(const Duration(milliseconds: 500));
         
-      } catch (e) {
-        print('❌ Error in _createTask: $e');
-        
-        // Show error to user
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ Failed to create task: ${e.toString()}'),
+            content: Text('❌ Failed: ${e.toString()}'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            duration: const Duration(seconds: 3),
           ),
         );
-        
-        // Don't navigate or add task on error
-        
-      } finally {
-        // 🚨 CRITICAL: Close the loading overlay first
-        if (mounted) {
-          Navigator.of(context).pop(); // Close loading overlay
-          setState(() {
-            _isCreatingTask = false;
-          });
-        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreating = false;
+          _loadingMessage = '';
+          _loadingProgress = 0.0;
+        });
+        _pulseController.stop();
+        _progressController.reset();
       }
     }
   }
 
-// Handle amber alert task creation with proper emergency system integration
-Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDescription) async {
-  print('🚨 Starting _createAmberAlertTask...');
-  
-  try {
-    // 1. Show immediate progress - AI content generation
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🚨 Step 1/3: Generating motivational content...'),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 2),
-      ),
-    );
-    
-    // Small delay to show the progress message
-    await Future.delayed(const Duration(milliseconds: 500));
-    
-    // 2. Show audio generation progress
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🚨 Step 2/3: Creating emergency audio...'),
-        backgroundColor: Colors.red,
-        duration: Duration(seconds: 2),
-      ),
-    );
-    
-    print('🚨 Creating AMBER ALERT task with emergency system integration');
-    
-    // 3. Create the scheduled notification (this is the slow part)
-    print('🔄 About to call TaskScheduler.scheduleNotification...');
+  void _updateProgress(String message, double progress) {
+    if (mounted) {
+      setState(() {
+        _loadingMessage = message;
+        _loadingProgress = progress;
+      });
+    }
+  }
+
+  // Simplified amber alert creation
+  Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDescription) async {
     await TaskScheduler.instance.scheduleNotification(
       taskData, 
       context,
       currentTaskType: widget.currentTaskType,
     );
-    print('✅ TaskScheduler.scheduleNotification completed');
-    
-    print('🚨 Amber alert scheduled for: $_selectedDateTime');
-    
-    // 4. Show final success message
-    print('🔄 About to show success snackbar...');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🚨 Step 3/3: Critical Alert Created Successfully!'),
-        backgroundColor: Colors.green,  // Green for final success
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        duration: Duration(seconds: 2),
-      ),
-    );
-    print('✅ Success snackbar shown');
-    
-  } catch (e, stackTrace) {
-    print('❌ Exception in _createAmberAlertTask: $e');
-    print('📍 Stack trace: $stackTrace');
-    
-    // Show error message
-    try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Failed to create critical alert: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    } catch (e2) {
-      print('❌ Even the error snackbar failed: $e2');
-    }
-    
-    // 🚨 CRITICAL FIX: Rethrow the exception so _createTask knows it failed
-    rethrow;
-  }
-  
-  print('✅ _createAmberAlertTask method completed');
-}
-  
-  print('✅ _createAmberAlertTask method completed');
-}
-
-  // Show amber alert screen directly (for testing or immediate alerts)
-  void _showAmberAlertScreen({String? taskDescription}) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AmberAlertScreen(
-          title: '🚨 CRITICAL TASK ALERT 🚨',
-          message: 'You have created an emergency-priority motivational task that requires immediate attention!',
-          taskDescription: taskDescription ?? _taskController.text.trim(),
-          payload: {
-            'alertType': 'task_creation',
-            'priority': 'emergency',
-            'source': 'task_dialog',
-          },
-        ),
-        fullscreenDialog: true,
-      ),
-    );
-  }
-
-  // Show preview of amber alert without full emergency mode
-  void _showAmberAlertPreview(String taskDescription) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.red.shade900,
-        title: Row(
-          children: [
-            const Icon(Icons.warning, color: Colors.white),
-            const SizedBox(width: 8),
-            const Text(
-              '🚨 AMBER ALERT PREVIEW',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Your amber alert has been scheduled and will appear as:',
-              style: TextStyle(color: Colors.white70),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade700,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white, width: 1),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'EMERGENCY TASK:',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    taskDescription,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Scheduled: ${_formatDateAmerican(_selectedDateTime)} at ${_formatTimeAmerican(_selectedDateTime)}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '⚠️ This will create a full-screen emergency alert with vibration and override silent mode.',
-              style: TextStyle(color: Colors.orange, fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Got it', style: TextStyle(color: Colors.white)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _showAmberAlertScreen(taskDescription: taskDescription);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.white),
-            child: const Text('Preview Full Alert', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _getDayName(int weekday) {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    // Handle both 1-7 (Mon-Sun) and 7,1-6 (Sun,Mon-Sat) formats
-    if (weekday == 7) return 'Sun';
-    return days[weekday - 1];
-  }
-
-  void _selectVoiceCategory(String category) {
-    setState(() {
-      _selectedVoiceCategory = category;
-      // Set default voice for the category
-      if (_voiceCatalog[category]!.isNotEmpty) {
-        _selectedVoiceStyle = _voiceCatalog[category]!.first['name'];
-      }
-    });
-    HapticFeedback.selectionClick();
   }
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(16),
       child: Container(
         width: double.maxFinite,
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
         ),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF0a1428), // Navy
-              Color(0xFF16213e),
-              Color(0xFF000000), // Black
+              const Color(0xFF0a1428),
+              const Color(0xFF16213e),
+              const Color(0xFF000000),
             ],
           ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: _isAmberAlert 
-                ? Colors.red.withOpacity(0.5)
-                : const Color(0xFFD4AF37).withOpacity(0.3),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 20),
-              _buildAmberAlertToggle(),
-              const SizedBox(height: 20),
-              _buildTaskDescriptionSection(),
-              const SizedBox(height: 20),
-              _buildDateTimeSection(),
-              const SizedBox(height: 20),
-              _buildRecurringSection(),
-              const SizedBox(height: 20),
-              _buildVoiceSection(),
-              const SizedBox(height: 20),
-              _buildToneStyleSection(),
-              const SizedBox(height: 20),
-              _buildNotificationSettingsSection(),
-              const SizedBox(height: 24),
-              _buildActionButtons(),
-            ],
+            color: _isAmberAlert ? Colors.red : Colors.white.withOpacity(0.2),
+            width: 2,
           ),
         ),
+        child: _isCreating ? _buildLoadingView() : _buildInputView(),
       ),
     );
   }
 
-  // Helper functions for American date/time formatting
-  String _formatDateAmerican(DateTime date) {
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    final year = date.year.toString();
-    return '$month/$day/$year';
-  }
-
-  String _formatTimeAmerican(DateTime time) {
-    final hour = time.hour == 0 ? 12 : (time.hour > 12 ? time.hour - 12 : time.hour);
-    final minute = time.minute.toString().padLeft(2, '0');
-    final period = time.hour >= 12 ? 'PM' : 'AM';
-    return '$hour:$minute $period';
-  }
-
-  Widget _buildHeader() {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: _isAmberAlert 
-                  ? [Colors.red, Colors.orange]
-                  : [const Color(0xFFD4AF37), const Color(0xFFFFD700)],
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            _isAmberAlert ? Icons.warning : Icons.notification_add,
-            color: _isAmberAlert ? Colors.white : Colors.black,
-            size: 24,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _isAmberAlert 
-                    ? '🚨 Create Critical Alert'
-                    : 'Create Motivational Reminder',
-                style: TextStyle(
-                  color: _isAmberAlert ? Colors.red : Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w300,
-                ),
-              ),
-              Text(
-                'For ${_formatDateAmerican(widget.selectedDay)}',
-                style: const TextStyle(
-                  color: Color(0xFF8B9DC3),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w300,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAmberAlertToggle() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _isAmberAlert 
-            ? Colors.red.withOpacity(0.1)
-            : Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _isAmberAlert 
-              ? Colors.red
-              : Colors.white.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Row(
+  Widget _buildLoadingView() {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.warning,
-            color: _isAmberAlert ? Colors.red : Colors.grey,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '🚨 Amber Alert Mode',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                Text(
-                  'Emergency-level alert that bypasses all settings',
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: _isAmberAlert,
-            onChanged: (value) {
-              setState(() {
-                _isAmberAlert = value;
-                if (value) {
-                  _forceOverrideSilent = true;
-                  _enableVibration = true;
-                  _notificationPriority = 'Max';
-                }
-              });
-            },
-            activeColor: Colors.red,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTaskDescriptionSection() {
-    return _buildDialogSection(
-      'What do you need motivation for?',
-      Icons.psychology,
-      _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-      TextField(
-        controller: _taskController,
-        style: const TextStyle(color: Colors.white),
-        maxLines: 2,
-        decoration: InputDecoration(
-          hintText: _isAmberAlert 
-              ? 'e.g., CRITICAL: Must finish project by deadline!'
-              : 'e.g., Go for a morning run, Study for exam...',
-          hintStyle: const TextStyle(color: Color(0xFF8B9DC3)),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-            ),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-            ),
-          ),
-          filled: true,
-          fillColor: Colors.white.withOpacity(0.05),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDateTimeSection() {
-    return _buildDialogSection(
-      'When should we remind you?',
-      Icons.schedule,
-      _isAmberAlert ? Colors.red : Colors.blue,
-      GestureDetector(
-        onTap: () async {
-          final date = await showDatePicker(
-            context: context,
-            initialDate: _selectedDateTime,
-            firstDate: DateTime.now(),
-            lastDate: DateTime.now().add(const Duration(days: 365)),
+          // Animated loading spinner
+          AnimatedBuilder(
+            animation: _pulseAnimation,
             builder: (context, child) {
-              return Theme(
-                data: Theme.of(context).copyWith(
-                  colorScheme: ColorScheme.dark(
-                    primary: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-                    onPrimary: Colors.white,
-                    surface: const Color(0xFF0a1428),
+              return Transform.scale(
+                scale: _pulseAnimation.value,
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)),
+                        (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.3),
+                      ],
+                    ),
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 4,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
-                child: child!,
               );
             },
-          );
-          
-          if (date != null) {
-            final time = await showTimePicker(
-              context: context,
-              initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
-              builder: (context, child) {
-                return Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: ColorScheme.dark(
-                      primary: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-                      onPrimary: Colors.white,
-                      surface: const Color(0xFF0a1428),
-                    ),
-                  ),
-                  child: child!,
-                );
-              },
-            );
-            
-            if (time != null) {
-              setState(() {
-                _selectedDateTime = DateTime(
-                  date.year,
-                  date.month,
-                  date.day,
-                  time.hour,
-                  time.minute,
-                );
-              });
-            }
-          }
-        },
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: (_isAmberAlert ? Colors.red : Colors.blue).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: (_isAmberAlert ? Colors.red : Colors.blue).withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.calendar_today, color: _isAmberAlert ? Colors.red : Colors.blue),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _formatDateAmerican(_selectedDateTime),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    Text(
-                      _formatTimeAmerican(_selectedDateTime),
-                      style: const TextStyle(
-                        color: Color(0xFF8B9DC3),
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.edit, color: _isAmberAlert ? Colors.red : Colors.blue, size: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecurringSection() {
-    return _buildDialogSection(
-      'Recurring reminder',
-      Icons.repeat,
-      _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-      Column(
-        children: [
-          // Recurring toggle
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _isRecurring 
-                  ? (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.1)
-                  : Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _isRecurring 
-                    ? (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37))
-                    : Colors.white.withOpacity(0.2),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.repeat,
-                  color: _isRecurring ? (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)) : Colors.grey,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Repeat this reminder',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                      Text(
-                        'Set up recurring motivational reminders',
-                        style: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Switch(
-                  value: _isRecurring,
-                  onChanged: (value) {
-                    setState(() {
-                      _isRecurring = value;
-                    });
-                  },
-                  activeColor: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-                ),
-              ],
-            ),
           ),
           
-          // Recurring options (show when enabled)
-          if (_isRecurring) ...[
-            const SizedBox(height: 16),
-            
-            // Frequency selector
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Frequency',
-                    style: TextStyle(
-                      color: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: ['Daily', 'Weekly', 'Monthly'].map((freq) {
-                      final isSelected = _recurringFrequency == freq;
-                      final color = _isAmberAlert ? Colors.red : const Color(0xFFD4AF37);
-                      return Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _recurringFrequency = freq;
-                              // Reset selected days when changing frequency
-                              if (freq == 'Daily') {
-                                _selectedDays = {1, 2, 3, 4, 5, 6, 7}; // All days
-                              } else if (freq == 'Weekly') {
-                                _selectedDays = {DateTime.now().weekday}; // Current day
-                              } else {
-                                _selectedDays = {DateTime.now().day}; // Current day of month
-                              }
-                            });
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 2),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isSelected 
-                                  ? color.withOpacity(0.2)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isSelected 
-                                    ? color
-                                    : Colors.white.withOpacity(0.2),
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              freq,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: isSelected ? color : Colors.grey,
-                                fontSize: 12,
-                                fontWeight: isSelected ? FontWeight.w500 : FontWeight.w300,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
+          const SizedBox(height: 24),
+          
+          // Loading message
+          Text(
+            _loadingMessage,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
-            
-            // Day selection (for Weekly)
-            if (_recurringFrequency == 'Weekly') ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.2),
-                    width: 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Select Days',
-                      style: TextStyle(
-                        color: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Days of week
-                        {'day': 'S', 'value': 7}, // Sunday
-                        {'day': 'M', 'value': 1}, // Monday
-                        {'day': 'T', 'value': 2}, // Tuesday
-                        {'day': 'W', 'value': 3}, // Wednesday
-                        {'day': 'T', 'value': 4}, // Thursday
-                        {'day': 'F', 'value': 5}, // Friday
-                        {'day': 'S', 'value': 6}, // Saturday
-                      ].map((dayData) {
-                        final dayNum = dayData['value'] as int;
-                        final dayLetter = dayData['day'] as String;
-                        final isSelected = _selectedDays.contains(dayNum);
-                        final color = _isAmberAlert ? Colors.red : const Color(0xFFD4AF37);
-                        
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              if (isSelected) {
-                                _selectedDays.remove(dayNum);
-                              } else {
-                                _selectedDays.add(dayNum);
-                              }
-                            });
-                          },
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: isSelected 
-                                  ? color 
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: isSelected 
-                                    ? color 
-                                    : Colors.grey,
-                                width: 1,
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                dayLetter,
-                                style: TextStyle(
-                                  color: isSelected ? Colors.white : Colors.grey,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            
-            // End date options
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'End Date',
-                    style: TextStyle(
-                      color: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.all_inclusive,
-                        color: _neverEnds ? (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)) : Colors.grey,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Never ends',
-                          style: TextStyle(
-                            color: _neverEnds ? (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)) : Colors.grey,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      Switch(
-                        value: _neverEnds,
-                        onChanged: (value) {
-                          setState(() {
-                            _neverEnds = value;
-                            if (!value && _recurringEndDate == null) {
-                              _recurringEndDate = DateTime.now().add(const Duration(days: 30));
-                            }
-                          });
-                        },
-                        activeColor: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-                      ),
-                    ],
-                  ),
-                  if (!_neverEnds) ...[
-                    const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: _recurringEndDate ?? DateTime.now().add(const Duration(days: 30)),
-                          firstDate: DateTime.now().add(const Duration(days: 1)),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                          builder: (context, child) {
-                            return Theme(
-                              data: Theme.of(context).copyWith(
-                                colorScheme: ColorScheme.dark(
-                                  primary: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-                                  onPrimary: Colors.white,
-                                  surface: const Color(0xFF0a1428),
-                                ),
-                              ),
-                              child: child!,
-                            );
-                          },
-                        );
-                        if (date != null) {
-                          setState(() {
-                            _recurringEndDate = date;
-                          });
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.2),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_today,
-                              color: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Ends on: ${_recurringEndDate != null ? _formatDateAmerican(_recurringEndDate!) : 'Select date'}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const Spacer(),
-                            const Icon(
-                              Icons.edit,
-                              color: Color(0xFF8B9DC3),
-                              size: 16,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVoiceSection() {
-    return _buildDialogSection(
-      'Voice & Character',
-      Icons.record_voice_over,
-      _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Voice Category Selection
-          Row(
-            children: [
-              Expanded(
-                child: _buildCategoryChip('male', 'Male', Icons.man, const Color(0xFFD4AF37)),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCategoryChip('female', 'Female', Icons.woman, const Color(0xFFD4AF37)),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCategoryChip('characters', 'Characters', Icons.theater_comedy, const Color(0xFFD4AF37)),
-              ),
-            ],
+            textAlign: TextAlign.center,
           ),
           
           const SizedBox(height: 16),
           
-          // Voice Style Selection
+          // Progress bar
           Container(
-            constraints: const BoxConstraints(maxHeight: 200),
-            child: SingleChildScrollView(
-              child: Column(
-                children: (_voiceCatalog[_selectedVoiceCategory] ?? []).map((voice) {
-                  final isSelected = _selectedVoiceStyle == voice['name'];
-                  
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFFD4AF37).withOpacity(0.1)
-                          : Colors.white.withOpacity(0.02),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFFD4AF37)
-                            : const Color(0xFF8B9DC3).withOpacity(0.1),
-                        width: 1,
-                      ),
-                    ),
-                    child: ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFD4AF37).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Icon(
-                          voice['icon'],
-                          color: const Color(0xFFD4AF37),
-                          size: 16,
-                        ),
-                      ),
-                      title: Text(
-                        voice['name'],
-                        style: TextStyle(
-                          color: isSelected ? const Color(0xFFD4AF37) : Colors.white,
-                          fontWeight: isSelected ? FontWeight.w500 : FontWeight.w300,
-                          fontSize: 14,
-                        ),
-                      ),
-                      subtitle: Text(
-                        voice['description'],
-                        style: TextStyle(
-                          color: const Color(0xFF8B9DC3).withOpacity(0.7),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w300,
-                        ),
-                      ),
-                      trailing: isSelected
-                          ? const Icon(Icons.check_circle, color: Color(0xFFD4AF37), size: 16)
-                          : null,
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _selectedVoiceStyle = voice['name']);
-                      },
-                    ),
-                  );
-                }).toList(),
+            width: double.infinity,
+            height: 8,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: _loadingProgress,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
             ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          Text(
+            _isAmberAlert 
+                ? 'Creating emergency-level alert...' 
+                : 'Generating your personalized reminder...',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCategoryChip(String category, String label, IconData icon, Color color) {
-    final isSelected = _selectedVoiceCategory == category;
-    
-    return GestureDetector(
-      onTap: () => _selectVoiceCategory(category),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          gradient: isSelected
-              ? const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFFFD700)])
-              : null,
-          color: isSelected ? null : Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? Colors.transparent : const Color(0xFF8B9DC3).withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.black : const Color(0xFF8B9DC3),
-              size: 20,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.black : const Color(0xFF8B9DC3),
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w300,
+  Widget _buildInputView() {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Icon(
+                _isAmberAlert ? Icons.warning : Icons.add_task,
+                color: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
+                size: 24,
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToneStyleSection() {
-    return _buildDialogSection(
-      'Pick your motivation intensity',
-      Icons.psychology,
-      _isAmberAlert ? Colors.red : Colors.purple,
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: _toneStyles.map((tone) {
-          final isSelected = _selectedToneStyle == tone['name'];
-          final toneColor = _isAmberAlert ? Colors.red : tone['color'];
-          return GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedToneStyle = tone['name'];
-              });
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected 
-                    ? toneColor.withOpacity(0.2)
-                    : Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected 
-                      ? toneColor
-                      : Colors.white.withOpacity(0.2),
-                  width: 1,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _isAmberAlert ? '🚨 Create Critical Alert' : 'Create Reminder',
+                  style: TextStyle(
+                    color: _isAmberAlert ? Colors.red : Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    tone['icon'],
-                    color: isSelected ? toneColor : Colors.grey,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    tone['name'],
-                    style: TextStyle(
-                      color: isSelected ? toneColor : Colors.grey,
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w500 : FontWeight.w300,
-                    ),
-                  ),
-                ],
+            ],
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Task input
+          TextField(
+            controller: _taskController,
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+            decoration: InputDecoration(
+              hintText: 'What do you need motivation for?',
+              hintStyle: TextStyle(color: Colors.grey[400]),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
               ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
+                ),
+              ),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.05),
             ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildNotificationSettingsSection() {
-    return _buildDialogSection(
-      'Alert settings',
-      Icons.notifications_active,
-      _isAmberAlert ? Colors.red : Colors.red,
-      Column(
-        children: [
-          // Force through silent toggle
+            maxLines: 2,
+          ),
+          
+          const SizedBox(height: 24),
+          
+          // Amber Alert Toggle
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _forceOverrideSilent 
-                  ? Colors.red.withOpacity(0.1)
-                  : Colors.white.withOpacity(0.05),
+              color: _isAmberAlert ? Colors.red.withOpacity(0.1) : Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: _forceOverrideSilent 
-                    ? Colors.red
-                    : Colors.white.withOpacity(0.2),
-                width: 1,
+                color: _isAmberAlert ? Colors.red : Colors.white.withOpacity(0.2),
               ),
             ),
             child: Row(
               children: [
                 Icon(
-                  Icons.volume_up,
-                  color: _forceOverrideSilent ? Colors.red : Colors.grey,
+                  Icons.warning,
+                  color: _isAmberAlert ? Colors.red : Colors.grey,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1406,28 +619,23 @@ Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDes
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Override Silent Mode',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w400,
-                        ),
+                        '🚨 Emergency Alert Mode',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        'Play motivation even when phone is silent',
-                        style: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 12,
-                        ),
+                        'Bypasses silent mode with emergency-level priority',
+                        style: TextStyle(color: Colors.grey[400], fontSize: 12),
                       ),
                     ],
                   ),
                 ),
                 Switch(
-                  value: _forceOverrideSilent,
-                  onChanged: _isAmberAlert ? null : (value) {
+                  value: _isAmberAlert,
+                  onChanged: (value) {
                     setState(() {
-                      _forceOverrideSilent = value;
+                      _isAmberAlert = value;
                     });
+                    HapticFeedback.selectionClick();
                   },
                   activeColor: Colors.red,
                 ),
@@ -1435,215 +643,48 @@ Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDes
             ),
           ),
           
-          const SizedBox(height: 12),
+          const SizedBox(height: 32),
           
-          // Vibration toggle
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _enableVibration 
-                  ? (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.1)
-                  : Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _enableVibration 
-                    ? (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37))
-                    : Colors.white.withOpacity(0.2),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.vibration,
-                  color: _enableVibration ? (_isAmberAlert ? Colors.red : const Color(0xFFD4AF37)) : Colors.grey,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Vibration Alert',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                      Text(
-                        'Vibrate phone when reminder triggers',
-                        style: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+          // Action buttons
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                    ),
+                  ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
                   ),
                 ),
-                Switch(
-                  value: _enableVibration,
-                  onChanged: _isAmberAlert ? null : (value) {
-                    setState(() {
-                      _enableVibration = value;
-                    });
-                  },
-                  activeColor: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 12),
-          
-          // Priority selector
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: (_isAmberAlert ? Colors.red : Colors.yellow).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: (_isAmberAlert ? Colors.red : Colors.yellow).withOpacity(0.3),
-                width: 1,
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.priority_high, color: _isAmberAlert ? Colors.red : Colors.yellow),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Notification Priority',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w400,
-                      ),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: _createTask,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: ['Low', 'Normal', 'High', 'Max'].map((priority) {
-                    final isSelected = _notificationPriority == priority;
-                    final colors = {
-                      'Low': Colors.grey,
-                      'Normal': Colors.blue,
-                      'High': Colors.orange,
-                      'Max': Colors.red,
-                    };
-                    final priorityColor = _isAmberAlert ? Colors.red : colors[priority]!;
-                    
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: _isAmberAlert ? null : () {
-                          setState(() {
-                            _notificationPriority = priority;
-                          });
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 2),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            color: (_isAmberAlert && priority == 'Max') || isSelected 
-                                ? priorityColor.withOpacity(0.2)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: (_isAmberAlert && priority == 'Max') || isSelected 
-                                  ? priorityColor
-                                  : Colors.white.withOpacity(0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            priority,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: (_isAmberAlert && priority == 'Max') || isSelected 
-                                  ? priorityColor
-                                  : Colors.grey,
-                              fontSize: 12,
-                              fontWeight: (_isAmberAlert && priority == 'Max') || isSelected 
-                                  ? FontWeight.w500 
-                                  : FontWeight.w300,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.grey.withOpacity(0.3)),
-              ),
-            ),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.grey, fontSize: 16),
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: ElevatedButton(
-            onPressed: _isCreatingTask ? null : _createTask,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: _isCreatingTask
-                ? const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      Text(
-                        'Summoning Motivation...',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  )
-                : Row(
+                    elevation: 8,
+                  ),
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        _isAmberAlert ? Icons.warning : Icons.add_task,
+                        _isAmberAlert ? Icons.warning : Icons.rocket_launch,
                         color: _isAmberAlert ? Colors.white : Colors.black,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Text(
                         _isAmberAlert ? 'Create Critical Alert! 🚨' : 'Create Reminder! 🚀',
                         style: TextStyle(
@@ -1654,33 +695,12 @@ Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDes
                       ),
                     ],
                   ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDialogSection(String title, IconData icon, Color color, Widget content) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: TextStyle(
-                color: color,
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        content,
-      ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
