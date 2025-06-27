@@ -117,7 +117,7 @@ class _TaskDialogState extends State<TaskDialog> {
     super.dispose();
   }
 
-  void _createTask() async {
+void _createTask() async {
     final task = _taskController.text.trim();
     if (task.isNotEmpty && !_isCreatingTask) {
       print('🔧 DEBUG: About to set loading state...');
@@ -201,6 +201,7 @@ class _TaskDialogState extends State<TaskDialog> {
       
       // Small delay to ensure overlay appears before heavy work starts
       await Future.delayed(const Duration(milliseconds: 50));
+      print('🔧 DEBUG: Overlay should be visible now!');
 
       final enhancedTask = {
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
@@ -247,7 +248,7 @@ class _TaskDialogState extends State<TaskDialog> {
         // ✅ Only add task and navigate if everything succeeded
         widget.onTaskAdded(widget.selectedDay, enhancedTask);
         
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(); // Close task dialog
         HapticFeedback.heavyImpact();
         
         final alertType = _isAmberAlert ? ' (🚨 AMBER ALERT)' : '';
@@ -281,8 +282,9 @@ class _TaskDialogState extends State<TaskDialog> {
         // Don't navigate or add task on error
         
       } finally {
-        // ✅ ALWAYS reset loading state, even on errors
+        // 🚨 CRITICAL: Close the loading overlay first
         if (mounted) {
+          Navigator.of(context).pop(); // Close loading overlay
           setState(() {
             _isCreatingTask = false;
           });
