@@ -4,7 +4,7 @@ import 'package:table_calendar/table_calendar.dart';
 
 import '../../services/task_scheduler.dart';
 import '../../services/task_storage.dart';
-import 'ultra_responsive_task_dialog.dart';
+import 'task_dialog.dart';
 
 enum TaskFilter { all, active, completed, archived }
 
