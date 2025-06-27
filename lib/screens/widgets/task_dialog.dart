@@ -50,6 +50,7 @@ class _TaskDialogState extends State<TaskDialog> {
   String _notificationPriority = 'High';
 
   bool _isAmberAlert = false;
+  bool _isCreatingTask = false;
   bool _isRecurring = false;
   String _recurringFrequency = 'Weekly';
   Set<int> _selectedDays = <int>{DateTime.now().weekday};
@@ -118,7 +119,20 @@ class _TaskDialogState extends State<TaskDialog> {
 
   void _createTask() async {
     final task = _taskController.text.trim();
-    if (task.isNotEmpty) {
+    if (task.isNotEmpty && !_isCreatingTask) {
+      setState(() {
+        _isCreatingTask = true;
+      });
+      
+      // Show immediate feedback
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isAmberAlert ? '🚨 Creating Critical Alert...' : '⏱️ Creating Reminder...'),
+          backgroundColor: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+
       final enhancedTask = {
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
         'isCompleted': false,
@@ -165,6 +179,10 @@ class _TaskDialogState extends State<TaskDialog> {
       Navigator.of(context).pop();
       HapticFeedback.heavyImpact();
       
+      setState(() {
+        _isCreatingTask = false;
+      });
+      
       final alertType = _isAmberAlert ? ' (🚨 AMBER ALERT)' : '';
       final recurringText = _isRecurring 
           ? ' (${_recurringFrequency.toLowerCase()}${_recurringFrequency == 'Weekly' ? ' on ${_selectedDays.map(_getDayName).join(', ')}' : ''})'
@@ -181,36 +199,44 @@ class _TaskDialogState extends State<TaskDialog> {
     }
   }
 
-  // Handle amber alert task creation with proper emergency system integration
 // Handle amber alert task creation with proper emergency system integration
-  Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDescription) async {
+Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDescription) async {
+  print('🚨 Starting _createAmberAlertTask...');
+  
+  try {
+    print('🚨 Creating AMBER ALERT task with emergency system integration');
+    
+    // Create the scheduled notification
+    print('🔄 About to call TaskScheduler.scheduleNotification...');
+    await TaskScheduler.instance.scheduleNotification(
+      taskData, 
+      context,
+      currentTaskType: widget.currentTaskType,
+    );
+    print('✅ TaskScheduler.scheduleNotification completed');
+    
+    print('🚨 Amber alert scheduled for: $_selectedDateTime');
+    
+    // Show success message
+    print('🔄 About to show success snackbar...');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('🚨 Critical Alert Created Successfully!'),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    print('✅ Success snackbar shown');
+    
+  } catch (e, stackTrace) {
+    print('❌ Exception in _createAmberAlertTask: $e');
+    print('📍 Stack trace: $stackTrace');
+    
+    // Show error message  bool _isAmberAlert = false;
+
     try {
-      print('🚨 Creating AMBER ALERT task with emergency system integration');
-      
-      // Create the scheduled notification
-      await TaskScheduler.instance.scheduleNotification(
-        taskData, 
-        context,
-        currentTaskType: widget.currentTaskType,
-      );
-      
-      print('🚨 Amber alert scheduled for: $_selectedDateTime');
-      
-      // Show success message and return to dashboard
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('🚨 Critical Alert Created Successfully!'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      
-    } catch (e) {
-      print('❌ Error creating amber alert task: $e');
-      
-      // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('❌ Failed to create critical alert: $e'),
@@ -219,9 +245,15 @@ class _TaskDialogState extends State<TaskDialog> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
+    } catch (e2) {
+      print('❌ Even the error snackbar failed: $e2');
     }
+    
+    // Don't rethrow - let the navigation continue
   }
-
+  
+  print('✅ _createAmberAlertTask method completed');
+}
 
   // Show amber alert screen directly (for testing or immediate alerts)
   void _showAmberAlertScreen({String? taskDescription}) {
@@ -1454,7 +1486,7 @@ class _TaskDialogState extends State<TaskDialog> {
         Expanded(
           flex: 2,
           child: ElevatedButton(
-            onPressed: _createTask,
+            onPressed: _isCreatingTask ? null : _createTask,
             style: ElevatedButton.styleFrom(
               backgroundColor: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1465,13 +1497,24 @@ class _TaskDialogState extends State<TaskDialog> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  _isAmberAlert ? Icons.warning : Icons.add_task, 
-                  color: _isAmberAlert ? Colors.white : Colors.black,
-                ),
+                _isCreatingTask 
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Icon(
+                      _isAmberAlert ? Icons.warning : Icons.add_task, 
+                      color: _isAmberAlert ? Colors.white : Colors.black,
+                    ),
                 const SizedBox(width: 8),
                 Text(
-                  _isAmberAlert ? 'Create Critical Alert' : 'Create Reminder',
+                  _isCreatingTask 
+                    ? 'Creating...'
+                    : (_isAmberAlert ? 'Create Critical Alert' : 'Create Reminder'),
                   style: TextStyle(
                     color: _isAmberAlert ? Colors.white : Colors.black,
                     fontWeight: FontWeight.w500,

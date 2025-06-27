@@ -220,12 +220,8 @@ class TaskScheduler {
     
     final timeUntilScheduled = scheduledTime.difference(DateTime.now());
     
-    // 🚨 If scheduled for now or past, create immediately
-    if (timeUntilScheduled.inSeconds <= 5) {
-      print('🚨 IMMEDIATE AMBER ALERT - Creating now with multiple strategies');
-      await _createImmediateAmberAlertStrategies(taskData, motivationalLine, audioFilePath, baseNotificationId);
-      return;
-    }
+    // 🚨 Always use scheduled notifications - no immediate alerts
+    print('🚨 FUTURE AMBER ALERT - Scheduling helper notification for: $scheduledTime');
     
     // 🚨 For future amber alerts, schedule a helper notification that will trigger the strategies
     print('🚨 FUTURE AMBER ALERT - Scheduling helper notification for: $scheduledTime');
