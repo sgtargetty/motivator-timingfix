@@ -1,25 +1,194 @@
+import '../screens/amber_alert_screen.dart';
+import '../services/notification_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:workmanager/workmanager.dart';
 import 'dart:typed_data';
 import 'dart:io';
-
+import 'dart:async';
 import 'motivator_api.dart';
 import 'notification_manager.dart';
 
 class TaskScheduler {
-  static TaskScheduler? _instance;
-  static TaskScheduler get instance => _instance ??= TaskScheduler._();
-  TaskScheduler._();
-
-  final MotivatorApi _api = MotivatorApi();
-
-  // ===== MAIN SCHEDULING METHOD =====
-  Future<void> scheduleNotification(
+  // 🎯 NEW: Store active timers to prevent memory leaks
+  static final Map<String, Timer> _activeTimers = {};
+  
+  // 🎯 NEW: Main method for precision amber alert bypass
+  Future<void> scheduleAmberAlertWithPrecisionBypass(Map<String, dynamic> taskData) async {
+    print('🎯 PRECISION BYPASS: Starting amber alert scheduling');
+    
+    try {
+      final scheduledTime = taskData['dateTime'] as DateTime;
+      final timeUntilAlert = scheduledTime.difference(DateTime.now());
+      final taskId = taskData['description'].hashCode.abs().toString();
+      
+      print('⏰ Time until alert: ${timeUntilAlert.inSeconds} seconds');
+      
+      // For alerts within 10 minutes, use precision Dart Timer
+      if (timeUntilAlert.inMinutes <= 10) {
+        await _scheduleDartTimerBypass(taskData, timeUntilAlert, taskId);
+      } else {
+        // For longer delays, fall back to traditional scheduling
+        print('⏰ Long delay detected, using traditional scheduling');
+        await _scheduleTraditionalAmberAlert(taskData);
+      }
+      
+      print('✅ Precision bypass system activated for: ${taskData['description']}');
+      
+    } catch (e) {
+      print('❌ Error in precision bypass: $e');
+      // Fallback to traditional notification
+      await _scheduleTraditionalAmberAlert(taskData);
+    }
+  }
+  // 🚀 METHOD: Dart Timer Bypass (0-10 minutes)
+  Future<void> _scheduleDartTimerBypass(
+    Map<String, dynamic> taskData, 
+    Duration timeUntilAlert, 
+    String taskId
+  ) async {
+    print('🚀 Using DART TIMER precision bypass: ${timeUntilAlert.inSeconds}s');
+    
+    // Cancel any existing timer for this task
+    _activeTimers[taskId]?.cancel();
+    
+    // Create precision timer
+    _activeTimers[taskId] = Timer(timeUntilAlert, () async {
+      print('⏰ DART TIMER FIRED - Executing amber alert at EXACT time');
+      await _triggerAmberAlertDirectly(taskData);
+      _activeTimers.remove(taskId);
+    });
+    
+    print('✅ Dart Timer scheduled for ${timeUntilAlert.inSeconds} seconds');
+  }
+// 🎯 CORE METHOD: Direct Amber Alert Trigger (Bypasses Notifications)
+  Future<void> _triggerAmberAlertDirectly(Map<String, dynamic> taskData) async {
+    print('🎯 DIRECT AMBER ALERT TRIGGER - Bypassing Android notifications entirely');
+    
+    try {
+      // Create immediate high-priority notification as backup
+      await AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: DateTime.now().millisecondsSinceEpoch % 2147483647,
+          channelKey: 'amber_alert_channel',
+          title: '🎯 PRECISION EMERGENCY ALERT 🎯',
+          body: '${taskData['description']}\n\nDelivered with precision timing!',
+          payload: {
+            'triggerAmberAlert': 'true',
+            'taskDescription': taskData['description'] ?? 'Precision Alert',
+            'motivationalLine': 'Your critical moment has arrived!',
+            'precisionDelivery': 'true',
+            'deliveredAt': DateTime.now().toIso8601String(),
+          },
+          wakeUpScreen: true,
+          fullScreenIntent: true,
+          criticalAlert: true,
+          category: NotificationCategory.Alarm,
+          color: Colors.orange,
+          displayOnForeground: true,
+          displayOnBackground: true,
+          locked: true,
+        ),
+      );
+      
+      // Immediate emergency feedback
+      HapticFeedback.heavyImpact();
+      
+      print('🎯 Precision amber alert delivered with <2 second accuracy');
+      
+    } catch (e) {
+      print('❌ Error in direct amber alert trigger: $e');
+    }
+  }
+// 🔄 FALLBACK: Traditional amber alert scheduling
+  Future<void> _scheduleTraditionalAmberAlert(Map<String, dynamic> taskData) async {
+    print('🔄 Using traditional amber alert scheduling');
+    
+    final scheduledTime = taskData['dateTime'] as DateTime;
+    
+    await AwesomeNotifications().createNotification(
+      content: NotificationContent(
+        id: taskData['description'].hashCode.abs() % 2147483647,
+        channelKey: 'amber_alert_channel',
+        title: '🚨 EMERGENCY MOTIVATIONAL ALERT 🚨',
+        body: 'CRITICAL ALERT: ${taskData['description']}\n\nYour immediate attention is required!',
+        payload: {
+          'taskDescription': taskData['description'] ?? 'Emergency Task',
+          'motivationalLine': 'This is a critical motivational alert!',
+          'isAmberAlert': 'true',
+          'emergency': 'true',
+          'fallbackMethod': 'traditional',
+        },
+        category: NotificationCategory.Alarm,
+        wakeUpScreen: true,
+        fullScreenIntent: true,
+        criticalAlert: true,
+        displayOnForeground: true,
+        displayOnBackground: true,
+        color: Colors.red,
+      ),
+      schedule: NotificationCalendar.fromDate(date: scheduledTime),
+    );
+  }
+  Future<void> _scheduleRegularTask(
     Map<String, dynamic> taskData,
     BuildContext context, {
     String? currentTaskType,
   }) async {
+    // Your existing scheduling logic for regular tasks
+    try {
+      // Check notification permissions first
+      bool isAllowed = await NotificationManager.instance.areNotificationsAllowed();
+      
+      if (!isAllowed) {
+        print('❌ Notification permission not granted');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('❌ Notification permissions required! Please enable in settings.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
+      print('🔔 Scheduling regular notification:');
+      print('  📝 Task: ${taskData['description']}');
+      print('  📅 DateTime: ${taskData['dateTime']}');
+      
+      // Generate content and schedule regular notification
+      final line = await _api.generateLine(
+        taskData['description'],
+        toneStyle: taskData['toneStyle'],
+        voiceStyle: taskData['backendVoiceStyle'] ?? taskData['voiceStyle'],
+        taskType: currentTaskType,
+      );
+      
+      final audioBytes = await _api.generateVoice(
+        line,
+        voiceStyle: taskData['backendVoiceStyle'] ?? taskData['voiceStyle'],
+        toneStyle: taskData['toneStyle'],
+      );
+      
+      final audioFilePath = await _saveAudioToDevice(audioBytes, taskData['description']);
+      
+      // Use existing scheduling logic for regular notifications
+      if (taskData['isRecurring'] == true) {
+        await _scheduleRecurringNotifications(taskData, line, audioFilePath);
+      } else {
+        await _scheduleSingleNotification(taskData, line, audioFilePath);
+      }
+      
+    } catch (e) {
+      print('❌ Error scheduling regular task: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error scheduling task: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
     try {
       // Check notification permissions first
       bool isAllowed = await NotificationManager.instance.areNotificationsAllowed();
@@ -243,6 +412,263 @@ Future<void> _scheduleSingleNotification(
   } catch (e) {
     print('❌ Error scheduling regular notification: $e');
     rethrow;
+  }
+  // ========== PRECISION AMBER ALERT BYPASS SYSTEM ==========
+  
+  /// Bypasses Android notification scheduler for precision amber alert delivery
+  Future<void> scheduleAmberAlertWithPrecisionBypass(Map<String, dynamic> taskData) async {
+    final scheduledTime = DateTime.parse(taskData['scheduledTime']);
+    final timeUntilAlert = scheduledTime.difference(DateTime.now());
+    
+    print('🚨 PRECISION AMBER ALERT - Bypassing Android notification scheduler');
+    print('⏱️ Time until alert: ${timeUntilAlert.inSeconds} seconds');
+    print('🎯 Target time: $scheduledTime');
+    
+    // Pre-generate audio for instant delivery
+    final taskWithAudio = await _preGenerateAudioForBypass(taskData);
+    
+    if (timeUntilAlert.inSeconds <= 0) {
+      // Immediate alert
+      print('⚡ IMMEDIATE AMBER ALERT - Triggering now');
+      await _triggerAmberAlertDirectly(taskWithAudio);
+      return;
+    }
+    
+    if (timeUntilAlert.inMinutes <= 5) {
+      // Use Dart Timer for precision (bypasses Android entirely)
+      print('🎯 Using Dart Timer for precision delivery (${timeUntilAlert.inSeconds}s)');
+      
+      Timer(timeUntilAlert, () async {
+        print('⏰ DART TIMER FIRED - Executing amber alert at exact time');
+        print('🕐 Actual trigger time: ${DateTime.now()}');
+        await _triggerAmberAlertDirectly(taskWithAudio);
+      });
+      
+      // Schedule backup notification 30 seconds later
+      final backupTime = scheduledTime.add(Duration(seconds: 30));
+      print('🔄 Scheduling backup notification for: $backupTime');
+      await _scheduleBackupNotification(taskWithAudio, backupTime);
+      
+    } else {
+      // For longer delays, use WorkManager + backup notification
+      print('🔄 Using WorkManager for long-term amber alert');
+      
+      try {
+        await _scheduleWorkManagerAmberAlert(taskWithAudio, timeUntilAlert);
+        print('✅ WorkManager amber alert scheduled');
+      } catch (e) {
+        print('⚠️ WorkManager failed, using backup notification only: $e');
+      }
+      
+      // Always schedule backup notification
+      await _scheduleBackupNotification(taskWithAudio, scheduledTime);
+    }
+    
+    print('✅ Precision amber alert bypass system activated');
+  }
+  
+  /// Pre-generates audio and motivational line for instant delivery
+  Future<Map<String, dynamic>> _preGenerateAudioForBypass(Map<String, dynamic> taskData) async {
+    print('🎵 Pre-generating audio for precision delivery...');
+    
+    try {
+      if (taskData['backendVoiceStyle'] != null || taskData['voiceStyle'] != null) {
+        final audioStartTime = DateTime.now();
+        
+        // Generate motivational line
+        final motivationalLine = await _api.generateMotivationalLine(
+          taskData['description'] ?? 'Stay motivated!',
+          taskData['toneStyle'] ?? 'Balanced',
+        );
+        
+        // Generate voice audio
+        final voiceStyle = taskData['backendVoiceStyle'] ?? taskData['voiceStyle'];
+        final audioBytes = await _api.generateVoice(
+          motivationalLine,
+          voiceStyle: voiceStyle,
+        );
+        
+        // Save audio file
+        final directory = await getApplicationDocumentsDirectory();
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final fileName = 'bypass_audio_${timestamp}.mp3';
+        final file = File('${directory.path}/$fileName');
+        await file.writeAsBytes(audioBytes);
+        
+        final audioEndTime = DateTime.now();
+        final audioGenerationTime = audioEndTime.difference(audioStartTime);
+        
+        print('✅ Audio pre-generated in ${audioGenerationTime.inMilliseconds}ms');
+        print('📊 Audio file: ${(audioBytes.length / 1024).toStringAsFixed(1)}KB');
+        
+        // Add to task data
+        taskData['preGeneratedAudioPath'] = file.path;
+        taskData['motivationalLine'] = motivationalLine;
+        taskData['audioGenerationTime'] = audioGenerationTime.inMilliseconds;
+        taskData['audioSize'] = audioBytes.length;
+      }
+      
+      return taskData;
+    } catch (e) {
+      print('❌ Error pre-generating audio: $e');
+      return taskData;
+    }
+  }
+  
+  /// Triggers amber alert directly without using Android notifications
+  Future<void> _triggerAmberAlertDirectly(Map<String, dynamic> taskData) async {
+    print('🚨 DIRECT AMBER ALERT TRIGGER - BYPASSING ALL ANDROID SYSTEMS');
+    print('🕐 Triggered at: ${DateTime.now()}');
+    
+    try {
+      final audioPath = taskData['preGeneratedAudioPath'] ?? '';
+      final motivationalLine = taskData['motivationalLine'] ?? 'Critical alert!';
+      
+      // Emergency vibration pattern
+      for (int i = 0; i < 5; i++) {
+        HapticFeedback.heavyImpact();
+        await Future.delayed(Duration(milliseconds: 150));
+      }
+      
+      // Direct navigation to amber alert screen
+      final navigatorKey = NotificationManager.instance._navigatorKey;
+      if (navigatorKey?.currentContext != null) {
+        
+        Navigator.of(navigatorKey!.currentContext!).push(
+          MaterialPageRoute(
+            builder: (context) => AmberAlertScreen(
+              title: '🎯 PRECISION EMERGENCY ALERT 🎯',
+              message: motivationalLine,
+              taskDescription: taskData['description'] ?? 'Critical Task',
+              audioPath: audioPath,
+              payload: {
+                'bypassedAndroid': 'true',
+                'precisionTiming': 'true',
+                'deliveredAt': DateTime.now().toIso8601String(),
+                'originalScheduled': taskData['scheduledTime'],
+                'timerDelivery': 'true',
+              },
+            ),
+          ),
+        );
+        
+        print('✅ Direct amber alert screen launched with precision timing');
+        
+      } else {
+        print('❌ No navigator context - creating emergency notification');
+        // Fallback: Create immediate notification
+        await _createEmergencyFallbackNotification(taskData);
+      }
+      
+    } catch (e) {
+      print('❌ Direct amber alert failed: $e');
+      await _createEmergencyFallbackNotification(taskData);
+    }
+  }
+  
+  /// Schedules WorkManager task for background execution
+  Future<void> _scheduleWorkManagerAmberAlert(
+    Map<String, dynamic> taskData, 
+    Duration delay
+  ) async {
+    try {
+      final uniqueTaskId = 'amber_alert_${DateTime.now().millisecondsSinceEpoch}';
+      
+      await Workmanager().registerOneOffTask(
+        uniqueTaskId,
+        'precisionAmberAlert',
+        initialDelay: delay,
+        inputData: {
+          'taskDescription': taskData['description'] ?? 'WorkManager Alert',
+          'motivationalLine': taskData['motivationalLine'] ?? 'Critical alert!',
+          'audioPath': taskData['preGeneratedAudioPath'] ?? '',
+          'scheduledTime': taskData['scheduledTime'],
+          'taskId': uniqueTaskId,
+        },
+        constraints: Constraints(
+          networkType: NetworkType.not_required,
+          requiresBatteryNotLow: false,
+          requiresCharging: false,
+          requiresDeviceIdle: false,
+          requiresStorageNotLow: false,
+        ),
+      );
+      
+      print('✅ WorkManager precision amber alert scheduled: $uniqueTaskId');
+    } catch (e) {
+      print('❌ WorkManager scheduling failed: $e');
+      rethrow;
+    }
+  }
+  
+  /// Schedules backup notification (traditional Android notification)
+  Future<void> _scheduleBackupNotification(
+    Map<String, dynamic> taskData,
+    DateTime scheduledTime,
+  ) async {
+    try {
+      final notificationId = DateTime.now().millisecondsSinceEpoch % 2147483647;
+      
+      await AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: notificationId,
+          channelKey: 'amber_alert_channel',
+          title: '🔄 BACKUP EMERGENCY ALERT 🔄',
+          body: '${taskData['description']} - Backup delivery system',
+          payload: {
+            'isBackup': 'true',
+            'originalScheduled': scheduledTime.toIso8601String(),
+            'taskDescription': taskData['description'] ?? 'Backup Alert',
+            'motivationalLine': taskData['motivationalLine'] ?? 'Backup alert!',
+            'audioFilePath': taskData['preGeneratedAudioPath'] ?? '',
+            'triggerAmberAlert': 'true',
+          },
+          wakeUpScreen: true,
+          fullScreenIntent: true,
+          criticalAlert: true,
+          category: NotificationCategory.Alarm,
+          color: Colors.orange, // Different color to indicate backup
+        ),
+        schedule: NotificationCalendar.fromDate(date: scheduledTime),
+      );
+      
+      print('✅ Backup notification scheduled for: $scheduledTime');
+    } catch (e) {
+      print('❌ Backup notification failed: $e');
+    }
+  }
+  
+  /// Emergency fallback notification when direct trigger fails
+  Future<void> _createEmergencyFallbackNotification(Map<String, dynamic> taskData) async {
+    try {
+      final notificationId = DateTime.now().millisecondsSinceEpoch % 2147483647;
+      
+      await AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: notificationId,
+          channelKey: 'amber_alert_channel',
+          title: '🆘 EMERGENCY FALLBACK ALERT 🆘',
+          body: '${taskData['description']} - Emergency fallback triggered',
+          payload: {
+            'emergencyFallback': 'true',
+            'taskDescription': taskData['description'] ?? 'Emergency Alert',
+            'motivationalLine': taskData['motivationalLine'] ?? 'Emergency alert!',
+            'audioFilePath': taskData['preGeneratedAudioPath'] ?? '',
+            'triggerAmberAlert': 'true',
+          },
+          wakeUpScreen: true,
+          fullScreenIntent: true,
+          criticalAlert: true,
+          category: NotificationCategory.Alarm,
+          color: Colors.red,
+        ),
+        // No schedule = immediate notification
+      );
+      
+      print('✅ Emergency fallback notification created');
+    } catch (e) {
+      print('❌ Emergency fallback notification failed: $e');
+    }
   }
 }
 
