@@ -34,6 +34,8 @@ dependencies:
   
   # 🚨 AMBER ALERT DEPENDENCIES
   wakelock_plus: ^1.2.1               # Keep screen on during emergency alerts (updated package)
+
+  workmanager: ^0.5.2
   
 dev_dependencies:
   flutter_test:
