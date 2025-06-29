@@ -13,7 +13,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:path_provider/path_provider.dart';
-import 'package:workmanager/workmanager.dart'; // 🚨 NEW: WorkManager import
 
 // ✅ Import our new organized files
 import 'screens/splash_screen.dart';
@@ -28,34 +27,10 @@ import 'services/notification_manager.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 // 🚨 NEW: WorkManager callback dispatcher for background amber alerts
-@pragma('vm:entry-point')
-void callbackDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    print('🔄 WorkManager executing background task: $task');
-    
-    try {
-      if (task == 'amberAlert') {
-        print('🚨 WorkManager triggering amber alert from background');
-        await _triggerBackgroundAmberAlert(inputData);
-        return Future.value(true);
-      }
-      
-      if (task == 'precisionAmberAlert') {
-        print('🎯 WorkManager triggering precision amber alert');
-        await _triggerPrecisionAmberAlert(inputData);
-        return Future.value(true);
-      }
-      
-      // Handle other background tasks here
-      print('⚠️ Unknown WorkManager task: $task');
-      return Future.value(false);
-      
-    } catch (e) {
-      print('❌ WorkManager task failed: $e');
-      return Future.value(false);
-    }
-  });
-}
+// @pragma('vm:entry-point')
+// void callbackDispatcher() {
+//   // WorkManager callback temporarily disabled
+// }
 
 // 🚨 NEW: Background amber alert trigger
 Future<void> _triggerBackgroundAmberAlert(Map<String, dynamic>? inputData) async {
@@ -222,16 +197,17 @@ void main() async {
   print("✅ AwesomeNotifications initialized with enhanced amber alert support");
   
   // 🚨 NEW: Initialize WorkManager for background amber alerts
-  try {
-    await Workmanager().initialize(
-      callbackDispatcher,
-      isInDebugMode: true, // Set to false for production
-    );
-    print("✅ WorkManager initialized for background amber alerts");
-  } catch (e) {
-    print("⚠️ WorkManager initialization failed: $e");
-    print("   Continuing without WorkManager support...");
-  }
+  // 🚨 WorkManager temporarily disabled due to compilation issues
+  // try {
+  //   await Workmanager().initialize(
+  //     callbackDispatcher,
+  //     isInDebugMode: true,
+  //   );
+  //   print("✅ WorkManager initialized for background amber alerts");
+  // } catch (e) {
+  //   print("⚠️ WorkManager initialization failed: $e");
+  //   print("   Continuing without WorkManager support...");
+  // }
   
   // 🚨 FIX #1: SET UP NOTIFICATION MANAGER WITH NAVIGATOR KEY
   NotificationManager.instance.setNavigatorKey(navigatorKey);
