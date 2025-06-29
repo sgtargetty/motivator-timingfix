@@ -201,30 +201,7 @@ Future<void> _scheduleSingleNotification(
         schedule: NotificationCalendar.fromDate(date: scheduledTime),
       );
       
-      // 🚨 CREATE SECONDARY WAKE-UP NOTIFICATION (1 second later)
-      await AwesomeNotifications().createNotification(
-        content: NotificationContent(
-          id: notificationId + 1,
-          channelKey: 'amber_alert_channel',
-          title: '🚨 WAKE UP ASSIST',
-          body: 'Emergency alert activation',
-          category: NotificationCategory.Alarm,
-          wakeUpScreen: true,
-          fullScreenIntent: true,
-          criticalAlert: true,
-          displayOnForeground: false,  // Hidden helper
-          displayOnBackground: true,
-          payload: {
-            'helper': 'true',
-            'emergency': 'true',
-          },
-        ),
-        schedule: NotificationCalendar.fromDate(
-          date: scheduledTime.add(const Duration(seconds: 1))
-        ),
-      );
-      
-      print('✅ Aggressive amber alert + wake assist scheduled for: $scheduledTime');
+      print('✅ Direct amber alert scheduled for: $scheduledTime');
       return;
     } catch (e) {
       print('❌ Error scheduling aggressive amber alert: $e');
