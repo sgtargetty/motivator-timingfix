@@ -342,7 +342,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
 
   // Simplified amber alert creation
   Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDescription) async {
-    await TaskScheduler().scheduleTask(enhancedTask);
+    await TaskScheduler().scheduleTask(taskData);
   }
 
   // Navigation methods
