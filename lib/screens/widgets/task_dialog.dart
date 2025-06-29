@@ -156,7 +156,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
   bool _isCreating = false;
   int _currentPage = 0;
 
-  // Voice catalog from settings_screen.dart
+  // Voice catalog from settings_screen.dart - BACKEND-CONNECTED VOICES ONLY
   final Map<String, List<Map<String, dynamic>>> _voiceCatalog = {
     'male': [
       {'name': 'Default Male', 'description': 'Clear, professional male voice', 'icon': Icons.person},
@@ -479,182 +479,191 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          const Text(
-            'Basic Settings',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+            const Text(
+              'Basic Settings',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          
-          // Task input
-          TextField(
-            controller: _taskController,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-            decoration: InputDecoration(
-              hintText: 'What do you need motivation for?',
-              hintStyle: TextStyle(color: Colors.grey[400]),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+            const SizedBox(height: 4),
+            Text(
+              'Set up your task details',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 14,
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+            ),
+            const SizedBox(height: 20),
+            
+            // Task input
+            TextField(
+              controller: _taskController,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+              decoration: InputDecoration(
+                hintText: 'What do you need motivation for?',
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
+                  ),
+                ),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.05),
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: _isAmberAlert ? Colors.red : const Color(0xFFD4AF37),
+              maxLines: 3,
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Date/Time picker
+            GestureDetector(
+              onTap: _pickDateTime,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.access_time, color: Colors.grey[400]),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Reminder Time',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            '${_selectedDateTime.day}/${_selectedDateTime.month}/${_selectedDateTime.year} at ${_selectedDateTime.hour.toString().padLeft(2, '0')}:${_selectedDateTime.minute.toString().padLeft(2, '0')}',
+                            style: TextStyle(color: Colors.grey[400]),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, color: Colors.grey[400]),
+                  ],
                 ),
               ),
-              filled: true,
-              fillColor: Colors.white.withOpacity(0.05),
             ),
-            maxLines: 3,
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Date/Time picker
-          GestureDetector(
-            onTap: _pickDateTime,
-            child: Container(
+            
+            const SizedBox(height: 20),
+            
+            // Amber Alert Toggle
+            Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: _isAmberAlert ? Colors.red.withOpacity(0.1) : Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
+                border: Border.all(
+                  color: _isAmberAlert ? Colors.red : Colors.white.withOpacity(0.2),
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.access_time, color: Colors.grey[400]),
+                  Icon(
+                    Icons.warning,
+                    color: _isAmberAlert ? Colors.red : Colors.grey,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Reminder Time',
+                          '🚨 Emergency Alert Mode',
                           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          '${_selectedDateTime.day}/${_selectedDateTime.month}/${_selectedDateTime.year} at ${_selectedDateTime.hour.toString().padLeft(2, '0')}:${_selectedDateTime.minute.toString().padLeft(2, '0')}',
-                          style: TextStyle(color: Colors.grey[400]),
+                          'Bypasses silent mode with emergency-level priority',
+                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
                         ),
                       ],
                     ),
                   ),
-                  Icon(Icons.chevron_right, color: Colors.grey[400]),
+                  Switch(
+                    value: _isAmberAlert,
+                    onChanged: (value) {
+                      setState(() {
+                        _isAmberAlert = value;
+                      });
+                      HapticFeedback.selectionClick();
+                    },
+                    activeColor: Colors.red,
+                  ),
                 ],
               ),
             ),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Amber Alert Toggle
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _isAmberAlert ? Colors.red.withOpacity(0.1) : Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _isAmberAlert ? Colors.red : Colors.white.withOpacity(0.2),
+            
+            const SizedBox(height: 20),
+            
+            // Recurring toggle
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _isRecurring ? const Color(0xFFD4AF37).withOpacity(0.1) : Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _isRecurring ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.repeat,
+                    color: _isRecurring ? const Color(0xFFD4AF37) : Colors.grey,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Recurring Reminder',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'Repeat this reminder automatically',
+                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: _isRecurring,
+                    onChanged: (value) {
+                      setState(() {
+                        _isRecurring = value;
+                      });
+                      HapticFeedback.selectionClick();
+                    },
+                    activeColor: const Color(0xFFD4AF37),
+                  ),
+                ],
               ),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.warning,
-                  color: _isAmberAlert ? Colors.red : Colors.grey,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '🚨 Emergency Alert Mode',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'Bypasses silent mode with emergency-level priority',
-                        style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                Switch(
-                  value: _isAmberAlert,
-                  onChanged: (value) {
-                    setState(() {
-                      _isAmberAlert = value;
-                    });
-                    HapticFeedback.selectionClick();
-                  },
-                  activeColor: Colors.red,
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Recurring toggle
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _isRecurring ? const Color(0xFFD4AF37).withOpacity(0.1) : Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _isRecurring ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.2),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.repeat,
-                  color: _isRecurring ? const Color(0xFFD4AF37) : Colors.grey,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Recurring Reminder',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'Repeat this reminder automatically',
-                        style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                Switch(
-                  value: _isRecurring,
-                  onChanged: (value) {
-                    setState(() {
-                      _isRecurring = value;
-                    });
-                    HapticFeedback.selectionClick();
-                  },
-                  activeColor: const Color(0xFFD4AF37),
-                ),
-              ],
-            ),
-          ),
-          
-          // Recurring options
-          if (_isRecurring) ...[
-            const SizedBox(height: 16),
-            _buildRecurringOptions(),
+            
+            // Recurring options
+            if (_isRecurring) ...[
+              const SizedBox(height: 16),
+              _buildRecurringOptions(),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -717,7 +726,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
           _buildWeekdaySelector(),
         ],
         
-        const SizedBox(height: 20), // Add bottom padding
+        const SizedBox(height: 20),
       ],
     );
   }
@@ -805,7 +814,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
                   
                   Row(
                     children: [
-                      for (final category in ['male', 'female', 'character'])
+                      for (final category in ['male', 'female', 'characters'])
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -813,7 +822,10 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
                               onPressed: () {
                                 setState(() {
                                   _selectedVoiceCategory = category;
-                                  _selectedVoiceStyle = _voicesByCategory[category]!.first;
+                                  // Set default voice for the category
+                                  if (_voiceCatalog[category]!.isNotEmpty) {
+                                    _selectedVoiceStyle = _voiceCatalog[category]!.first['name'];
+                                  }
                                 });
                                 HapticFeedback.selectionClick();
                               },
@@ -827,7 +839,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
                                 ),
                               ),
                               child: Text(
-                                category.capitalize(),
+                                category == 'characters' ? 'Character' : category.capitalize(),
                                 style: TextStyle(
                                   color: _selectedVoiceCategory == category ? Colors.black : Colors.white,
                                   fontSize: 12,

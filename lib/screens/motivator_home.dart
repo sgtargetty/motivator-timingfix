@@ -87,7 +87,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
   // 🎛️ User preferences from onboarding
   String? _currentTaskType;
   Map<String, dynamic>? _currentTaskConfig;
-  String _selectedVoice = 'Default';
+  String _selectedVoice = 'male:Default Male';
   String _selectedToneStyle = 'Balanced';
 
   @override
@@ -123,10 +123,19 @@ class _MotivatorHomeState extends State<MotivatorHome>
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _userName = prefs.getString('user_name') ?? 'Champion';
-      // 🎯 VOICE SETTINGS REMOVED - these come from settings callback, not SharedPreferences
+      
+      // 🎯 NEW: Load voice and tone settings with proper defaults
+      _selectedVoice = prefs.getString('selected_voice') ?? 'male:Default Male'; 
+      _selectedToneStyle = prefs.getString('selected_tone') ?? 'Balanced';
+      _currentTaskType = prefs.getString('selected_task_type')?.isNotEmpty == true 
+          ? prefs.getString('selected_task_type') 
+          : null;
     });
-    print('🔄 Loaded user preferences - Name: $_userName');
-    print('🎯 Voice settings will be loaded from settings screen callback');
+    print('🔄 Loaded user preferences:');
+    print('  Name: $_userName');
+    print('  Voice: $_selectedVoice');
+    print('  Tone: $_selectedToneStyle');
+    print('  Task Type: $_currentTaskType');
   }
 
   // 📋 ADDED - Load tasks from storage
@@ -342,19 +351,36 @@ class _MotivatorHomeState extends State<MotivatorHome>
 
   void _navigateToSettings() async {
     HapticFeedback.lightImpact();
+    // 🎯 Ensure voice is in correct format before passing to settings
+    String currentVoice = _selectedVoice;
+    if (!currentVoice.contains(':')) {
+      // Convert legacy format to new format
+      if (currentVoice.contains('Female') || currentVoice.contains('Woman') || 
+          currentVoice.contains('Belle') || currentVoice.contains('Girl')) {
+        currentVoice = 'female:$currentVoice';
+      } else if (currentVoice.contains('Robot') || currentVoice.contains('Pirate') || 
+                 currentVoice.contains('Wizard') || currentVoice.contains('Superhero') || 
+                 currentVoice.contains('Lana') || currentVoice.contains('Baxter') || 
+                 currentVoice.contains('Argent')) {
+        currentVoice = 'characters:$currentVoice';
+      } else {
+        currentVoice = 'male:$currentVoice';
+      }
+    }
+    
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SettingsScreen(
           currentTaskType: _currentTaskType,
           currentTaskConfig: _currentTaskConfig,
-          currentVoice: _selectedVoice,
+          currentVoice: currentVoice,
           currentToneStyle: _selectedToneStyle,
           onSettingsChanged: (taskType, config, voice, tone) {
             setState(() {
               _currentTaskType = taskType;
               _currentTaskConfig = config;
-              _selectedVoice = voice ?? 'Default';
+              _selectedVoice = voice ?? 'male:Default Male';
               _selectedToneStyle = tone ?? 'Balanced';
               _updateQuickActionsForTaskType();
               
