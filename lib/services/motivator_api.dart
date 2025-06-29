@@ -5,25 +5,6 @@ import 'package:http/http.dart' as http;
 class MotivatorApi {
   final String baseUrl = 'https://motivator-ai-backend.onrender.com';
   
-  // 🎯 NEW: Extract just the voice name from combined format
-  String _extractVoiceName(String? voiceStyle) {
-    if (voiceStyle == null) return 'Default Male';
-    
-    // If it contains ":", extract just the voice name part
-    if (voiceStyle.contains(':')) {
-      final parts = voiceStyle.split(':');
-      if (parts.length >= 2) {
-        final voiceName = parts[1].trim();
-        print('🎤 Extracted voice name: "$voiceName" from "$voiceStyle"');
-        return voiceName;
-      }
-    }
-    
-    // Otherwise return as-is
-    print('🎤 Using voice as-is: "$voiceStyle"');
-    return voiceStyle;
-  }
-  
   Future<String> generateLine(
     String task, {
     String? toneStyle,
@@ -31,22 +12,22 @@ class MotivatorApi {
     String? taskType,
   }) async {
     try {
-      // 🎯 CHANGE: Extract just the voice name for backend
-      final extractedVoice = _extractVoiceName(voiceStyle);
+      // 🎯 FIXED: Send full voice format to backend (don't extract)
+      final fullVoiceStyle = voiceStyle ?? 'male:Default Male';
       
       print('🚀 Calling generateLine...');
       print('📝 Task: $task');
       print('🎭 Tone Style: $toneStyle');
       print('🎤 Original Voice Style: $voiceStyle');
-      print('🎯 Extracted Voice Name: $extractedVoice');
+      print('🎯 Full Voice Style: $fullVoiceStyle');
       print('📋 Task Type: $taskType');
       print('🔗 Endpoint: $baseUrl/generate-line');
 
-      // Build the request body with EXTRACTED voice name
+      // Build the request body with FULL voice format
       final requestBody = {
         'task': task,
         if (toneStyle != null) 'toneStyle': toneStyle,
-        if (extractedVoice.isNotEmpty) 'voiceStyle': extractedVoice, // 🎯 CHANGED: Use extracted name
+        if (fullVoiceStyle.isNotEmpty) 'voiceStyle': fullVoiceStyle,
         if (taskType != null) 'taskType': taskType,
       };
 
@@ -78,19 +59,19 @@ class MotivatorApi {
     String? toneStyle,
   }) async {
     try {
-      // 🎯 CHANGE: Extract just the voice name for backend
-      final extractedVoice = _extractVoiceName(voiceStyle);
+      // 🎯 FIXED: Send full voice format to backend (don't extract)
+      final fullVoiceStyle = voiceStyle ?? 'male:Default Male';
       
       print('🎤 Calling generateVoice...');
       print('📝 Text: $text');
       print('🎵 Original Voice Style: $voiceStyle');
-      print('🎯 Extracted Voice Name: $extractedVoice');
+      print('🎯 Full Voice Style: $fullVoiceStyle');
       print('🎭 Tone Style: $toneStyle');
 
-      // Build the request body with EXTRACTED voice name
+      // Build the request body with FULL voice format
       final requestBody = {
         'text': text,
-        if (extractedVoice.isNotEmpty) 'voiceStyle': extractedVoice, // 🎯 CHANGED: Use extracted name
+        if (fullVoiceStyle.isNotEmpty) 'voiceStyle': fullVoiceStyle,
         if (toneStyle != null) 'toneStyle': toneStyle,
       };
 
@@ -105,7 +86,7 @@ class MotivatorApi {
       print('🌐 Voice Status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        print('✅ Voice generated successfully for: $extractedVoice');
+        print('✅ Voice generated successfully for: $fullVoiceStyle');
         return response.bodyBytes;
       } else {
         print('❌ Voice generation failed: ${response.body}');
