@@ -290,11 +290,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
       if (_isAmberAlert) {
         await _createAmberAlertTask(enhancedTask, task);
       } else {
-        await TaskScheduler().scheduleTask(
-          enhancedTask, 
-          context,
-          currentTaskType: widget.currentTaskType,
-        );
+        await TaskScheduler().scheduleTask(enhancedTask);
       }
 
       print('🚨 NUCLEAR: API work completed!');
@@ -346,11 +342,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
 
   // Simplified amber alert creation
   Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDescription) async {
-    await TaskScheduler().scheduleTask(
-      taskData, 
-      context,
-      currentTaskType: widget.currentTaskType,
-    );
+    await TaskScheduler().scheduleTask(enhancedTask);
   }
 
   // Navigation methods
