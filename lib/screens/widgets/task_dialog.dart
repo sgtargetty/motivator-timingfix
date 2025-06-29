@@ -290,7 +290,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
       if (_isAmberAlert) {
         await _createAmberAlertTask(enhancedTask, task);
       } else {
-        await TaskScheduler.instance.scheduleNotification(
+        await TaskScheduler().scheduleTask(
           enhancedTask, 
           context,
           currentTaskType: widget.currentTaskType,
@@ -346,7 +346,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
 
   // Simplified amber alert creation
   Future<void> _createAmberAlertTask(Map<String, dynamic> taskData, String taskDescription) async {
-    await TaskScheduler.instance.scheduleNotification(
+    await TaskScheduler().scheduleTask(
       taskData, 
       context,
       currentTaskType: widget.currentTaskType,
