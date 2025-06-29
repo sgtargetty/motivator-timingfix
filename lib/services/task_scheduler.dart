@@ -146,23 +146,26 @@ class TaskScheduler {
   }
 
   // ===== FIXED SINGLE NOTIFICATION SCHEDULING =====
-  Future<void> _scheduleSingleNotification(
-    Map<String, dynamic> taskData, 
-    String motivationalLine, 
-    String audioFilePath
-  ) async {
-    final scheduledTime = taskData['dateTime'] as DateTime;
-    final isAmberAlert = taskData['isAmberAlert'] == true;
-    final notificationId = taskData['description'].hashCode.abs() % 2147483647;
+  // ===== FIXED SINGLE NOTIFICATION SCHEDULING =====
+Future<void> _scheduleSingleNotification(
+  Map<String, dynamic> taskData, 
+  String motivationalLine, 
+  String audioFilePath
+) async {
+  final scheduledTime = taskData['dateTime'] as DateTime;
+  final isAmberAlert = taskData['isAmberAlert'] == true;
+  final notificationId = taskData['description'].hashCode.abs() % 2147483647;
+  
+  print('🔔 Scheduling ${isAmberAlert ? 'AMBER ALERT' : 'regular'} notification:');
+  print('  ID: $notificationId');
+  print('  Scheduled time: $scheduledTime');
+  
+  // 🚨 ENHANCED: For amber alerts, use aggressive wake-up scheduling
+  if (isAmberAlert) {
+    print('🚨 Using AGGRESSIVE amber alert scheduling for device wake-up');
     
-    print('🔔 Scheduling ${isAmberAlert ? 'AMBER ALERT' : 'regular'} notification:');
-    print('  ID: $notificationId');
-    print('  Scheduled time: $scheduledTime');
-    
-    // 🚨 SIMPLIFIED: For amber alerts, use direct scheduling for better timing
-    if (isAmberAlert) {
-      print('🚨 Using DIRECT amber alert scheduling for precise timing');
-      
+    try {
+      // Create the main amber alert with maximum wake flags
       await AwesomeNotifications().createNotification(
         content: NotificationContent(
           id: notificationId,
@@ -192,51 +195,79 @@ class TaskScheduler {
             'strategy': 'A',
             'isAmberAlert': 'true',
             'playAudio': 'true',
+            'forceWake': 'true',
           },
         ),
         schedule: NotificationCalendar.fromDate(date: scheduledTime),
       );
       
-      print('✅ Direct amber alert scheduled for: $scheduledTime');
-      return;
-    }
-    
-    // For regular notifications, use normal scheduling
-    final channelKey = 'motivator_reminders';
-    final schedule = NotificationCalendar.fromDate(date: scheduledTime);
-    
-    try {
-      await NotificationManager.instance.createNotification(
-        id: notificationId,
-        channelKey: channelKey,
-        title: '🎯 Time for Action!',
-        body: taskData['description'] ?? 'Motivational Reminder',
-        payload: {
-          'taskDescription': taskData['description'] ?? 'Unknown Task',
-          'motivationalLine': motivationalLine,
-          'audioFilePath': audioFilePath,
-          'voiceStyle': taskData['voiceStyle'] ?? 'Default',
-          'toneStyle': taskData['toneStyle'] ?? 'Balanced',
-          'isRecurring': 'false',
-          'isAmberAlert': 'false',
-          'forceOverrideSilent': (taskData['forceOverrideSilent'] ?? false).toString(),
-        },
-        schedule: schedule,
-        layout: NotificationLayout.Default,
-        wakeUpScreen: true,
-        fullScreenIntent: false,
-        criticalAlert: false,
-        category: NotificationCategory.Reminder,
-        color: Colors.teal,
+      // 🚨 CREATE SECONDARY WAKE-UP NOTIFICATION (1 second later)
+      await AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: notificationId + 1,
+          channelKey: 'amber_alert_channel',
+          title: '🚨 WAKE UP ASSIST',
+          body: 'Emergency alert activation',
+          category: NotificationCategory.Alarm,
+          wakeUpScreen: true,
+          fullScreenIntent: true,
+          criticalAlert: true,
+          displayOnForeground: false,  // Hidden helper
+          displayOnBackground: true,
+          payload: {
+            'helper': 'true',
+            'emergency': 'true',
+          },
+        ),
+        schedule: NotificationCalendar.fromDate(
+          date: scheduledTime.add(const Duration(seconds: 1))
+        ),
       );
       
-      print('✅ Regular notification scheduled successfully for $scheduledTime');
-      
+      print('✅ Aggressive amber alert + wake assist scheduled for: $scheduledTime');
+      return;
     } catch (e) {
-      print('❌ Error scheduling regular notification: $e');
+      print('❌ Error scheduling aggressive amber alert: $e');
       rethrow;
     }
   }
+  
+  // For regular notifications, use normal scheduling
+  final channelKey = 'motivator_reminders';
+  final schedule = NotificationCalendar.fromDate(date: scheduledTime);
+  
+  try {
+    await NotificationManager.instance.createNotification(
+      id: notificationId,
+      channelKey: channelKey,
+      title: '🎯 Time for Action!',
+      body: taskData['description'] ?? 'Motivational Reminder',
+      payload: {
+        'taskDescription': taskData['description'] ?? 'Unknown Task',
+        'motivationalLine': motivationalLine,
+        'audioFilePath': audioFilePath,
+        'voiceStyle': taskData['backendVoiceStyle'] ?? taskData['voiceStyle'] ?? 'Default',
+        'toneStyle': taskData['toneStyle'] ?? 'Balanced',
+        'isRecurring': 'false',
+        'isAmberAlert': 'false',
+        'forceOverrideSilent': (taskData['forceOverrideSilent'] ?? false).toString(),
+      },
+      schedule: schedule,
+      layout: NotificationLayout.Default,
+      wakeUpScreen: true,
+      fullScreenIntent: false,
+      criticalAlert: false,
+      category: NotificationCategory.Reminder,
+      color: Colors.teal,
+    );
+    
+    print('✅ Regular notification scheduled successfully for $scheduledTime');
+    
+  } catch (e) {
+    print('❌ Error scheduling regular notification: $e');
+    rethrow;
+  }
+}
 
   // 🚨 NEW METHOD: Amber Alert with Multiple Strategies (like your working "ALL" button)
   Future<void> _scheduleAmberAlertWithMultipleStrategies(
