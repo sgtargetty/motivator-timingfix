@@ -159,15 +159,45 @@ class TaskScheduler {
     print('  ID: $notificationId');
     print('  Scheduled time: $scheduledTime');
     
-    // 🚨 CRITICAL FIX: For amber alerts, use immediate multiple-strategy approach
+    // 🚨 SIMPLIFIED: For amber alerts, use direct scheduling for better timing
     if (isAmberAlert) {
-      await _scheduleAmberAlertWithMultipleStrategies(
-        taskData, 
-        motivationalLine, 
-        audioFilePath, 
-        scheduledTime,
-        notificationId
+      print('🚨 Using DIRECT amber alert scheduling for precise timing');
+      
+      await AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: notificationId,
+          channelKey: 'amber_alert_channel',
+          title: '🚨 EMERGENCY MOTIVATIONAL ALERT 🚨',
+          body: 'CRITICAL ALERT: ${taskData['description']}\n\nYour immediate attention is required!',
+          summary: 'EMERGENCY ALERT SYSTEM',
+          notificationLayout: NotificationLayout.BigText,
+          category: NotificationCategory.Alarm,
+          wakeUpScreen: true,
+          fullScreenIntent: true,
+          criticalAlert: true,
+          locked: false,
+          autoDismissible: false,
+          showWhen: true,
+          displayOnForeground: true,
+          displayOnBackground: true,
+          color: Colors.red,
+          backgroundColor: Colors.red,
+          payload: {
+            'taskDescription': taskData['description'] ?? 'Emergency Task',
+            'motivationalLine': motivationalLine,
+            'audioFilePath': audioFilePath,
+            'alertType': 'direct_amber_alert',
+            'emergency': 'true',
+            'priority': 'maximum',
+            'strategy': 'A',
+            'isAmberAlert': 'true',
+            'playAudio': 'true',
+          },
+        ),
+        schedule: NotificationCalendar.fromDate(date: scheduledTime),
       );
+      
+      print('✅ Direct amber alert scheduled for: $scheduledTime');
       return;
     }
     

@@ -80,6 +80,10 @@ class NotificationManager {
           await Permission.scheduleExactAlarm.request();
           print('✅ Exact alarm permission requested');
           
+          // 🔋 Request battery optimization exemption
+          await Permission.ignoreBatteryOptimizations.request();
+          print('✅ Battery optimization exemption requested');
+          
         } catch (e) {
           print('⚠️ Additional Android permissions error: $e');
         }
@@ -180,11 +184,9 @@ class NotificationManager {
           print('⚠️ Error with amber alert haptic pattern: $e');
         }
         
-        // Play audio if available
-        final audioFilePath = receivedNotification.payload?['audioFilePath'];
-        if (audioFilePath != null && audioFilePath.isNotEmpty) {
-          await NotificationManager.instance._playEmergencyAudio(audioFilePath, true);
-        }
+        // 🎵 AUDIO DISABLED HERE - AmberAlertScreen will handle audio playback
+        // Audio will be played by the AmberAlertScreen to avoid double playback
+        print('🎵 Audio playback delegated to AmberAlertScreen to avoid double playback');
         
       } else {
         print('🚨 AMBER ALERT - Non-emergency or unrecognized strategy: $strategy');
