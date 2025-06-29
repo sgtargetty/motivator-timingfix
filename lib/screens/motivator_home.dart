@@ -385,6 +385,13 @@ class _MotivatorHomeState extends State<MotivatorHome>
               _updateQuickActionsForTaskType();
               
               print('🔄 Settings updated - Voice: $_selectedVoice, Tone: $_selectedToneStyle');
+            
+            // 🎯 IMMEDIATELY test voice persistence by saving to SharedPreferences
+            SharedPreferences.getInstance().then((prefs) {
+              prefs.setString('selected_voice', _selectedVoice);
+              prefs.setString('selected_tone', _selectedToneStyle);
+              print('💾 Voice settings persisted immediately: $_selectedVoice');
+            });
             });
           },
         ),

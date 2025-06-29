@@ -56,14 +56,14 @@ class TaskScheduler {
       final line = await _api.generateLine(
         taskData['description'],
         toneStyle: taskData['toneStyle'],
-        voiceStyle: taskData['voiceStyle'],
+        voiceStyle: taskData['backendVoiceStyle'] ?? taskData['voiceStyle'],
         taskType: currentTaskType,
       );
       
       // 2. Generate voice audio using your API
       final audioBytes = await _api.generateVoice(
         line,
-        voiceStyle: taskData['voiceStyle'],
+        voiceStyle: taskData['backendVoiceStyle'] ?? taskData['voiceStyle'],
         toneStyle: taskData['toneStyle'],
       );
       
@@ -123,7 +123,7 @@ class TaskScheduler {
           'taskDescription': taskData['description'] ?? 'Immediate Alert',
           'motivationalLine': motivationalLine,
           'audioFilePath': audioFilePath,
-          'voiceStyle': taskData['voiceStyle'] ?? 'Default',
+          'voiceStyle': taskData['backendVoiceStyle'] ?? taskData['voiceStyle'] ?? 'Default',
           'toneStyle': taskData['toneStyle'] ?? 'Balanced',
           'isRecurring': 'false',
           'isAmberAlert': 'true',
