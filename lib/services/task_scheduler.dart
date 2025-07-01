@@ -61,6 +61,45 @@ class TaskScheduler {
     // Create precision timer
     _activeTimers[taskId] = Timer(timeUntilAlert, () async {
       print('⏰ DART TIMER FIRED - Executing amber alert at EXACT time');
+      
+      // 🚨 ADD FULL VIBRATION PATTERN HERE:
+      print('🚨 TRIGGERING EMERGENCY VIBRATION PATTERN...');
+      try {
+        // SOS Pattern: 3 short, 3 long, 3 short
+        for (int i = 0; i < 3; i++) {
+          HapticFeedback.heavyImpact(); // Short
+          await Future.delayed(const Duration(milliseconds: 150));
+        }
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        for (int i = 0; i < 3; i++) {
+          // Long vibration (multiple heavy impacts)
+          for (int j = 0; j < 3; j++) {
+            HapticFeedback.heavyImpact();
+            await Future.delayed(const Duration(milliseconds: 50));
+          }
+          await Future.delayed(const Duration(milliseconds: 200));
+        }
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        for (int i = 0; i < 3; i++) {
+          HapticFeedback.heavyImpact(); // Short
+          await Future.delayed(const Duration(milliseconds: 150));
+        }
+        
+        // Emergency burst pattern
+        await Future.delayed(const Duration(milliseconds: 500));
+        for (int i = 0; i < 8; i++) {
+          HapticFeedback.heavyImpact();
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+        
+        print('✅ Emergency vibration pattern completed');
+        
+      } catch (e) {
+        print('❌ Error with vibration pattern: $e');
+      }
+      
       await _triggerAmberAlertDirectly(taskData);
       _activeTimers.remove(taskId);
     });
