@@ -22,6 +22,7 @@ import 'screens/amber_alert_screen.dart';
 import 'services/motivator_api.dart';
 import 'services/amber_alert_service.dart';
 import 'services/notification_manager.dart';
+import 'services/task_scheduler.dart'; // 🚨 ADD THIS: Import TaskScheduler for vibration fix
 
 // 🚨 Global navigator key for amber alerts
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -195,6 +196,16 @@ void main() async {
     debug: true,
   );
   print("✅ AwesomeNotifications initialized with enhanced amber alert support");
+  
+  // 🚨 NEW: Initialize vibrating amber alerts (CRITICAL FIX)
+  try {
+    print('🔧 Initializing vibrating amber alerts...');
+    await TaskScheduler.initializeVibratingAmberAlerts();
+    print('✅ Vibrating amber alerts initialized successfully');
+  } catch (e) {
+    print('❌ Error initializing vibrating amber alerts: $e');
+    print('   Continuing with standard initialization...');
+  }
   
   // 🚨 NEW: Initialize WorkManager for background amber alerts
   // 🚨 WorkManager temporarily disabled due to compilation issues

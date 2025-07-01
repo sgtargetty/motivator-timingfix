@@ -16,6 +16,61 @@ class TaskScheduler {
   // 🎯 Store active timers to prevent memory leaks
   static final Map<String, Timer> _activeTimers = {};
   
+  // ========== VIBRATION CHANNEL INITIALIZATION ==========
+  
+  // 🚨 CRITICAL: Ensure amber alert channel has vibration enabled
+  static Future<void> ensureAmberAlertChannelHasVibration() async {
+    print('🔧 ENSURING amber_alert_channel has vibration enabled...');
+    
+    try {
+      // Remove existing channel and recreate with proper vibration
+      await AwesomeNotifications().removeChannel('amber_alert_channel');
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Create channel with EXPLICIT vibration settings
+      await AwesomeNotifications().setChannel(
+        NotificationChannel(
+          channelGroupKey: 'emergency_group',
+          channelKey: 'amber_alert_channel',
+          channelName: 'Emergency Amber Alerts',
+          channelDescription: 'Critical emergency notifications with vibration',
+          defaultColor: Colors.red,
+          ledColor: Colors.red,
+          importance: NotificationImportance.Max,
+          criticalAlerts: true,
+          defaultRingtoneType: DefaultRingtoneType.Alarm,
+          
+          // 🚨 KEY: EXPLICIT VIBRATION SETTINGS
+          enableVibration: true,
+          vibrationPattern: Int64List.fromList([
+            0, 200, 100, 200, 100, 200, 300,  // SOS Short-Short-Short
+            500, 300, 500, 300, 500, 300,     // SOS Long-Long-Long  
+            200, 100, 200, 100, 200, 500,     // SOS Short-Short-Short
+            // Emergency bursts
+            100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100
+          ]),
+          
+          enableLights: true,
+          channelShowBadge: true,
+          playSound: true,
+          locked: true,
+        ),
+      );
+      
+      print('✅ Amber alert channel recreated with vibration enabled');
+      
+    } catch (e) {
+      print('❌ Error setting up vibration channel: $e');
+    }
+  }
+  
+  // 🚀 Call this method at app startup to ensure proper channel setup
+  static Future<void> initializeVibratingAmberAlerts() async {
+    print('🚀 INITIALIZING VIBRATING AMBER ALERTS...');
+    await ensureAmberAlertChannelHasVibration();
+    print('✅ Vibrating amber alerts initialized');
+  }
+  
   // ========== PRECISION AMBER ALERT BYPASS SYSTEM ==========
   
   // 🎯 Main method for precision amber alert bypass
@@ -47,7 +102,7 @@ class TaskScheduler {
     }
   }
   
-  // 🚀 Dart Timer Bypass (0-10 minutes)
+  // 🚀 FIXED: Dart Timer Bypass (0-10 minutes) - Uses Channel Vibration
   Future<void> _scheduleDartTimerBypass(
     Map<String, dynamic> taskData, 
     Duration timeUntilAlert, 
@@ -62,52 +117,75 @@ class TaskScheduler {
     _activeTimers[taskId] = Timer(timeUntilAlert, () async {
       print('⏰ DART TIMER FIRED - Executing amber alert at EXACT time');
       
-      // 🚨 ADD FULL VIBRATION PATTERN HERE:
-      print('🚨 TRIGGERING EMERGENCY VIBRATION PATTERN...');
-      try {
-        // SOS Pattern: 3 short, 3 long, 3 short
-        for (int i = 0; i < 3; i++) {
-          HapticFeedback.heavyImpact(); // Short
-          await Future.delayed(const Duration(milliseconds: 150));
-        }
-        await Future.delayed(const Duration(milliseconds: 300));
-        
-        for (int i = 0; i < 3; i++) {
-          // Long vibration (multiple heavy impacts)
-          for (int j = 0; j < 3; j++) {
-            HapticFeedback.heavyImpact();
-            await Future.delayed(const Duration(milliseconds: 50));
-          }
-          await Future.delayed(const Duration(milliseconds: 200));
-        }
-        await Future.delayed(const Duration(milliseconds: 300));
-        
-        for (int i = 0; i < 3; i++) {
-          HapticFeedback.heavyImpact(); // Short
-          await Future.delayed(const Duration(milliseconds: 150));
-        }
-        
-        // Emergency burst pattern
-        await Future.delayed(const Duration(milliseconds: 500));
-        for (int i = 0; i < 8; i++) {
-          HapticFeedback.heavyImpact();
-          await Future.delayed(const Duration(milliseconds: 100));
-        }
-        
-        print('✅ Emergency vibration pattern completed');
-        
-      } catch (e) {
-        print('❌ Error with vibration pattern: $e');
-      }
+      // 🎯 FIXED: Use channel vibration instead of manual vibration
+      print('🚨 Timer fired, triggering immediate amber alert with CHANNEL VIBRATION...');
       
-      await _triggerAmberAlertDirectly(taskData);
+      // Use channel-based vibration method
+      await _triggerTraditionalAmberAlertImmediately(taskData);
       _activeTimers.remove(taskId);
     });
     
     print('✅ Dart Timer scheduled for ${timeUntilAlert.inSeconds} seconds');
   }
   
-  // 🎯 Direct Amber Alert Trigger (Bypasses Notifications)
+  // 🚨 FIXED: Immediate Traditional Amber Alert with Channel Vibration
+  Future<void> _triggerTraditionalAmberAlertImmediately(Map<String, dynamic> taskData) async {
+    print('🚨 TRIGGERING IMMEDIATE TRADITIONAL AMBER ALERT WITH CHANNEL VIBRATION');
+    
+    try {
+      // Ensure channel has vibration before creating notification
+      await ensureAmberAlertChannelHasVibration();
+      await Future.delayed(const Duration(milliseconds: 200)); // Let channel update
+      
+      // Create immediate amber alert notification
+      await AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: DateTime.now().millisecondsSinceEpoch % 2147483647,
+          channelKey: 'amber_alert_channel',
+          title: '🚨 PRECISION EMERGENCY ALERT 🚨',
+          body: 'CRITICAL: ${taskData['description']}\n\n⚡ Delivered with precision timing!',
+          payload: {
+            'triggerAmberAlert': 'true',
+            'taskDescription': taskData['description'] ?? 'Precision Alert',
+            'motivationalLine': 'Your critical moment has arrived!',
+            'isAmberAlert': 'true',
+            'emergency': 'true',
+            'precisionDelivery': 'true',
+            'deliveredAt': DateTime.now().toIso8601String(),
+          },
+          
+          // 🚨 EXPLICIT NOTIFICATION SETTINGS
+          category: NotificationCategory.Alarm,
+          wakeUpScreen: true,
+          fullScreenIntent: true,
+          criticalAlert: true,
+          displayOnForeground: true,
+          displayOnBackground: true,
+          locked: true,
+          color: Colors.red,
+          notificationLayout: NotificationLayout.Default,
+          autoDismissible: false,
+          backgroundColor: Colors.red,
+        ),
+        actionButtons: [
+          NotificationActionButton(
+            key: 'EMERGENCY_ALERT',
+            label: 'CRITICAL ALERT',
+            autoDismissible: false,
+            showInCompactView: true,
+            actionType: ActionType.Default,
+          ),
+        ],
+      );
+      
+      print('🎯 Precision amber alert with CHANNEL VIBRATION delivered successfully');
+      
+    } catch (e) {
+      print('❌ Error in channel vibration amber alert: $e');
+    }
+  }
+  
+  // 🎯 Direct Amber Alert Trigger (Bypasses Notifications) - KEPT FOR FALLBACK
   Future<void> _triggerAmberAlertDirectly(Map<String, dynamic> taskData) async {
     print('🎯 DIRECT AMBER ALERT TRIGGER - Bypassing Android notifications entirely');
     
@@ -147,35 +225,58 @@ class TaskScheduler {
     }
   }
   
-  // 🔄 Traditional amber alert scheduling (fallback)
+  // 🔄 FIXED: Traditional amber alert scheduling with channel vibration
   Future<void> _scheduleTraditionalAmberAlert(Map<String, dynamic> taskData) async {
-    print('🔄 Using traditional amber alert scheduling');
+    print('🔄 Using traditional amber alert scheduling with CHANNEL VIBRATION');
     
     final scheduledTime = taskData['dateTime'] as DateTime;
     
-    await AwesomeNotifications().createNotification(
-      content: NotificationContent(
-        id: taskData['description'].hashCode.abs() % 2147483647,
-        channelKey: 'amber_alert_channel',
-        title: '🚨 EMERGENCY MOTIVATIONAL ALERT 🚨',
-        body: 'CRITICAL ALERT: ${taskData['description']}\n\nYour immediate attention is required!',
-        payload: {
-          'taskDescription': taskData['description'] ?? 'Emergency Task',
-          'motivationalLine': 'This is a critical motivational alert!',
-          'isAmberAlert': 'true',
-          'emergency': 'true',
-          'fallbackMethod': 'traditional',
-        },
-        category: NotificationCategory.Alarm,
-        wakeUpScreen: true,
-        fullScreenIntent: true,
-        criticalAlert: true,
-        displayOnForeground: true,
-        displayOnBackground: true,
-        color: Colors.red,
-      ),
-      schedule: NotificationCalendar.fromDate(date: scheduledTime),
-    );
+    try {
+      // Ensure channel has vibration
+      await ensureAmberAlertChannelHasVibration();
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      await AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: taskData['description'].hashCode.abs() % 2147483647,
+          channelKey: 'amber_alert_channel',
+          title: '🚨 EMERGENCY MOTIVATIONAL ALERT 🚨',
+          body: 'CRITICAL ALERT: ${taskData['description']}\n\nYour immediate attention is required!',
+          payload: {
+            'taskDescription': taskData['description'] ?? 'Emergency Task',
+            'motivationalLine': 'This is a critical motivational alert!',
+            'isAmberAlert': 'true',
+            'emergency': 'true',
+            'fallbackMethod': 'traditional',
+          },
+          
+          // 🚨 EXPLICIT VIBRATION SETTINGS
+          category: NotificationCategory.Alarm,
+          wakeUpScreen: true,
+          fullScreenIntent: true,
+          criticalAlert: true,
+          displayOnForeground: true,
+          displayOnBackground: true,
+          color: Colors.red,
+          notificationLayout: NotificationLayout.Default,
+        ),
+        actionButtons: [
+          NotificationActionButton(
+            key: 'EMERGENCY_ACTION',
+            label: 'CRITICAL ALERT',
+            autoDismissible: false,
+            showInCompactView: true,
+            actionType: ActionType.Default,
+          ),
+        ],
+        schedule: NotificationCalendar.fromDate(date: scheduledTime),
+      );
+      
+      print('✅ Traditional amber alert with channel vibration scheduled');
+      
+    } catch (e) {
+      print('❌ Error in traditional amber alert: $e');
+    }
   }
   
   // 🧹 Cleanup method for active timers
@@ -185,6 +286,137 @@ class TaskScheduler {
       timer.cancel();
     }
     _activeTimers.clear();
+  }
+  
+  // ========== DEBUGGING & TESTING METHODS ==========
+  
+  // 🧪 Test channel vibration directly
+  static Future<void> testChannelVibration() async {
+    print('🧪 TESTING CHANNEL VIBRATION DIRECTLY...');
+    
+    try {
+      // Setup channel first
+      await ensureAmberAlertChannelHasVibration();
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Test notification with channel vibration
+      await AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: DateTime.now().millisecondsSinceEpoch % 2147483647,
+          channelKey: 'amber_alert_channel',
+          title: '🧪 CHANNEL VIBRATION TEST',
+          body: 'Testing if channel vibration works...',
+          payload: {'testMode': 'channel_vibration'},
+          category: NotificationCategory.Alarm,
+          wakeUpScreen: true,
+          criticalAlert: true,
+          autoDismissible: false,
+        ),
+      );
+      
+      print('🧪 Channel vibration test notification sent - Did it vibrate?');
+      
+    } catch (e) {
+      print('❌ Channel vibration test failed: $e');
+    }
+  }
+  
+  // 🔄 Create notification exactly like working "ALL" button  
+  static Future<void> createExactALLButtonNotification(Map<String, dynamic> taskData) async {
+    print('🔄 CREATING EXACT ALL BUTTON NOTIFICATION...');
+    
+    try {
+      // Ensure proper channel first
+      await ensureAmberAlertChannelHasVibration();
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      // Use the EXACT same settings that work for "ALL" button
+      await AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: DateTime.now().millisecondsSinceEpoch % 2147483647,
+          channelKey: 'amber_alert_channel', // Same channel as ALL button
+          title: '🚨 EMERGENCY MOTIVATIONAL ALERT 🚨', // Same title as ALL button
+          body: 'CRITICAL ALERT: ${taskData['description']}\n\nYour immediate attention is required!',
+          payload: {
+            'taskDescription': taskData['description'] ?? 'Emergency Task',
+            'motivationalLine': 'This is a critical motivational alert!',
+            'isAmberAlert': 'true',
+            'emergency': 'true',
+            'exactALLButtonCopy': 'true', // Marker for debugging
+          },
+          
+          // EXACT same settings as working ALL button
+          category: NotificationCategory.Alarm,
+          wakeUpScreen: true,
+          fullScreenIntent: true,
+          criticalAlert: true,
+          displayOnForeground: true,
+          displayOnBackground: true,
+          color: Colors.red,
+        ),
+      );
+      
+      print('🔄 Exact ALL button notification created - Testing vibration...');
+      
+    } catch (e) {
+      print('❌ Exact ALL button notification failed: $e');
+    }
+  }
+  
+  // 🧪 Test vibration in different contexts
+  static Future<void> testVibrationPattern() async {
+    print('🧪 TESTING VIBRATION PATTERN...');
+    try {
+      // Test basic vibration
+      HapticFeedback.heavyImpact();
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Test SOS pattern
+      for (int i = 0; i < 3; i++) {
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 150));
+      }
+      
+      print('✅ Vibration test completed - Did you feel it?');
+    } catch (e) {
+      print('❌ Vibration test failed: $e');
+    }
+  }
+  
+  // 🧪 Test vibration in Timer context (for debugging)
+  static Future<void> testVibrationInTimer() async {
+    print('🧪 TESTING VIBRATION IN TIMER CONTEXT...');
+    
+    Timer(const Duration(seconds: 2), () async {
+      print('⏰ Timer fired - Testing vibration...');
+      try {
+        // Test if vibration works in Timer callback
+        HapticFeedback.heavyImpact();
+        await Future.delayed(const Duration(milliseconds: 200));
+        HapticFeedback.heavyImpact();
+        print('✅ Timer vibration test completed - Did you feel it?');
+      } catch (e) {
+        print('❌ Timer vibration test failed: $e');
+      }
+    });
+  }
+  
+  // 🧪 Test all vibration methods
+  static Future<void> testAllVibrationMethods(Map<String, dynamic> taskData) async {
+    print('🧪 TESTING ALL VIBRATION METHODS...');
+    
+    print('1. Testing channel vibration...');
+    await testChannelVibration();
+    await Future.delayed(const Duration(seconds: 3));
+    
+    print('2. Testing ALL button replica...');
+    await createExactALLButtonNotification(taskData);
+    await Future.delayed(const Duration(seconds: 3));
+    
+    print('3. Testing manual vibration...');
+    await testVibrationPattern();
+    
+    print('✅ All vibration tests completed');
   }
   
   // ========== ORIGINAL SCHEDULING METHODS ==========
@@ -198,6 +430,11 @@ class TaskScheduler {
     print('🔄 Recurring: $isRecurring');
     
     try {
+      // Ensure vibration channel is ready for amber alerts
+      if (isAmberAlert) {
+        await ensureAmberAlertChannelHasVibration();
+      }
+      
       // Generate motivational line and audio
       final motivationalLine = await _generateMotivationalLine(taskData);
       final audioFilePath = await _generateAndSaveAudio(taskData, motivationalLine);
