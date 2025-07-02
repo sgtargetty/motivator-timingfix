@@ -35,6 +35,8 @@ dependencies:
   # 🚨 AMBER ALERT DEPENDENCIES
   wakelock_plus: ^1.2.1               # Keep screen on during emergency alerts (updated package)
   
+  # 🎤 DICTAPHONE DEPENDENCIES
+  flutter_sound: ^9.2.13              # Audio recording (replaced record package)
   
 dev_dependencies:
   flutter_test:

@@ -3,7 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import '../services/motivator_api.dart'; // Use your existing API service
+import 'package:flutter_sound/flutter_sound.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
 
 class DictaphoneScreen extends StatefulWidget {
   const DictaphoneScreen({Key? key}) : super(key: key);
@@ -33,11 +37,21 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
   // API service
   final MotivatorApi _api = MotivatorApi();
   
+  // Real recording
+  FlutterSoundRecorder? _audioRecorder;
+  String? _currentRecordingPath;
+  
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
+    _initializeRecorder();
     _loadHistory();
+  }
+
+  Future<void> _initializeRecorder() async {
+    _audioRecorder = FlutterSoundRecorder();
+    await _audioRecorder!.openRecorder();
   }
 
   void _initializeAnimations() {
@@ -70,127 +84,208 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
   Future<void> _loadHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final historyJson = prefs.getString('dictaphone_history') ?? '[]';
+    final historyList = jsonDecode(historyJson) as List;
+    
     setState(() {
-      _recordingHistory = List<Map<String, dynamic>>.from(json.decode(historyJson));
+      _recordingHistory = historyList.map((item) => Map<String, dynamic>.from(item)).toList();
     });
   }
 
   Future<void> _saveHistory() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('dictaphone_history', json.encode(_recordingHistory));
+    await prefs.setString('dictaphone_history', jsonEncode(_recordingHistory));
   }
 
-  void _startRecording() {
-    if (_isRecording) return;
-    
-    setState(() {
-      _isRecording = true;
-      _recordingDuration = Duration.zero;
-    });
-    
-    _pulseController.repeat(reverse: true);
-    _waveController.repeat();
-    
-    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        _recordingDuration = Duration(seconds: timer.tick);
-      });
-    });
-    
-    HapticFeedback.mediumImpact();
-  }
-
-  Future<void> _stopRecording() async {
-    if (!_isRecording) return;
-    
-    setState(() {
-      _isRecording = false;
-      _isProcessing = true;
-    });
-    
-    _pulseController.stop();
-    _waveController.stop();
-    _recordingTimer?.cancel();
-    
-    HapticFeedback.lightImpact();
-    
-    // Process the mock recording with your backend
-    await _processRecording();
-  }
-
-  Future<void> _processRecording() async {
-    try {
-      // Simulate processing delay
-      await Future.delayed(const Duration(seconds: 2));
-      
-      // For now, create mock data - later we'll integrate with your speech processing backend
-      final mockData = {
-        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-        'timestamp': DateTime.now().toIso8601String(),
-        'duration': _recordingDuration.inSeconds,
-        'originalText': 'I need to finish the project report by Friday afternoon and schedule a team meeting to discuss the quarterly results.',
-        'extractedData': {
-          'what': 'Finish project report and schedule team meeting',
-          'when': 'Friday afternoon',
-          'where': 'Office/Team meeting room',
-          'why': 'Discuss quarterly results',
-          'how': 'Complete report writing and send meeting invites'
-        },
-        'calendarEntry': {
-          'title': 'Project Report & Team Meeting',
-          'date': 'Friday',
-          'time': 'Afternoon',
-          'description': 'Complete project report and schedule quarterly results discussion'
-        },
-
-      };
-      
-      setState(() {
-        _recordingHistory.insert(0, mockData);
-        _isProcessing = false;
-        _recordingDuration = Duration.zero;
-      });
-      
-      await _saveHistory();
-      
-      // Show success feedback
+  void _startRecording() async {
+    // Request microphone permission
+    final permission = await Permission.microphone.request();
+    if (permission != PermissionStatus.granted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('🎯 Recording processed and calendar entry created!'),
-          backgroundColor: const Color(0xFFD4AF37),
-          behavior: SnackBarBehavior.floating,
+        const SnackBar(
+          content: Text('❌ Microphone permission required for recording'),
+          backgroundColor: Colors.red,
         ),
       );
+      return;
+    }
+
+    try {
+      // Get the app documents directory
+      final directory = await getApplicationDocumentsDirectory();
+      final audioDir = Directory('${directory.path}/recordings');
       
-    } catch (e) {
+      if (!await audioDir.exists()) {
+        await audioDir.create(recursive: true);
+      }
+
+      // Create unique filename
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      _currentRecordingPath = '${audioDir.path}/recording_$timestamp.aac';
+
+      // Start recording
+      await _audioRecorder!.startRecorder(
+        toFile: _currentRecordingPath,
+        codec: Codec.aacADTS,
+      );
+
       setState(() {
-        _isProcessing = false;
+        _isRecording = true;
         _recordingDuration = Duration.zero;
       });
+
+      // Start animations
+      _pulseController.repeat(reverse: true);
+      _waveController.repeat();
+
+      // Start timer
+      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        setState(() {
+          _recordingDuration = Duration(seconds: timer.tick);
+        });
+      });
+
+      HapticFeedback.mediumImpact();
+      print('🎤 Started recording to: $_currentRecordingPath');
       
+    } catch (e) {
+      print('❌ Error starting recording: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ Error processing recording: $e'),
+          content: Text('❌ Error starting recording: $e'),
           backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
         ),
       );
     }
   }
 
-  void _deleteHistoryItem(String id) {
+  void _stopRecording() async {
+    if (!_isRecording) return;
+
+    try {
+      // Stop recording
+      final path = await _audioRecorder!.stopRecorder();
+      _recordingTimer?.cancel();
+
+      setState(() {
+        _isRecording = false;
+        _isProcessing = true;
+      });
+
+      // Stop animations
+      _pulseController.stop();
+      _waveController.stop();
+
+      HapticFeedback.mediumImpact();
+      print('🔴 Stopped recording. File saved to: $path');
+
+      // Process the recording with AI (mock for now)
+      await _processRecording(path);
+
+    } catch (e) {
+      print('❌ Error stopping recording: $e');
+      setState(() {
+        _isRecording = false;
+        _isProcessing = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error stopping recording: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _processRecording(String? filePath) async {
+    if (filePath == null) {
+      setState(() => _isProcessing = false);
+      return;
+    }
+
+    try {
+      print('📊 Processing recording: $filePath');
+      
+      // For now, simulate AI processing with mock data
+      // In the next step, we'll connect this to your real backend
+      await Future.delayed(const Duration(seconds: 2));
+
+      // Mock AI extraction (replace with real API call later)
+      final extractedData = {
+        'what': 'Schedule team meeting to discuss project milestones',
+        'when': 'Tomorrow at 2 PM',
+        'where': 'Conference Room B or Zoom',
+        'why': 'Need to align on Q1 deliverables and timeline',
+        'how': 'Send calendar invite and prepare agenda',
+      };
+
+      final recording = {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'timestamp': DateTime.now().toIso8601String(),
+        'duration': _recordingDuration.inSeconds,
+        'filePath': filePath,
+        'originalText': 'Mock transcription: Schedule a team meeting tomorrow at 2 PM to discuss project milestones and Q1 deliverables.',
+        'extractedData': extractedData,
+      };
+
+      setState(() {
+        _recordingHistory.insert(0, recording);
+        _isProcessing = false;
+        _recordingDuration = Duration.zero;
+      });
+
+      await _saveHistory();
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Recording processed successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      print('✅ Recording processed and saved to history');
+
+    } catch (e) {
+      print('❌ Error processing recording: $e');
+      setState(() => _isProcessing = false);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error processing recording: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _deleteRecording(String id) async {
     setState(() {
-      _recordingHistory.removeWhere((item) => item['id'] == id);
+      _recordingHistory.removeWhere((recording) => recording['id'] == id);
     });
-    _saveHistory();
-    HapticFeedback.lightImpact();
+    await _saveHistory();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🗑️ Recording deleted'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$twoDigitMinutes:$twoDigitSeconds";
   }
 
   @override
   void dispose() {
+    _recordingTimer?.cancel();
+    _audioRecorder?.closeRecorder();
     _pulseController.dispose();
     _waveController.dispose();
-    _recordingTimer?.cancel();
     super.dispose();
   }
 
@@ -204,26 +299,30 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF0a1428), // Navy
+              Color(0xFF0a1428), // Deep navy
+              Color(0xFF1a2332), // Navy blue
+              Color(0xFF0f1419), // Dark slate
               Color(0xFF000000), // Black
             ],
+            stops: [0.0, 0.3, 0.7, 1.0],
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
+              // Header
               _buildHeader(),
+              
+              // Recording Interface
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      _buildRecordingInterface(),
-                      const SizedBox(height: 30),
-                      _buildHistorySection(),
-                    ],
-                  ),
-                ),
+                flex: 2,
+                child: _buildRecordingInterface(),
+              ),
+              
+              // History
+              Expanded(
+                flex: 3,
+                child: _buildHistory(),
               ),
             ],
           ),
@@ -234,7 +333,7 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.2),
         border: Border(
@@ -246,38 +345,46 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
       ),
       child: Row(
         children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              color: Color(0xFF8B9DC3),
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFD4AF37).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.mic_rounded,
-              color: Color(0xFFD4AF37),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'AI Dictaphone',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.w300,
-                letterSpacing: 0.5,
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              Navigator.pop(context);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD4AF37).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.arrow_back,
+                color: Color(0xFFD4AF37),
+                size: 24,
               ),
             ),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'AI Dictaphone',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              Text(
+                'Voice to Smart Tasks',
+                style: TextStyle(
+                  color: const Color(0xFF8B9DC3).withOpacity(0.8),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -286,95 +393,48 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
 
   Widget _buildRecordingInterface() {
     return Container(
-      padding: const EdgeInsets.all(30),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFFD4AF37).withOpacity(0.2),
-          width: 1,
-        ),
-      ),
+      padding: const EdgeInsets.all(32),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Recording status
-          Text(
-            _isProcessing 
-                ? 'Processing with AI...' 
-                : _isRecording 
-                    ? 'Recording...' 
-                    : 'Ready to Record',
-            style: TextStyle(
-              color: _isRecording ? const Color(0xFFD4AF37) : const Color(0xFF8B9DC3),
-              fontSize: 18,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Recording timer
-          if (_isRecording || _recordingDuration.inSeconds > 0)
-            Text(
-              _formatDuration(_recordingDuration),
-              style: const TextStyle(
-                color: Color(0xFFD4AF37),
-                fontSize: 32,
-                fontWeight: FontWeight.w300,
-                fontFamily: 'monospace',
-              ),
-            ),
-          
-          const SizedBox(height: 30),
-          
-          // Recording button
+          // Recording Button
           GestureDetector(
-            onTap: _isProcessing 
-                ? null 
-                : _isRecording 
-                    ? _stopRecording 
-                    : _startRecording,
+            onTap: _isProcessing ? null : (_isRecording ? _stopRecording : _startRecording),
             child: AnimatedBuilder(
               animation: _pulseAnimation,
               builder: (context, child) {
                 return Transform.scale(
                   scale: _isRecording ? _pulseAnimation.value : 1.0,
                   child: Container(
-                    width: 100,
-                    height: 100,
+                    width: 120,
+                    height: 120,
                     decoration: BoxDecoration(
-                      gradient: _isProcessing
-                          ? LinearGradient(
-                              colors: [
-                                const Color(0xFF8B9DC3).withOpacity(0.3),
-                                const Color(0xFF8B9DC3).withOpacity(0.1),
-                              ],
-                            )
-                          : _isRecording
-                              ? const LinearGradient(
-                                  colors: [Color(0xFFFF6B6B), Color(0xFFE74C3C)],
-                                )
-                              : const LinearGradient(
-                                  colors: [Color(0xFFD4AF37), Color(0xFFFFD700)],
-                                ),
                       shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: _isRecording
+                            ? [Colors.red, Colors.red.shade700]
+                            : _isProcessing
+                                ? [Colors.orange, Colors.orange.shade700]
+                                : [const Color(0xFFD4AF37), const Color(0xFFB8941F)],
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: (_isRecording ? Colors.red : const Color(0xFFD4AF37))
-                              .withOpacity(0.4),
+                          color: (_isRecording ? Colors.red : const Color(0xFFD4AF37)).withOpacity(0.4),
                           blurRadius: 20,
-                          spreadRadius: _isRecording ? 5 : 0,
+                          offset: const Offset(0, 8),
                         ),
                       ],
                     ),
                     child: Icon(
-                      _isProcessing 
-                          ? Icons.auto_awesome_rounded
-                          : _isRecording 
-                              ? Icons.stop_rounded 
-                              : Icons.mic_rounded,
-                      color: _isProcessing ? const Color(0xFF8B9DC3) : Colors.black,
-                      size: 40,
+                      _isProcessing
+                          ? Icons.hourglass_empty
+                          : _isRecording
+                              ? Icons.stop
+                              : Icons.mic,
+                      color: Colors.white,
+                      size: 48,
                     ),
                   ),
                 );
@@ -382,264 +442,221 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
             ),
           ),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           
-          // Instructions
+          // Status Text
           Text(
             _isProcessing
-                ? 'AI is extracting What, When, Where, Why, How...'
+                ? 'Processing...'
                 : _isRecording
-                    ? 'Tap to stop recording'
-                    : 'Tap to start recording your task',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: const Color(0xFF8B9DC3).withOpacity(0.8),
-              fontSize: 14,
-              fontWeight: FontWeight.w300,
+                    ? 'Recording...'
+                    : 'Tap to Record',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
             ),
           ),
+          
+          const SizedBox(height: 16),
+          
+          // Timer
+          if (_isRecording || _recordingDuration.inSeconds > 0)
+            Text(
+              _formatDuration(_recordingDuration),
+              style: TextStyle(
+                color: const Color(0xFFD4AF37),
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                fontFeatures: [const FontFeature.tabularFigures()],
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildHistorySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Recording History',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w400,
-              ),
+  Widget _buildHistory() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Recording History',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
             ),
-            Text(
-              '${_recordingHistory.length} recordings',
-              style: TextStyle(
-                color: const Color(0xFF8B9DC3).withOpacity(0.8),
-                fontSize: 14,
-                fontWeight: FontWeight.w300,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        
-        if (_recordingHistory.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(40),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFF8B9DC3).withOpacity(0.1),
-                width: 1,
-              ),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.history_rounded,
-                  color: const Color(0xFF8B9DC3).withOpacity(0.5),
-                  size: 48,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No recordings yet',
-                  style: TextStyle(
-                    color: const Color(0xFF8B9DC3).withOpacity(0.8),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Start recording to see your AI-processed tasks here',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: const Color(0xFF8B9DC3).withOpacity(0.6),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w300,
-                  ),
-                ),
-              ],
-            ),
-          )
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _recordingHistory.length,
-            itemBuilder: (context, index) {
-              final recording = _recordingHistory[index];
-              return _buildHistoryItem(recording);
-            },
           ),
-      ],
+          const SizedBox(height: 16),
+          
+          Expanded(
+            child: _recordingHistory.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.history,
+                          color: const Color(0xFF8B9DC3).withOpacity(0.5),
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No recordings yet',
+                          style: TextStyle(
+                            color: const Color(0xFF8B9DC3).withOpacity(0.7),
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tap the mic to start recording',
+                          style: TextStyle(
+                            color: const Color(0xFF8B9DC3).withOpacity(0.5),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: _recordingHistory.length,
+                    itemBuilder: (context, index) {
+                      final recording = _recordingHistory[index];
+                      return _buildHistoryItem(recording);
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildHistoryItem(Map<String, dynamic> recording) {
     final timestamp = DateTime.parse(recording['timestamp']);
-    final extractedData = recording['extractedData'];
+    final extractedData = recording['extractedData'] as Map<String, dynamic>;
     
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFD4AF37).withOpacity(0.2),
+          color: const Color(0xFFD4AF37).withOpacity(0.1),
           width: 1,
         ),
       ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.all(20),
-          childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-          leading: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFD4AF37).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.mic_rounded,
-              color: Color(0xFFD4AF37),
-              size: 20,
-            ),
+      child: ExpansionTile(
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFD4AF37).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
           ),
-          title: Text(
-            extractedData['what'] ?? 'Recorded Task',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-            ),
+          child: const Icon(
+            Icons.mic,
+            color: Color(0xFFD4AF37),
+            size: 20,
           ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 4),
-              Text(
-                '${_formatDateTime(timestamp)} • ${recording['duration']}s',
-                style: TextStyle(
-                  color: const Color(0xFF8B9DC3).withOpacity(0.8),
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-          trailing: IconButton(
-            onPressed: () => _deleteHistoryItem(recording['id']),
-            icon: Icon(
-              Icons.delete_outline_rounded,
-              color: const Color(0xFF8B9DC3).withOpacity(0.6),
-              size: 20,
-            ),
-          ),
-          children: [
-            _buildExtractedDataView(extractedData),
-          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildExtractedDataView(Map<String, dynamic> data) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFD4AF37).withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        title: Text(
+          extractedData['what'] ?? 'Unknown Task',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+            fontSize: 14,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          '${timestamp.day}/${timestamp.month}/${timestamp.year} at ${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}',
+          style: TextStyle(
+            color: const Color(0xFF8B9DC3).withOpacity(0.7),
+            fontSize: 12,
+          ),
+        ),
+        trailing: IconButton(
+          onPressed: () => _deleteRecording(recording['id']),
+          icon: Icon(
+            Icons.delete_outline,
+            color: Colors.red.withOpacity(0.7),
+            size: 20,
+          ),
+        ),
+        iconColor: const Color(0xFFD4AF37),
+        collapsedIconColor: const Color(0xFFD4AF37),
         children: [
-          const Text(
-            'AI-Extracted Information:',
-            style: TextStyle(
-              color: Color(0xFFD4AF37),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDataRow('What', extractedData['what']),
+                _buildDataRow('When', extractedData['when']),
+                _buildDataRow('Where', extractedData['where']),
+                _buildDataRow('Why', extractedData['why']),
+                _buildDataRow('How', extractedData['how']),
+                
+                const SizedBox(height: 12),
+                
+                Text(
+                  'Original Text:',
+                  style: TextStyle(
+                    color: const Color(0xFFD4AF37),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  recording['originalText'] ?? 'No transcription available',
+                  style: TextStyle(
+                    color: const Color(0xFF8B9DC3).withOpacity(0.8),
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          _buildDataRow('What', data['what'], Icons.task_alt_rounded),
-          _buildDataRow('When', data['when'], Icons.schedule_rounded),
-          _buildDataRow('Where', data['where'], Icons.location_on_rounded),
-          _buildDataRow('Why', data['why'], Icons.psychology_rounded),
-          _buildDataRow('How', data['how'], Icons.engineering_rounded),
         ],
       ),
     );
   }
 
-  Widget _buildDataRow(String label, String? value, IconData icon) {
+  Widget _buildDataRow(String label, String? value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: const Color(0xFFD4AF37),
-            size: 16,
-          ),
-          const SizedBox(width: 8),
           SizedBox(
-            width: 50,
+            width: 60,
             child: Text(
               '$label:',
               style: TextStyle(
-                color: const Color(0xFF8B9DC3).withOpacity(0.9),
-                fontSize: 12,
+                color: const Color(0xFFD4AF37),
                 fontWeight: FontWeight.w500,
+                fontSize: 12,
               ),
             ),
           ),
-          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value ?? 'Not specified',
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: const Color(0xFF8B9DC3).withOpacity(0.9),
                 fontSize: 12,
-                fontWeight: FontWeight.w300,
               ),
             ),
           ),
         ],
       ),
     );
-  }
-
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$minutes:$seconds';
-  }
-
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-    
-    if (difference.inMinutes < 1) {
-      return 'Just now';
-    } else if (difference.inHours < 1) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inDays < 1) {
-      return '${difference.inHours}h ago';
-    } else {
-      return '${dateTime.day}/${dateTime.month} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
-    }
   }
 }
