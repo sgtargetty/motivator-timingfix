@@ -407,15 +407,38 @@ class _MotivatorHomeState extends State<MotivatorHome>
     });
     print('🔄 Reloaded user name: $_userName');
   }
-      void _navigateToDictaphone() {
-      HapticFeedback.selectionClick();
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const DictaphoneScreen(),
-        ),
-      );
-    }
+      void _navigateToDictaphone() async {
+  HapticFeedback.selectionClick();
+  
+  // Navigate and await result
+  final result = await Navigator.push<bool>(
+    context,
+    MaterialPageRoute(
+      builder: (context) => const DictaphoneScreen(),
+    ),
+  );
+  
+  // If a task was added, refresh the calendar
+  if (result == true) {
+    print('🔄 Task was added via dictaphone, refreshing calendar...');
+    await _loadTasks(); // Reload tasks from storage
+    
+    // Switch to calendar view to show the new task
+    setState(() {
+      _currentView = ViewMode.calendar;
+    });
+    
+    // Show brief confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('📅 Calendar updated with your new task!'),
+        backgroundColor: const Color(0xFFD4AF37),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+}
     Widget _buildDictaphoneFloatingButton() {
     return AnimatedBuilder(
       animation: _pulseController,

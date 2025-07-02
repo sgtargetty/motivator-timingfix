@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'dart:io';
 import '../services/motivator_api.dart';
 import '../services/task_scheduler.dart';
+import '../services/task_storage.dart';
 
 class DictaphoneScreen extends StatefulWidget {
   const DictaphoneScreen({Key? key}) : super(key: key);
@@ -345,6 +346,7 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
       
       // Create task data in TaskScheduler format
       final taskData = {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
         'description': extractedData['what'] ?? 'Dictated Task',
         'dateTime': scheduledTime,
         'isRecurring': false,
@@ -352,6 +354,12 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
         'toneStyle': toneStyle,
         'voiceStyle': voiceStyle,
         'forceOverrideSilent': isEmergency,
+        
+        // Add TaskStorage required fields
+        'isCompleted': false,
+        'isArchived': false,
+        'completedAt': null,
+        'archivedAt': null,
         
         // Add AI context for better motivational lines
         'aiContext': {
@@ -368,8 +376,14 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
       print('🚨 Emergency: $isEmergency');
       print('🕒 Scheduled for: $scheduledTime');
       
-      // Use TaskScheduler to create the actual task with notifications
+      // 🚀 STEP 1: Save task to TaskStorage (for calendar display)
+      final TaskStorage taskStorage = TaskStorage();
+      await taskStorage.saveTask(taskData);
+      print('✅ Task saved to TaskStorage for calendar display');
+      
+      // 🚀 STEP 2: Schedule notifications with TaskScheduler
       await _taskScheduler.scheduleTask(taskData);
+      print('✅ Notifications scheduled with TaskScheduler');
       
       // Show final success message
       ScaffoldMessenger.of(context).showSnackBar(
@@ -385,7 +399,8 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
             label: 'View Calendar',
             textColor: Colors.white,
             onPressed: () {
-              Navigator.pop(context); // Go back to main app
+              // Navigate back and trigger refresh
+              Navigator.pop(context, true); // Return true to indicate task was added
             },
           ),
         ),
