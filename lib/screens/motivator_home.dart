@@ -15,9 +15,11 @@ import 'settings_screen.dart';
 import 'amber_alert_screen.dart';
 import 'widgets/motivator_dashboard.dart';
 import 'widgets/motivator_calendar.dart';
+import 'dictaphone_screen.dart';
+
 
 // ✅ ViewMode enum
-enum ViewMode { calendar, dashboard }
+enum ViewMode { calendar, dashboard, dictaphone }
 
 class MotivatorHome extends StatefulWidget {
   final String? initialTaskType;
@@ -405,6 +407,15 @@ class _MotivatorHomeState extends State<MotivatorHome>
     });
     print('🔄 Reloaded user name: $_userName');
   }
+      void _navigateToDictaphone() {
+      HapticFeedback.selectionClick();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const DictaphoneScreen(),
+        ),
+      );
+    }
 
   @override
   void dispose() {
@@ -806,7 +817,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
                         fontWeight: _currentView == ViewMode.dashboard
                             ? FontWeight.w600
                             : FontWeight.w300,
-                        fontSize: 14,
+                        fontSize: 11,
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -863,7 +874,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
                         fontWeight: _currentView == ViewMode.calendar
                             ? FontWeight.w600
                             : FontWeight.w300,
-                        fontSize: 14,
+                        fontSize: 11,
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -879,7 +890,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
 
   Widget _buildSophisticatedFooter() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // Reduced for 4 buttons
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.2),
         border: Border(
@@ -898,7 +909,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
+          children: [
           _buildSophisticatedFooterButton(
             icon: Icons.dashboard_rounded,
             label: 'Dashboard',
@@ -916,6 +927,12 @@ class _MotivatorHomeState extends State<MotivatorHome>
               HapticFeedback.selectionClick();
               setState(() => _currentView = ViewMode.calendar);
             },
+          ),
+          _buildSophisticatedFooterButton(
+            icon: Icons.mic_rounded, // 🎤 Microphone icon for dictaphone
+            label: 'Dictaphone',
+            isActive: false, // Never active since it navigates away
+            onTap: _navigateToDictaphone,
           ),
           _buildSophisticatedFooterButton(
             icon: Icons.settings_rounded,
@@ -937,7 +954,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12), // Reduced for 4 buttons
         decoration: BoxDecoration(
           color: isActive ? const Color(0xFFD4AF37).withOpacity(0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
