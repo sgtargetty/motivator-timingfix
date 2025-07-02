@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class MotivatorApi {
@@ -94,6 +95,73 @@ class MotivatorApi {
       }
     } catch (e, stackTrace) {
       print('❌ Error generating voice: $e');
+      print('🪵 Stack trace:\n$stackTrace');
+      rethrow;
+    }
+  }
+
+  // 🚀 NEW: Process speech with OpenAI Whisper + GPT extraction
+  Future<Map<String, dynamic>> processSpeech(
+    String audioFilePath, {
+    int? durationSeconds,
+  }) async {
+    try {
+      print('🎤 Processing speech file: $audioFilePath');
+      print('⏱️ Duration: ${durationSeconds ?? 0} seconds');
+
+      // Create multipart request
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/process-speech'),
+      );
+
+      // Add audio file
+      var audioFile = await http.MultipartFile.fromPath(
+        'audio',
+        audioFilePath,
+        filename: 'recording.mp3',
+      );
+      request.files.add(audioFile);
+
+      // Add duration if provided
+      if (durationSeconds != null) {
+        request.fields['duration'] = durationSeconds.toString();
+      }
+
+      print('📤 Sending audio file to backend...');
+
+      // Send request
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      print('🌐 Response Status: ${response.statusCode}');
+      print('📦 Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // Validate response structure
+        if (data['success'] == true && 
+            data['transcribedText'] != null && 
+            data['extractedData'] != null) {
+          
+          print('✅ Speech processed successfully!');
+          print('📝 Transcribed: ${data['transcribedText']}');
+          print('🤖 Extracted: ${data['extractedData']}');
+          
+          return {
+            'transcribedText': data['transcribedText'],
+            'extractedData': data['extractedData'],
+            'processing': data['processing'] ?? {},
+          };
+        } else {
+          throw Exception('❌ Invalid response format from backend');
+        }
+      } else {
+        throw Exception('❌ Speech processing failed — HTTP ${response.statusCode}: ${response.body}');
+      }
+    } catch (e, stackTrace) {
+      print('❌ Error in processSpeech: $e');
       print('🪵 Stack trace:\n$stackTrace');
       rethrow;
     }

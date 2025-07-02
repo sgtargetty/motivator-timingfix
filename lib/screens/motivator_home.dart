@@ -416,6 +416,51 @@ class _MotivatorHomeState extends State<MotivatorHome>
         ),
       );
     }
+    Widget _buildDictaphoneFloatingButton() {
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _pulseBeat.value,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFD4AF37), // Gold
+                  Color(0xFFB8941F), // Darker gold
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFD4AF37).withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _navigateToDictaphone,
+                child: const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Icon(
+                    Icons.mic_rounded,
+                    color: Colors.black,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   void dispose() {
