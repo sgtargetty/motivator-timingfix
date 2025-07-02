@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import '../services/motivator_api.dart';
+import '../services/task_scheduler.dart';
 
 class DictaphoneScreen extends StatefulWidget {
   const DictaphoneScreen({Key? key}) : super(key: key);
@@ -39,8 +40,19 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
   // History data
   List<Map<String, dynamic>> _recordingHistory = [];
   
-  // API service
+  // Services
   final MotivatorApi _api = MotivatorApi();
+  final TaskScheduler _taskScheduler = TaskScheduler();
+
+  // 🚨 Emergency alert keywords for AI auto-suggestion
+  final List<String> _emergencyKeywords = [
+    'medication', 'medicine', 'pill', 'doctor', 'appointment', 'medical',
+    'pick up kids', 'children', 'school pickup', 'daycare',
+    'flight', 'airport', 'plane', 'boarding',
+    'meeting with boss', 'important meeting', 'presentation',
+    'deadline', 'urgent', 'emergency', 'critical', 'asap',
+    'court', 'legal', 'interview', 'exam', 'surgery'
+  ];
   
   @override
   void initState() {
@@ -48,12 +60,6 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
     _initializeAnimations();
     _initializeRecorder();
     _loadHistory();
-    void _checkSupportedCodecs() async {
-  print('🎧 Checking supported codecs...');
-  for (var codec in Codec.values) {
-    print('Codec: $codec');
-  }
-}
   }
 
   void _initializeAnimations() {
@@ -127,7 +133,7 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
   Future<String> _getRecordingPath() async {
     final directory = await getApplicationDocumentsDirectory();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    return '${directory.path}/recording_$timestamp.wav'; // ✅ WAV format
+    return '${directory.path}/recording_$timestamp.m4a';
   }
 
   Future<void> _startRecording() async {
@@ -137,10 +143,10 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
       // Get recording path
       _currentRecordingPath = await _getRecordingPath();
       
-      // Try different WAV codecs in order of compatibility
+      // Start recording with M4A format
       await _recorder!.startRecorder(
         toFile: _currentRecordingPath,
-        codec: Codec.pcm16, // ✅ Try PCM 16-bit first (most basic WAV)
+        codec: Codec.aacMP4,
       );
       
       setState(() {
@@ -158,44 +164,16 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
       });
       
       HapticFeedback.mediumImpact();
-      print('🎤 Recording started (WAV): $_currentRecordingPath');
+      print('🎤 Recording started (M4A): $_currentRecordingPath');
       
     } catch (e) {
-      print('❌ Failed to start WAV recording with pcm16: $e');
-      
-      // If pcm16 fails, try without specifying codec (device default)
-      try {
-        await _recorder!.startRecorder(
-          toFile: _currentRecordingPath,
-          // No codec specified - let device choose
-        );
-        
-        setState(() {
-          _isRecording = true;
-          _recordingDuration = Duration.zero;
-        });
-        
-        _pulseController.repeat(reverse: true);
-        _waveController.repeat();
-        
-        _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          setState(() {
-            _recordingDuration = Duration(seconds: timer.tick);
-          });
-        });
-        
-        HapticFeedback.mediumImpact();
-        print('🎤 Recording started (default codec): $_currentRecordingPath');
-        
-      } catch (e2) {
-        print('❌ All WAV attempts failed: $e2');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ WAV recording failed: Try different format'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      print('❌ Failed to start recording: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Failed to start recording: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -262,12 +240,6 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
         'duration': _recordingDuration.inSeconds,
         'transcribedText': result['transcribedText'],
         'extractedData': result['extractedData'],
-        'calendarEntry': {
-          'title': result['extractedData']['what'] ?? 'Recorded Task',
-          'date': result['extractedData']['when'] ?? 'Not specified',
-          'time': result['extractedData']['when'] ?? 'Not specified',
-          'description': '${result['extractedData']['what'] ?? 'Task'} - ${result['extractedData']['why'] ?? 'Purpose not specified'}'
-        },
         'audioFilePath': _currentRecordingPath,
       };
       
@@ -279,14 +251,8 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
       
       await _saveHistory();
       
-      // Show success feedback
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('🎯 Recording processed and calendar entry created!'),
-          backgroundColor: const Color(0xFFD4AF37),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      // 🚀 NEW: Auto-create task with smart emergency detection
+      await _autoCreateTask(result['extractedData'], result['transcribedText']);
       
       print('✅ Recording processed successfully');
       
@@ -305,6 +271,173 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
         ),
       );
     }
+  }
+
+  // 🧠 AI-powered emergency detection
+  bool _shouldSuggestEmergencyAlert(String transcribedText, Map<String, dynamic> extractedData) {
+    final text = transcribedText.toLowerCase();
+    final what = (extractedData['what'] ?? '').toString().toLowerCase();
+    final allText = '$text $what';
+    
+    // Check for emergency keywords
+    for (final keyword in _emergencyKeywords) {
+      if (allText.contains(keyword)) {
+        print('🚨 Emergency keyword detected: $keyword');
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  // 🚀 NEW: Auto-create task with smart emergency popup
+  Future<void> _autoCreateTask(Map<String, dynamic> extractedData, String transcribedText) async {
+    // Show success message first
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('✅ Task added to calendar!'),
+        backgroundColor: const Color(0xFFD4AF37),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    // Check if we should suggest emergency alert
+    final suggestEmergency = _shouldSuggestEmergencyAlert(transcribedText, extractedData);
+    
+    if (suggestEmergency) {
+      // Show emergency alert "upsell" popup
+      _showEmergencyAlertPopup(extractedData, transcribedText);
+    } else {
+      // Create regular task immediately
+      await _createTaskWithSettings(extractedData, transcribedText, false, 'male:Default Male', 'Balanced');
+    }
+  }
+
+  // 🚨 Smart "Upsell" Emergency Alert Popup
+  void _showEmergencyAlertPopup(Map<String, dynamic> extractedData, String transcribedText) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return EmergencyAlertDialog(
+          extractedData: extractedData,
+          transcribedText: transcribedText,
+          onChoice: (isEmergency, voiceStyle, toneStyle) {
+            _createTaskWithSettings(extractedData, transcribedText, isEmergency, voiceStyle, toneStyle);
+          },
+        );
+      },
+    );
+  }
+
+  // 📅 Create actual task with settings
+  Future<void> _createTaskWithSettings(
+    Map<String, dynamic> extractedData, 
+    String transcribedText,
+    bool isEmergency,
+    String voiceStyle,
+    String toneStyle,
+  ) async {
+    try {
+      // Parse the "when" field to set smart default time
+      DateTime scheduledTime = _parseWhenField(extractedData['when'], transcribedText);
+      
+      // Create task data in TaskScheduler format
+      final taskData = {
+        'description': extractedData['what'] ?? 'Dictated Task',
+        'dateTime': scheduledTime,
+        'isRecurring': false,
+        'isAmberAlert': isEmergency,
+        'toneStyle': toneStyle,
+        'voiceStyle': voiceStyle,
+        'forceOverrideSilent': isEmergency,
+        
+        // Add AI context for better motivational lines
+        'aiContext': {
+          'transcribedText': transcribedText,
+          'extractedData': extractedData,
+          'when': extractedData['when'],
+          'where': extractedData['where'],
+          'why': extractedData['why'],
+          'how': extractedData['how'],
+        },
+      };
+
+      print('📅 Auto-creating task: ${taskData['description']}');
+      print('🚨 Emergency: $isEmergency');
+      print('🕒 Scheduled for: $scheduledTime');
+      
+      // Use TaskScheduler to create the actual task with notifications
+      await _taskScheduler.scheduleTask(taskData);
+      
+      // Show final success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isEmergency 
+              ? '🚨 Emergency task scheduled with voice alerts!'
+              : '✅ Task scheduled successfully!'
+          ),
+          backgroundColor: isEmergency ? Colors.red : const Color(0xFFD4AF37),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'View Calendar',
+            textColor: Colors.white,
+            onPressed: () {
+              Navigator.pop(context); // Go back to main app
+            },
+          ),
+        ),
+      );
+      
+    } catch (e) {
+      print('❌ Error creating scheduled task: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error scheduling task: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  // 🕒 Smart time parsing from AI data
+  DateTime _parseWhenField(String? when, String transcribedText) {
+    final whenLower = when?.toLowerCase() ?? '';
+    final textLower = transcribedText.toLowerCase();
+    
+    DateTime baseTime = DateTime.now().add(const Duration(hours: 1)); // Default: 1 hour from now
+    
+    // Parse "tomorrow"
+    if (whenLower.contains('tomorrow') || textLower.contains('tomorrow')) {
+      baseTime = DateTime.now().add(const Duration(days: 1));
+      
+      // Try to extract specific time
+      if (textLower.contains('10 o\'clock') || textLower.contains('10am') || textLower.contains('10 a.m')) {
+        baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 10, 0);
+      } else if (textLower.contains('2 o\'clock') || textLower.contains('2pm') || textLower.contains('2 p.m')) {
+        baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 14, 0);
+      } else if (textLower.contains('3 o\'clock') || textLower.contains('3pm') || textLower.contains('3 p.m')) {
+        baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 15, 0);
+      } else {
+        // Default tomorrow time
+        baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 9, 0);
+      }
+    }
+    // Parse "today"
+    else if (whenLower.contains('today') || textLower.contains('today')) {
+      baseTime = DateTime.now().add(const Duration(hours: 2)); // 2 hours from now
+    }
+    // Parse "next week"
+    else if (whenLower.contains('next week')) {
+      baseTime = DateTime.now().add(const Duration(days: 7));
+      baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 9, 0);
+    }
+    
+    print('🕒 Parsed time: $baseTime from "$when" and "$transcribedText"');
+    return baseTime;
   }
 
   void _deleteHistoryItem(String id) {
@@ -402,7 +535,7 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
                 ),
               ),
               Text(
-                'Speak your tasks, let AI organize them',
+                'Speak your tasks, automatically added to calendar',
                 style: TextStyle(
                   color: Color(0xFF8B9DC3),
                   fontSize: 14,
@@ -499,11 +632,11 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
         // Instructions
         Text(
           _isProcessing
-              ? 'AI is extracting What, When, Where, Why, How...'
+              ? 'AI is extracting and scheduling your task...'
               : _isRecording
                   ? 'Tap to stop recording'
                   : _isRecorderInitialized 
-                      ? 'Tap to start recording your task'
+                      ? 'Tap to record your task - it will be automatically added to calendar!'
                       : 'Initializing microphone...',
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -558,7 +691,7 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
             child: Column(
               children: [
                 Icon(
-                  Icons.history_rounded,
+                  Icons.auto_awesome_rounded,
                   color: const Color(0xFF8B9DC3).withOpacity(0.5),
                   size: 48,
                 ),
@@ -573,7 +706,7 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Start recording to see your AI-processed tasks here',
+                  'Start recording to automatically create calendar tasks!',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: const Color(0xFF8B9DC3).withOpacity(0.6),
@@ -625,13 +758,13 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(
-              Icons.mic_rounded,
+              Icons.auto_awesome_rounded,
               color: Color(0xFFD4AF37),
               size: 20,
             ),
           ),
           title: Text(
-            extractedData['what'] ?? 'Recorded Task',
+            extractedData['what'] ?? 'Auto-Created Task',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -654,15 +787,15 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
               Row(
                 children: [
                   Icon(
-                    Icons.access_time_rounded,
-                    color: const Color(0xFF8B9DC3).withOpacity(0.6),
+                    Icons.calendar_today_rounded,
+                    color: const Color(0xFFD4AF37).withOpacity(0.8),
                     size: 12,
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '${recording['duration']}s',
+                    'Auto-added to calendar',
                     style: TextStyle(
-                      color: const Color(0xFF8B9DC3).withOpacity(0.6),
+                      color: const Color(0xFFD4AF37).withOpacity(0.8),
                       fontSize: 12,
                       fontWeight: FontWeight.w300,
                     ),
@@ -752,7 +885,6 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
     );
   }
 
-  // 🚀 NEW: Display transcribed text section
   Widget _buildTranscriptionSection(String transcribedText) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -811,5 +943,286 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
     } else {
       return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
     }
+  }
+}
+
+// 🚨 EMERGENCY ALERT "UPSELL" DIALOG
+
+class EmergencyAlertDialog extends StatefulWidget {
+  final Map<String, dynamic> extractedData;
+  final String transcribedText;
+  final Function(bool isEmergency, String voiceStyle, String toneStyle) onChoice;
+
+  const EmergencyAlertDialog({
+    Key? key,
+    required this.extractedData,
+    required this.transcribedText,
+    required this.onChoice,
+  }) : super(key: key);
+
+  @override
+  _EmergencyAlertDialogState createState() => _EmergencyAlertDialogState();
+}
+
+class _EmergencyAlertDialogState extends State<EmergencyAlertDialog> {
+  String _selectedVoice = 'male:Default Male';
+  String _selectedTone = 'Balanced';
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: const Color(0xFF0a1428),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0a1428),
+              Color(0xFF000000),
+            ],
+          ),
+          border: Border.all(
+            color: Colors.red.withOpacity(0.3),
+            width: 2,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Emergency Icon + Title
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.warning_rounded,
+                    color: Colors.red,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Make this an EMERGENCY ALERT?',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Get voice notifications with vibration',
+                        style: TextStyle(
+                          color: Color(0xFF8B9DC3),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Task Preview
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.red.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.task_alt_rounded,
+                    color: Colors.red,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '"${widget.extractedData['what'] ?? 'Critical Task'}"',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Emergency Alert Options (Voice & Tone)
+            ExpansionTile(
+              title: const Text(
+                'Emergency Alert Options',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              children: [
+                const SizedBox(height: 12),
+                
+                // Voice Selection
+                Text(
+                  'Voice Style:',
+                  style: TextStyle(
+                    color: const Color(0xFF8B9DC3).withOpacity(0.9),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedVoice,
+                  dropdownColor: const Color(0xFF0a1428),
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.red.withOpacity(0.3)),
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                  items: const [
+                    DropdownMenuItem(value: 'male:Default Male', child: Text('Default Male')),
+                    DropdownMenuItem(value: 'female:Default Female', child: Text('Default Female')),
+                    DropdownMenuItem(value: 'characters:Robot Assistant', child: Text('Robot Assistant')),
+                    DropdownMenuItem(value: 'characters:Drill Instructor', child: Text('Drill Instructor')),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedVoice = value!;
+                    });
+                  },
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Tone Selection
+                Text(
+                  'Tone Style:',
+                  style: TextStyle(
+                    color: const Color(0xFF8B9DC3).withOpacity(0.9),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedTone,
+                  dropdownColor: const Color(0xFF0a1428),
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.red.withOpacity(0.3)),
+                    ),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                  items: const [
+                    DropdownMenuItem(value: 'Balanced', child: Text('Balanced')),
+                    DropdownMenuItem(value: 'Energetic', child: Text('Energetic')),
+                    DropdownMenuItem(value: 'Urgent', child: Text('Urgent')),
+                    DropdownMenuItem(value: 'Serious', child: Text('Serious')),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedTone = value!;
+                    });
+                  },
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () {
+                      widget.onChoice(false, 'male:Default Male', 'Balanced');
+                      Navigator.of(context).pop();
+                    },
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: const Color(0xFF8B9DC3).withOpacity(0.3),
+                        ),
+                      ),
+                    ),
+                    child: Text(
+                      'Regular Alert',
+                      style: TextStyle(
+                        color: const Color(0xFF8B9DC3).withOpacity(0.8),
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      widget.onChoice(true, _selectedVoice, _selectedTone);
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      '🚨 EMERGENCY',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
