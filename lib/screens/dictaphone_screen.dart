@@ -48,6 +48,12 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
     _initializeAnimations();
     _initializeRecorder();
     _loadHistory();
+    void _checkSupportedCodecs() async {
+  print('🎧 Checking supported codecs...');
+  for (var codec in Codec.values) {
+    print('Codec: $codec');
+  }
+}
   }
 
   void _initializeAnimations() {
@@ -121,7 +127,7 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
   Future<String> _getRecordingPath() async {
     final directory = await getApplicationDocumentsDirectory();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    return '${directory.path}/recording_$timestamp.mp3';
+    return '${directory.path}/recording_$timestamp.wav'; // ✅ WAV format
   }
 
   Future<void> _startRecording() async {
@@ -131,10 +137,10 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
       // Get recording path
       _currentRecordingPath = await _getRecordingPath();
       
-      // Start recording
+      // Try different WAV codecs in order of compatibility
       await _recorder!.startRecorder(
         toFile: _currentRecordingPath,
-        codec: Codec.mp3,
+        codec: Codec.pcm16, // ✅ Try PCM 16-bit first (most basic WAV)
       );
       
       setState(() {
@@ -152,16 +158,44 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
       });
       
       HapticFeedback.mediumImpact();
-      print('🎤 Recording started: $_currentRecordingPath');
+      print('🎤 Recording started (WAV): $_currentRecordingPath');
       
     } catch (e) {
-      print('❌ Failed to start recording: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Failed to start recording: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('❌ Failed to start WAV recording with pcm16: $e');
+      
+      // If pcm16 fails, try without specifying codec (device default)
+      try {
+        await _recorder!.startRecorder(
+          toFile: _currentRecordingPath,
+          // No codec specified - let device choose
+        );
+        
+        setState(() {
+          _isRecording = true;
+          _recordingDuration = Duration.zero;
+        });
+        
+        _pulseController.repeat(reverse: true);
+        _waveController.repeat();
+        
+        _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          setState(() {
+            _recordingDuration = Duration(seconds: timer.tick);
+          });
+        });
+        
+        HapticFeedback.mediumImpact();
+        print('🎤 Recording started (default codec): $_currentRecordingPath');
+        
+      } catch (e2) {
+        print('❌ All WAV attempts failed: $e2');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ WAV recording failed: Try different format'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

@@ -119,7 +119,7 @@ class MotivatorApi {
       var audioFile = await http.MultipartFile.fromPath(
         'audio',
         audioFilePath,
-        filename: 'recording.mp3',
+        filename: 'recording.wav', // ✅ WAV format
       );
       request.files.add(audioFile);
 
