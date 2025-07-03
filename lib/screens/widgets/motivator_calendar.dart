@@ -42,13 +42,59 @@ class MotivatorCalendar extends StatefulWidget {
 class _MotivatorCalendarState extends State<MotivatorCalendar> {
   TaskFilter _currentFilter = TaskFilter.active;
   final TaskStorage _taskStorage = TaskStorage();
+  bool _isRefreshing = false;
 
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
+  // 🔄 Pull-to-refresh handler
+Future<void> _handleRefresh() async {
+  if (_isRefreshing) return;
+  
+  setState(() => _isRefreshing = true);
+  
+  try {
+    // Trigger parent to reload tasks
+    if (widget.onTasksChanged != null) {
+      widget.onTasksChanged!();
+    }
+    
+    // Add haptic feedback
+    HapticFeedback.mediumImpact();
+    
+    // Short delay for visual feedback
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+  } catch (e) {
+    print('Error refreshing: $e');
+  } finally {
+    setState(() => _isRefreshing = false);
+  }
+}
+
+@override
+Widget build(BuildContext context) {
+  return RefreshIndicator(
+    onRefresh: _handleRefresh,
+    color: const Color(0xFFD4AF37), // Gold refresh indicator
+    backgroundColor: Colors.black.withOpacity(0.8),
+    strokeWidth: 3,
+    child: SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(), // Enable pull-to-refresh
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
+          // Refresh instruction text
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Pull down to refresh tasks',
+              style: TextStyle(
+                color: const Color(0xFF8B9DC3).withOpacity(0.6),
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          
           // 📅 Calendar widget
           _buildCalendar(),
           
@@ -73,12 +119,34 @@ class _MotivatorCalendarState extends State<MotivatorCalendar> {
             _buildGeneratedLine(),
           ],
           
+          // Refresh indicator when loading
+          if (_isRefreshing)
+            Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Refreshing tasks...',
+                    style: TextStyle(
+                      color: const Color(0xFF8B9DC3).withOpacity(0.8),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          
           // 🔑 Add bottom padding to prevent bottom overflow
           const SizedBox(height: 100),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildCalendar() {
     return TableCalendar(

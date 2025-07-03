@@ -10,6 +10,7 @@ import 'dart:io';
 import '../services/motivator_api.dart';
 import '../services/task_scheduler.dart';
 import '../services/task_storage.dart';
+import 'widgets/app_bottom_navbar.dart';
 
 class DictaphoneScreen extends StatefulWidget {
   const DictaphoneScreen({Key? key}) : super(key: key);
@@ -216,6 +217,7 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
     }
   }
 
+  // 🔄 FIX 1: Updated _processRecording to return success result
   Future<void> _processRecording() async {
     if (_currentRecordingPath == null) {
       setState(() {
@@ -252,7 +254,7 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
       
       await _saveHistory();
       
-      // 🚀 NEW: Auto-create task with smart emergency detection
+      // 🚀 Auto-create task with smart emergency detection
       await _autoCreateTask(result['extractedData'], result['transcribedText']);
       
       print('✅ Recording processed successfully');
@@ -263,6 +265,11 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
         _isProcessing = false;
         _recordingDuration = Duration.zero;
       });
+      
+      // 🔧 FIX: Return false on error
+      if (mounted) {
+        Navigator.of(context).pop(false); // ❌ Return false on error
+      }
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -293,16 +300,6 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
 
   // 🚀 NEW: Auto-create task with smart emergency popup
   Future<void> _autoCreateTask(Map<String, dynamic> extractedData, String transcribedText) async {
-    // Show success message first
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('✅ Task added to calendar!'),
-        backgroundColor: const Color(0xFFD4AF37),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-
     // Check if we should suggest emergency alert
     final suggestEmergency = _shouldSuggestEmergencyAlert(transcribedText, extractedData);
     
@@ -332,7 +329,7 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
     );
   }
 
-  // 📅 Create actual task with settings
+  // 🔄 FIX 1: Updated _createTaskWithSettings to handle navigation properly
   Future<void> _createTaskWithSettings(
     Map<String, dynamic> extractedData, 
     String transcribedText,
@@ -385,29 +382,29 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
       await _taskScheduler.scheduleTask(taskData);
       print('✅ Notifications scheduled with TaskScheduler');
       
-      // Show final success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isEmergency 
-              ? '🚨 Emergency task scheduled with voice alerts!'
-              : '✅ Task scheduled successfully!'
+      // 🔧 FIX: After successful task creation, signal success to parent
+      if (mounted) {
+        // Pop back to main screen with success signal
+        Navigator.of(context).pop(true); // ✅ Return true on success
+        
+        // Optional: Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Task "${extractedData['what']}" added to calendar!'),
+            backgroundColor: const Color(0xFFD4AF37),
+            behavior: SnackBarBehavior.floating,
           ),
-          backgroundColor: isEmergency ? Colors.red : const Color(0xFFD4AF37),
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: 'View Calendar',
-            textColor: Colors.white,
-            onPressed: () {
-              // Navigate back and trigger refresh
-              Navigator.pop(context, true); // Return true to indicate task was added
-            },
-          ),
-        ),
-      );
+        );
+      }
       
     } catch (e) {
       print('❌ Error creating scheduled task: $e');
+      
+      // 🔧 FIX: Return false on error
+      if (mounted) {
+        Navigator.of(context).pop(false); // ❌ Return false on error
+      }
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('❌ Error scheduling task: $e'),
@@ -478,70 +475,78 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0a1428), // Navy
-              Color(0xFF000000), // Black
-            ],
-          ),
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Colors.transparent,
+    body: Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0a1428),
+            Color(0xFF1a2332), 
+            Color(0xFF0f1419),
+            Color(0xFF000000),
+          ],
+          stops: [0.0, 0.3, 0.7, 1.0],
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    children: [
-                      _buildRecordingInterface(),
-                      const SizedBox(height: 30),
-                      _buildHistorySection(),
-                    ],
-                  ),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    _buildRecordingInterface(),
+                    const SizedBox(height: 40),
+                    _buildHistorySection(),
+                    const SizedBox(height: 20),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+            // ADD THIS NEW LINE:
+            AppBottomNavBar(currentScreen: AppScreen.dictaphone),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
-        border: Border(
-          bottom: BorderSide(
-            color: const Color(0xFFD4AF37).withOpacity(0.1),
-            width: 1,
-          ),
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    decoration: BoxDecoration(
+      color: Colors.black.withOpacity(0.2),
+      border: Border(
+        bottom: BorderSide(
+          color: const Color(0xFFD4AF37).withOpacity(0.1),
+          width: 1,
         ),
       ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              color: Color(0xFF8B9DC3),
-              size: 24,
-            ),
+    ),
+    child: Row(
+      children: [
+        IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: Color(0xFF8B9DC3),
+            size: 24,
           ),
-          const SizedBox(width: 12),
-          const Column(
+        ),
+        const SizedBox(width: 12),
+        // 🔧 FIX: Wrap Column in Expanded to prevent overflow
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'AI Dictaphone',
                 style: TextStyle(
                   color: Colors.white,
@@ -549,20 +554,24 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
                   fontWeight: FontWeight.w400,
                 ),
               ),
-              Text(
+              // 🔧 FIX: Add flexible text wrapping
+              const Text(
                 'Speak your tasks, automatically added to calendar',
                 style: TextStyle(
                   color: Color(0xFF8B9DC3),
                   fontSize: 14,
                   fontWeight: FontWeight.w300,
                 ),
+                maxLines: 2, // Allow text to wrap to 2 lines if needed
+                overflow: TextOverflow.ellipsis, // Add ellipsis if still too long
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildRecordingInterface() {
     return Column(

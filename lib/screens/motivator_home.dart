@@ -10,13 +10,13 @@ import 'dart:ui';
 import '../services/motivator_api.dart';
 import '../services/notification_manager.dart';
 import '../services/task_scheduler.dart';
-import '../services/task_storage.dart'; // 📋 ADDED - TaskStorage import
+import '../services/task_storage.dart';
 import 'settings_screen.dart';
 import 'amber_alert_screen.dart';
 import 'widgets/motivator_dashboard.dart';
 import 'widgets/motivator_calendar.dart';
 import 'dictaphone_screen.dart';
-
+import 'widgets/app_bottom_navbar.dart'; // 📱 NEW IMPORT
 
 // ✅ ViewMode enum
 enum ViewMode { calendar, dashboard, dictaphone }
@@ -40,7 +40,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
   final TextEditingController _controller = TextEditingController();
   final MotivatorApi _api = MotivatorApi();
   final AudioPlayer _player = AudioPlayer();
-  final TaskStorage _taskStorage = TaskStorage(); // 📋 ADDED - TaskStorage instance
+  final TaskStorage _taskStorage = TaskStorage();
 
   late AnimationController _motivationController;
   late AnimationController _streakController;
@@ -84,9 +84,9 @@ class _MotivatorHomeState extends State<MotivatorHome>
   ];
 
   String _dailyQuote = "Success is not final, failure is not fatal: it is the courage to continue that counts.";
-  String _userName = "Champion"; // Will be loaded from SharedPreferences
+  String _userName = "Champion";
 
-  // 🎛️ User preferences from onboarding
+  // 🎛️ User preferences
   String? _currentTaskType;
   Map<String, dynamic>? _currentTaskConfig;
   String _selectedVoice = 'male:Default Male';
@@ -98,35 +98,22 @@ class _MotivatorHomeState extends State<MotivatorHome>
     _setupAnimations();
     _cardController.forward();
     
-    // Load user preferences including name
     _loadUserPreferences();
-    
-    // 📋 ADDED - Load tasks from storage
     _loadTasks();
     
-    // Set initial preferences from onboarding
     _currentTaskType = widget.initialTaskType;
     _currentTaskConfig = widget.taskTypeConfig;
     
-    // Update quick actions based on selected task type
     if (_currentTaskType != null) {
       _updateQuickActionsForTaskType();
     }
-    
-    // ✅ Setup notification listeners after widget tree is initialized
-    NotificationManager.instance.setupNotificationListeners();
-    
-    // ✅ Request enhanced notification permissions after initialization
-    NotificationManager.instance.requestAwesomeNotificationPermissions();
+
   }
 
-  // Load user preferences from SharedPreferences
   Future<void> _loadUserPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _userName = prefs.getString('user_name') ?? 'Champion';
-      
-      // 🎯 NEW: Load voice and tone settings with proper defaults
       _selectedVoice = prefs.getString('selected_voice') ?? 'male:Default Male'; 
       _selectedToneStyle = prefs.getString('selected_tone') ?? 'Balanced';
       _currentTaskType = prefs.getString('selected_task_type')?.isNotEmpty == true 
@@ -140,7 +127,6 @@ class _MotivatorHomeState extends State<MotivatorHome>
     print('  Task Type: $_currentTaskType');
   }
 
-  // 📋 ADDED - Load tasks from storage
   Future<void> _loadTasks() async {
     try {
       final allTasks = await _taskStorage.loadAllTasks();
@@ -163,9 +149,8 @@ class _MotivatorHomeState extends State<MotivatorHome>
     }
   }
 
-  // 📋 ADDED - Handle task changes (for swipe actions)
   void _handleTasksChanged() {
-    _loadTasks(); // Reload tasks when changes occur
+    _loadTasks();
   }
 
   void _updateQuickActionsForTaskType() {
@@ -254,23 +239,18 @@ class _MotivatorHomeState extends State<MotivatorHome>
     ));
   }
 
-  // Helper functions for calendar
   DateTime _normalizeDate(DateTime date) {
     return DateTime(date.year, date.month, date.day);
   }
 
-  // 📋 UPDATED - Enhanced task addition with storage
   void _addTaskToDay(DateTime day, Map<String, dynamic> taskData) async {
     try {
-      // Ensure task has an ID
       if (taskData['id'] == null) {
         taskData['id'] = DateTime.now().millisecondsSinceEpoch.toString();
       }
       
-      // Save to storage
       await _taskStorage.saveTask(taskData);
       
-      // Update local state
       final normalizedDay = _normalizeDate(day);
       setState(() {
         if (_tasks[normalizedDay] == null) {
@@ -351,271 +331,6 @@ class _MotivatorHomeState extends State<MotivatorHome>
     _generateMotivation(action);
   }
 
-  void _navigateToSettings() async {
-    HapticFeedback.lightImpact();
-    // 🎯 Ensure voice is in correct format before passing to settings
-    String currentVoice = _selectedVoice;
-    if (!currentVoice.contains(':')) {
-      // Convert legacy format to new format
-      if (currentVoice.contains('Female') || currentVoice.contains('Woman') || 
-          currentVoice.contains('Belle') || currentVoice.contains('Girl')) {
-        currentVoice = 'female:$currentVoice';
-      } else if (currentVoice.contains('Robot') || currentVoice.contains('Pirate') || 
-                 currentVoice.contains('Wizard') || currentVoice.contains('Superhero') || 
-                 currentVoice.contains('Lana') || currentVoice.contains('Baxter') || 
-                 currentVoice.contains('Argent')) {
-        currentVoice = 'characters:$currentVoice';
-      } else {
-        currentVoice = 'male:$currentVoice';
-      }
-    }
-    
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SettingsScreen(
-          currentTaskType: _currentTaskType,
-          currentTaskConfig: _currentTaskConfig,
-          currentVoice: currentVoice,
-          currentToneStyle: _selectedToneStyle,
-          onSettingsChanged: (taskType, config, voice, tone) {
-            setState(() {
-              _currentTaskType = taskType;
-              _currentTaskConfig = config;
-              _selectedVoice = voice ?? 'male:Default Male';
-              _selectedToneStyle = tone ?? 'Balanced';
-              _updateQuickActionsForTaskType();
-              
-              print('🔄 Settings updated - Voice: $_selectedVoice, Tone: $_selectedToneStyle');
-            
-            // 🎯 IMMEDIATELY test voice persistence by saving to SharedPreferences
-            SharedPreferences.getInstance().then((prefs) {
-              prefs.setString('selected_voice', _selectedVoice);
-              prefs.setString('selected_tone', _selectedToneStyle);
-              print('💾 Voice settings persisted immediately: $_selectedVoice');
-            });
-            });
-          },
-        ),
-      ),
-    );
-    
-    // 🎯 FIXED: Only reload the name (not voice settings which would overwrite the callback)
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _userName = prefs.getString('user_name') ?? 'Champion';
-    });
-    print('🔄 Reloaded user name: $_userName');
-  }
-      void _navigateToDictaphone() async {
-  HapticFeedback.selectionClick();
-  
-  // Navigate and await result
-  final result = await Navigator.push<bool>(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const DictaphoneScreen(),
-    ),
-  );
-  
-  // If a task was added, refresh the calendar
-  if (result == true) {
-    print('🔄 Task was added via dictaphone, refreshing calendar...');
-    await _loadTasks(); // Reload tasks from storage
-    
-    // Switch to calendar view to show the new task
-    setState(() {
-      _currentView = ViewMode.calendar;
-    });
-    
-    // Show brief confirmation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('📅 Calendar updated with your new task!'),
-        backgroundColor: const Color(0xFFD4AF37),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-}
-    Widget _buildDictaphoneFloatingButton() {
-    return AnimatedBuilder(
-      animation: _pulseController,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _pulseBeat.value,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFD4AF37), // Gold
-                  Color(0xFFB8941F), // Darker gold
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFD4AF37).withOpacity(0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: _navigateToDictaphone,
-                child: const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Icon(
-                    Icons.mic_rounded,
-                    color: Colors.black,
-                    size: 28,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _player.dispose();
-    _motivationController.dispose();
-    _streakController.dispose();
-    _pulseController.dispose();
-    _cardController.dispose();
-    _geometryController.dispose();
-    _particleController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0a1428), // Deep navy - MATCH splash/onboarding
-              Color(0xFF1a2332), // Navy blue
-              Color(0xFF0f1419), // Dark slate
-              Color(0xFF000000), // Black
-            ],
-            stops: [0.0, 0.3, 0.7, 1.0],
-          ),
-        ),
-        child: Stack(
-          children: [
-            // EXACT same geometric background as splash/onboarding
-            AnimatedBuilder(
-              animation: _geometryController,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: GeometricPatternPainter(_geometryRotation.value),
-                  size: Size.infinite,
-                );
-              },
-            ),
-
-            // EXACT same refined particles as splash/onboarding
-            AnimatedBuilder(
-              animation: _particleController,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: RefinedParticlePainter(_particleController.value),
-                  size: Size.infinite,
-                );
-              },
-            ),
-
-            SafeArea(
-              child: Column(
-                children: [
-                  // 🔝 Sophisticated Fixed Header
-                  _buildSophisticatedHeader(),
-                  
-                  // 📱 Main Content
-                  Expanded(
-                    child: AnimatedBuilder(
-                      animation: _cardController,
-                      builder: (context, child) {
-                        return Transform.translate(
-                          offset: Offset(0, _cardSlide.value),
-                          child: Opacity(
-                            opacity: _cardOpacity.value,
-                            child: Column(
-                              children: [
-                                const SizedBox(height: 10),
-                                _buildSophisticatedViewToggle(),
-                                const SizedBox(height: 20),
-                                Expanded(
-                                  child: _currentView == ViewMode.dashboard
-                                      ? MotivatorDashboard(
-                                          userName: _userName,
-                                          motivationStreak: _motivationStreak,
-                                          totalMotivations: _totalMotivations,
-                                          recentMotivations: _recentMotivations,
-                                          quickActions: _quickActions,
-                                          dailyQuote: _dailyQuote,
-                                          generatedLine: _generatedLine,
-                                          loading: _loading,
-                                          currentTaskType: _currentTaskType,
-                                          currentTaskConfig: _currentTaskConfig,
-                                          controller: _controller,
-                                          motivationScale: _motivationScale,
-                                          streakBounce: _streakBounce,
-                                          streakController: _streakController,
-                                          onGenerateMotivation: () => _generateMotivation(),
-                                          onSelectQuickAction: _selectQuickAction,
-                                          onGenerateMotivationForTask: _generateMotivationForTask,
-                                        )
-                                      : MotivatorCalendar(
-                                          selectedDay: _selectedDay,
-                                          tasks: _tasks,
-                                          generatedLine: _generatedLine,
-                                          loading: _loading,
-                                          currentTaskType: _currentTaskType,
-                                          onDaySelected: (selectedDay) {
-                                            setState(() {
-                                              _selectedDay = selectedDay;
-                                            });
-                                          },
-                                          onTaskAdded: _addTaskToDay,
-                                          onGenerateMotivationForTask: _generateMotivationForTask,
-                                          onTasksChanged: _handleTasksChanged, // 📋 ADDED - Task history callback
-                                        ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  
-                  // 🔽 Sophisticated Fixed Footer Navigation
-                  _buildSophisticatedFooter(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildSophisticatedHeader() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -623,11 +338,10 @@ class _MotivatorHomeState extends State<MotivatorHome>
         color: Colors.black.withOpacity(0.2),
         border: Border(
           bottom: BorderSide(
-            color: const Color(0xFFD4AF37).withOpacity(0.1), // Gold accent
+            color: const Color(0xFFD4AF37).withOpacity(0.1),
             width: 1,
           ),
         ),
-        // Add subtle backdrop blur effect
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -638,157 +352,70 @@ class _MotivatorHomeState extends State<MotivatorHome>
       ),
       child: Row(
         children: [
-          // Sophisticated animated logo
           AnimatedBuilder(
             animation: Listenable.merge([_pulseController, _geometryController]),
             builder: (context, child) {
               return Transform.scale(
                 scale: _pulseBeat.value,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Outer geometric ring - smaller version of splash logo
-                    Transform.rotate(
-                      angle: _geometryRotation.value * 2 * math.pi,
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xFFD4AF37).withOpacity(_glowOpacity.value * 0.4),
-                            width: 1,
-                          ),
-                        ),
-                        child: CustomPaint(
-                          painter: GeometricRingPainter(_geometryRotation.value),
-                        ),
-                      ),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFD4AF37), Color(0xFFFFD700)],
                     ),
-                    // Inner glow
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFD4AF37).withOpacity(_glowOpacity.value * 0.3),
-                            blurRadius: 15,
-                            spreadRadius: 2,
-                          ),
-                        ],
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFD4AF37).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
-                    ),
-                    // Main icon with task type context
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            const Color(0xFFD4AF37).withOpacity(0.1),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                      child: Icon(
-                        _currentTaskConfig?['icon'] ?? Icons.auto_awesome,
-                        color: const Color(0xFFD4AF37), // Gold instead of teal
-                        size: 24,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Colors.black,
+                    size: 24,
+                  ),
                 ),
               );
             },
           ),
-          
           const SizedBox(width: 16),
-          
-          // Sophisticated title section
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // App title with gold gradient
-                ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0xFFFFD700), // Bright gold
-                      Color(0xFFD4AF37), // Rich gold
-                      Color(0xFFB8860B), // Deep gold
-                    ],
-                    stops: [0.0, 0.5, 1.0],
-                  ).createShader(bounds),
-                  child: const Text(
-                    'Motivator.AI',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w200, // Ultra-light like splash
-                      letterSpacing: 1,
-                      shadows: [
-                        Shadow(
-                          color: Color(0xFFD4AF37),
-                          blurRadius: 4,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
+                const Text(
+                  'Motivator.AI',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.5,
                   ),
                 ),
-                
-                if (_currentTaskType != null)
-                  Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD4AF37).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: const Color(0xFFD4AF37).withOpacity(0.3),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Text(
-                      '$_currentTaskType Mode',
-                      style: const TextStyle(
-                        color: Color(0xFFD4AF37), // Gold accent
-                        fontSize: 11,
-                        fontWeight: FontWeight.w300,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
+                Text(
+                  'Your AI motivation companion',
+                  style: TextStyle(
+                    color: const Color(0xFF8B9DC3).withOpacity(0.8),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w300,
                   ),
+                ),
               ],
             ),
           ),
-          
-          // Sophisticated streak counter
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFFD4AF37).withOpacity(0.1),
-                  const Color(0xFFD4AF37).withOpacity(0.05),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xFFD4AF37).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: const Color(0xFFD4AF37).withOpacity(0.3),
                 width: 1,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFD4AF37).withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -824,7 +451,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
         color: Colors.white.withOpacity(0.05),
         borderRadius: BorderRadius.circular(25),
         border: Border.all(
-          color: const Color(0xFFD4AF37).withOpacity(0.2), // Gold border
+          color: const Color(0xFFD4AF37).withOpacity(0.2),
           width: 1,
         ),
         boxShadow: [
@@ -849,7 +476,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
                   gradient: _currentView == ViewMode.dashboard
                       ? const LinearGradient(
                           colors: [
-                            Color(0xFFD4AF37), // Gold gradient
+                            Color(0xFFD4AF37),
                             Color(0xFFFFD700),
                           ],
                         )
@@ -906,7 +533,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
                   gradient: _currentView == ViewMode.calendar
                       ? const LinearGradient(
                           colors: [
-                            Color(0xFFD4AF37), // Gold gradient
+                            Color(0xFFD4AF37),
                             Color(0xFFFFD700),
                           ],
                         )
@@ -956,109 +583,134 @@ class _MotivatorHomeState extends State<MotivatorHome>
     );
   }
 
-  Widget _buildSophisticatedFooter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // Reduced for 4 buttons
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
-        border: Border(
-          top: BorderSide(
-            color: const Color(0xFFD4AF37).withOpacity(0.1), // Gold border
-            width: 1,
-          ),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-          _buildSophisticatedFooterButton(
-            icon: Icons.dashboard_rounded,
-            label: 'Dashboard',
-            isActive: _currentView == ViewMode.dashboard,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              setState(() => _currentView = ViewMode.dashboard);
-            },
-          ),
-          _buildSophisticatedFooterButton(
-            icon: Icons.calendar_today_rounded,
-            label: 'Calendar',
-            isActive: _currentView == ViewMode.calendar,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              setState(() => _currentView = ViewMode.calendar);
-            },
-          ),
-          _buildSophisticatedFooterButton(
-            icon: Icons.mic_rounded, // 🎤 Microphone icon for dictaphone
-            label: 'Dictaphone',
-            isActive: false, // Never active since it navigates away
-            onTap: _navigateToDictaphone,
-          ),
-          _buildSophisticatedFooterButton(
-            icon: Icons.settings_rounded,
-            label: 'Settings',
-            isActive: false,
-            onTap: _navigateToSettings,
-          ),
-        ],
-      ),
-    );
+  @override
+  void dispose() {
+    _controller.dispose();
+    _player.dispose();
+    _motivationController.dispose();
+    _streakController.dispose();
+    _pulseController.dispose();
+    _cardController.dispose();
+    _geometryController.dispose();
+    _particleController.dispose();
+    super.dispose();
   }
 
-  Widget _buildSophisticatedFooterButton({
-    required IconData icon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12), // Reduced for 4 buttons
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFD4AF37).withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: isActive 
-              ? Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3))
-              : null,
-          boxShadow: isActive 
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFFD4AF37).withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0a1428),
+              Color(0xFF1a2332),
+              Color(0xFF0f1419),
+              Color(0xFF000000),
+            ],
+            stops: [0.0, 0.3, 0.7, 1.0],
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            Icon(
-              icon,
-              color: isActive 
-                  ? const Color(0xFFD4AF37) 
-                  : const Color(0xFF8B9DC3).withOpacity(0.7),
-              size: 22,
+            AnimatedBuilder(
+              animation: _geometryController,
+              builder: (context, child) {
+                return CustomPaint(
+                  painter: GeometricPatternPainter(_geometryRotation.value),
+                  size: Size.infinite,
+                );
+              },
             ),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color: isActive 
-                    ? const Color(0xFFD4AF37) 
-                    : const Color(0xFF8B9DC3).withOpacity(0.7),
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.w500 : FontWeight.w300,
-                letterSpacing: 0.3,
+            AnimatedBuilder(
+              animation: _particleController,
+              builder: (context, child) {
+                return CustomPaint(
+                  painter: RefinedParticlePainter(_particleController.value),
+                  size: Size.infinite,
+                );
+              },
+            ),
+            SafeArea(
+              child: Column(
+                children: [
+                  _buildSophisticatedHeader(),
+                  Expanded(
+                    child: AnimatedBuilder(
+                      animation: _cardController,
+                      builder: (context, child) {
+                        return Transform.translate(
+                          offset: Offset(0, _cardSlide.value),
+                          child: Opacity(
+                            opacity: _cardOpacity.value,
+                            child: Column(
+                              children: [
+                                const SizedBox(height: 10),
+                                _buildSophisticatedViewToggle(),
+                                const SizedBox(height: 20),
+                                Expanded(
+                                  child: _currentView == ViewMode.dashboard
+                                      ? MotivatorDashboard(
+                                          userName: _userName,
+                                          controller: _controller,
+                                          currentTaskType: _currentTaskType,
+                                          currentTaskConfig: _currentTaskConfig,
+                                          loading: _loading,
+                                          onGenerateMotivation: _generateMotivation,
+                                          generatedLine: _generatedLine,
+                                          motivationScale: _motivationScale,
+                                          streakBounce: _streakBounce,           // ✅ ADD THIS LINE
+                                          streakController: _streakController,   // ✅ ADD THIS LINE TOO  
+                                          totalMotivations: _totalMotivations,
+                                          motivationStreak: _motivationStreak,
+                                          recentMotivations: _recentMotivations,
+                                          quickActions: _quickActions,
+                                          dailyQuote: _dailyQuote,
+                                          onSelectQuickAction: _selectQuickAction,
+                                          onGenerateMotivationForTask: _generateMotivationForTask,
+)
+                                      : MotivatorCalendar(
+                                          selectedDay: _selectedDay,
+                                          tasks: _tasks,
+                                          generatedLine: _generatedLine,
+                                          loading: _loading,
+                                          currentTaskType: _currentTaskType,
+                                          onDaySelected: (selectedDay) {
+                                            setState(() => _selectedDay = selectedDay);
+                                          },
+                                          onTaskAdded: _addTaskToDay,
+                                          onGenerateMotivationForTask: _generateMotivationForTask,
+                                          onTasksChanged: _handleTasksChanged,
+                                        ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  // ✅ NEW: AppBottomNavBar replaces old footer
+                  AppBottomNavBar(
+                    currentScreen: _currentView == ViewMode.dashboard 
+                        ? AppScreen.dashboard 
+                        : AppScreen.calendar,
+                    onScreenChanged: (screen) {
+                      setState(() {
+                        _currentView = screen == AppScreen.dashboard 
+                            ? ViewMode.dashboard 
+                            : ViewMode.calendar;
+                      });
+                      
+                      if (screen == AppScreen.calendar) {
+                        _loadTasks();
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
           ],
@@ -1068,124 +720,77 @@ class _MotivatorHomeState extends State<MotivatorHome>
   }
 }
 
-// EXACT same painters as splash/onboarding for perfect visual consistency
+// Keep your existing GeometricPatternPainter and RefinedParticlePainter classes
 class GeometricPatternPainter extends CustomPainter {
-  final double animationValue;
-
-  GeometricPatternPainter(this.animationValue);
-
+  final double progress;
+  
+  GeometricPatternPainter(this.progress);
+  
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFD4AF37).withOpacity(0.05)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.5;
-
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
-
-    // Draw subtle geometric lines
-    for (int i = 0; i < 8; i++) {
-      final angle = (i * math.pi / 4) + (animationValue * math.pi / 4);
-      final startX = centerX + math.cos(angle) * 100;
-      final startY = centerY + math.sin(angle) * 100;
-      final endX = centerX + math.cos(angle) * 200;
-      final endY = centerY + math.sin(angle) * 200;
-
-      canvas.drawLine(
-        Offset(startX, startY),
-        Offset(endX, endY),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-class GeometricRingPainter extends CustomPainter {
-  final double animationValue;
-
-  GeometricRingPainter(this.animationValue);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFD4AF37).withOpacity(0.4)
+      ..color = const Color(0xFFD4AF37).withOpacity(0.03)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-
+    
     final centerX = size.width / 2;
     final centerY = size.height / 2;
-    final radius = 20.0; // Smaller radius for header logo
-
-    // Draw rotating geometric points
-    for (int i = 0; i < 6; i++) {
-      final angle = (i * math.pi / 3) + (animationValue * 2 * math.pi);
-      final x = centerX + math.cos(angle) * radius;
-      final y = centerY + math.sin(angle) * radius;
-
-      canvas.drawCircle(
-        Offset(x, y),
-        1.5,
-        paint..style = PaintingStyle.fill,
-      );
+    
+    for (int i = 0; i < 3; i++) {
+      final radius = 50.0 + (i * 80);
+      final rotation = progress * 2 * math.pi + (i * math.pi / 4);
+      
+      canvas.save();
+      canvas.translate(centerX, centerY);
+      canvas.rotate(rotation);
+      
+      final path = Path();
+      for (int j = 0; j < 6; j++) {
+        final angle = (j * math.pi * 2) / 6;
+        final x = radius * math.cos(angle);
+        final y = radius * math.sin(angle);
+        
+        if (j == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      path.close();
+      
+      canvas.drawPath(path, paint);
+      canvas.restore();
     }
   }
-
+  
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 class RefinedParticlePainter extends CustomPainter {
-  final double animationValue;
-  final List<RefinedParticle> particles = [];
-
-  RefinedParticlePainter(this.animationValue) {
-    // Generate fewer, more elegant particles
-    for (int i = 0; i < 30; i++) {
-      particles.add(RefinedParticle());
-    }
-  }
-
+  final double progress;
+  
+  RefinedParticlePainter(this.progress);
+  
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
+      ..color = const Color(0xFFD4AF37).withOpacity(0.08)
       ..style = PaintingStyle.fill;
-
-    for (final particle in particles) {
-      final x = (particle.x * size.width + 
-                 math.sin(animationValue * math.pi + particle.phase) * 20) % size.width;
-      final y = (particle.y * size.height + 
-                 animationValue * particle.speed * size.height) % size.height;
-      
-      final opacity = (math.sin(animationValue * math.pi + particle.phase) + 1) / 2;
-      paint.color = const Color(0xFFD4AF37).withOpacity(opacity * 0.15);
+    
+    for (int i = 0; i < 20; i++) {
+      final x = (size.width * 0.1) + (i * size.width * 0.04);
+      final y = (size.height * 0.3) + 
+                (math.sin(progress * 2 * math.pi + i * 0.5) * 40);
       
       canvas.drawCircle(
-        Offset(x, y),
-        particle.size,
+        Offset(x, y), 
+        1.5 + math.sin(progress * 4 * math.pi + i) * 0.5, 
         paint,
       );
     }
   }
-
+  
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-class RefinedParticle {
-  final double x;
-  final double y;
-  final double size;
-  final double speed;
-  final double phase;
-
-  RefinedParticle()
-      : x = math.Random().nextDouble(),
-        y = math.Random().nextDouble(),
-        size = math.Random().nextDouble() * 1.5 + 0.5,
-        speed = math.Random().nextDouble() * 0.3 + 0.05,
-        phase = math.Random().nextDouble() * 2 * math.pi;
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'widgets/app_bottom_navbar.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String? currentTaskType;
@@ -297,47 +298,51 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          // 🎨 SOPHISTICATED NAVY/GOLD GRADIENT - matching other screens
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0a1428), // Deep navy
-              Color(0xFF1a2332), // Navy blue  
-              Color(0xFF0f1419), // Dark slate
-              Color(0xFF000000), // Black
-            ],
-            stops: [0.0, 0.3, 0.7, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildSophisticatedHeader(),
-              Expanded(
-                child: AnimatedBuilder(
-                  animation: _slideController,
-                  builder: (context, child) {
-                    return Transform.translate(
-                      offset: Offset(0, _slideAnimation.value),
-                      child: Opacity(
-                        opacity: _fadeAnimation.value,
-                        child: _buildSettingsContent(),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0a1428),
+            Color(0xFF1a2332), 
+            Color(0xFF0f1419),
+            Color(0xFF000000),
+          ],
+          stops: [0.0, 0.3, 0.7, 1.0],
         ),
       ),
-    );
-  }
+      child: SafeArea(
+        child: Column(
+          children: [
+            _buildSophisticatedHeader(),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: _slideController,
+                builder: (context, child) {
+                  return Transform.translate(
+                    offset: Offset(0, _slideAnimation.value),
+                    child: Opacity(
+                      opacity: _fadeAnimation.value,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                        child: _buildSettingsContent(),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            // ADD THIS NEW LINE:
+            AppBottomNavBar(currentScreen: AppScreen.settings),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
   Widget _buildSophisticatedHeader() {
     return Container(
