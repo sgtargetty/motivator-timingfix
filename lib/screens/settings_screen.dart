@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'widgets/app_bottom_navbar.dart';
+import '../services/reflection_settings_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String? currentTaskType;
@@ -38,7 +39,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   bool _hapticFeedback = true;
   bool _dailyReminders = true;
   String _reminderTime = '9:00 AM';
-  String _userName = 'Champion'; // Will be loaded from SharedPreferences
+  String _userName = 'Champion';
   String? _selectedTaskType;
 
   // Controllers for the name input
@@ -48,6 +49,10 @@ class _SettingsScreenState extends State<SettingsScreen>
   String _selectedVoiceCategory = 'male';
   String _selectedVoiceStyle = 'Default Male';
   String _selectedToneStyle = 'Balanced';
+
+  // 🎭 NEW: Reflection settings
+  final ReflectionSettingsService _reflectionSettings = ReflectionSettingsService();
+  bool _hasShownReflectionOnboarding = false;
 
   // Task type options
   final Map<String, Map<String, dynamic>> _taskTypeOptions = {
@@ -96,7 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     },
     {
       'name': 'Cheerleader',
-      'description': 'Positive and enthusiastic',
+      'description': 'Enthusiastic and bubbly',
       'icon': Icons.celebration,
       'color': Colors.pink,
       'example': '"You\'re amazing! Go team YOU! 🎉"',
@@ -106,56 +111,45 @@ class _SettingsScreenState extends State<SettingsScreen>
       'description': 'Wise and philosophical',
       'icon': Icons.psychology,
       'color': Colors.purple,
-      'example': '"Every journey begins with a single step."',
+      'example': '"Like water flowing over stone, persistence shapes success."',
     },
     {
       'name': 'Coach',
-      'description': 'Supportive and goal-focused',
+      'description': 'Strategic and goal-focused',
       'icon': Icons.sports,
       'color': Colors.green,
-      'example': '"Let\'s break this down and tackle it!"',
+      'example': '"Let\'s break this down into manageable steps."',
     },
     {
       'name': 'Friend',
       'description': 'Casual and encouraging',
-      'icon': Icons.people,
+      'icon': Icons.person,
       'color': Colors.orange,
-      'example': '"Hey, I believe in you! You\'ve got this!"',
+      'example': '"Hey, you\'ve totally got this! I believe in you."',
     },
   ];
 
-  // Voice categories and their available styles
+  // Voice catalog
   final Map<String, List<Map<String, dynamic>>> _voiceCatalog = {
     'male': [
-      {'name': 'Default Male', 'description': 'Clear, professional male voice', 'icon': Icons.person},
-      {'name': 'Energetic Male', 'description': 'High-energy, enthusiastic', 'icon': Icons.flash_on},
-      {'name': 'Calm Male', 'description': 'Soothing, peaceful delivery', 'icon': Icons.spa},
-      {'name': 'Professional Male', 'description': 'Business-ready, authoritative', 'icon': Icons.business},
-      {'name': 'Wise Mentor', 'description': 'Experienced, thoughtful guide', 'icon': Icons.school},
-      {'name': 'Sports Announcer', 'description': 'Dynamic, exciting commentary', 'icon': Icons.sports},
+      {'name': 'Default Male', 'description': 'Classic, reliable voice', 'icon': Icons.man},
+      {'name': 'Energetic Male', 'description': 'High-energy, dynamic', 'icon': Icons.bolt},
+      {'name': 'Calm Male', 'description': 'Peaceful, soothing', 'icon': Icons.spa},
+      {'name': 'Professional Male', 'description': 'Authoritative, clear', 'icon': Icons.business},
     ],
     'female': [
-      {'name': 'Default Female', 'description': 'Clear, professional female voice', 'icon': Icons.person_outline},
-      {'name': 'Energetic Female', 'description': 'High-energy, enthusiastic', 'icon': Icons.flash_on},
-      {'name': 'Calm Female', 'description': 'Soothing, peaceful delivery', 'icon': Icons.spa},
-      {'name': 'Professional Female', 'description': 'Business-ready, authoritative', 'icon': Icons.business},
-      {'name': 'Wise Woman', 'description': 'Maternal, nurturing wisdom', 'icon': Icons.favorite},
-      {'name': 'News Anchor', 'description': 'Clear, authoritative reporting', 'icon': Icons.mic},
+      {'name': 'Default Female', 'description': 'Warm, encouraging voice', 'icon': Icons.woman},
+      {'name': 'Energetic Female', 'description': 'Vibrant, enthusiastic', 'icon': Icons.star},
+      {'name': 'Calm Female', 'description': 'Gentle, reassuring', 'icon': Icons.favorite},
+      {'name': 'Professional Female', 'description': 'Confident, polished', 'icon': Icons.work_outline},
     ],
     'characters': [
-      {'name': 'Robot Assistant', 'description': 'Futuristic AI companion', 'icon': Icons.smart_toy},
       {'name': 'Pirate Captain', 'description': 'Adventurous seafaring spirit', 'icon': Icons.sailing},
+      {'name': 'Robot Assistant', 'description': 'Logical, efficient helper', 'icon': Icons.smart_toy},
       {'name': 'Wizard Sage', 'description': 'Mystical, ancient wisdom', 'icon': Icons.auto_fix_high},
-      {'name': 'Superhero', 'description': 'Heroic, inspiring strength', 'icon': Icons.shield},
-      {'name': 'Surfer Dude', 'description': 'Laid-back, chill vibes', 'icon': Icons.surfing},
-      {'name': 'Southern Belle', 'description': 'Charming, warm hospitality', 'icon': Icons.favorite_border},
-      {'name': 'British Butler', 'description': 'Refined, proper etiquette', 'icon': Icons.wine_bar},
-      {'name': 'Valley Girl', 'description': 'Bubbly, enthusiastic energy', 'icon': Icons.celebration},
-      {'name': 'Game Show Host', 'description': 'Exciting, engaging presenter', 'icon': Icons.emoji_events},
-      {'name': 'Meditation Guru', 'description': 'Peaceful, zen guidance', 'icon': Icons.self_improvement},
-      {'name': 'Drill Instructor', 'description': 'Military, commanding presence', 'icon': Icons.military_tech},
-      {'name': 'Cheerleader Coach', 'description': 'Peppy, encouraging spirit', 'icon': Icons.sports_gymnastics},
-      // 🎭 CUSTOM ELEVENLABS VOICES - Your creations!
+      {'name': 'Superhero', 'description': 'Noble, inspiring hero', 'icon': Icons.shield},
+      {'name': 'British Butler', 'description': 'Refined, proper service', 'icon': Icons.restaurant_menu},
+      {'name': 'Drill Instructor', 'description': 'Military precision, commanding', 'icon': Icons.fitness_center},
       {'name': 'Lana Croft', 'description': 'Adventure hero, tomb raider spirit', 'icon': Icons.explore},
       {'name': 'Baxter Jordan', 'description': 'Dark analyst, methodical precision', 'icon': Icons.psychology_alt},
       {'name': 'Argent', 'description': 'Advanced AI assistant, JARVIS-like', 'icon': Icons.android},
@@ -167,7 +161,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     super.initState();
     _setupAnimations();
     _loadCurrentSettings();
-    _loadUserPreferences(); // ✅ Load saved user name
+    _loadUserPreferences();
+    _checkReflectionOnboarding(); // 🎭 NEW: Check reflection onboarding
     _slideController.forward();
   }
 
@@ -195,17 +190,51 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  // ✅ Load user preferences from SharedPreferences
+  // 🎭 NEW: Check reflection onboarding
+  Future<void> _checkReflectionOnboarding() async {
+    final hasShown = await _reflectionSettings.hasShownOnboarding();
+    setState(() {
+      _hasShownReflectionOnboarding = hasShown;
+    });
+  }
+
+  // 🎭 NEW: Show reflection onboarding dialog
+  void _showReflectionOnboarding() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => ReflectionOnboardingDialog(
+        onAccept: () async {
+          await _reflectionSettings.setOnboardingShown();
+          await _reflectionSettings.setReflectionEnabled(true);
+          Navigator.pop(context);
+          setState(() {});
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('🎭 Smart reflections enabled! Customize below.'),
+              backgroundColor: Color(0xFFD4AF37),
+            ),
+          );
+        },
+        onDecline: () async {
+          await _reflectionSettings.setOnboardingShown();
+          Navigator.pop(context);
+        },
+        onLater: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
   Future<void> _loadUserPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _userName = prefs.getString('user_name') ?? 'Champion';
     });
     
-    // Initialize the text controller with the loaded name
     _nameController = TextEditingController(text: _userName);
-    
-    // Listen for changes to the name field
     _nameController.addListener(() {
       setState(() {
         _userName = _nameController.text;
@@ -216,7 +245,6 @@ class _SettingsScreenState extends State<SettingsScreen>
   void _loadCurrentSettings() {
     _selectedTaskType = widget.currentTaskType;
     
-    // Parse the combined voice setting (if it exists)
     if (widget.currentVoice != null) {
       _parseVoiceSetting(widget.currentVoice!);
     }
@@ -225,13 +253,11 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   void _parseVoiceSetting(String voiceSetting) {
-    // Parse format like "male:Default Male" or just "Default Male"
     if (voiceSetting.contains(':')) {
       final parts = voiceSetting.split(':');
       _selectedVoiceCategory = parts[0];
       _selectedVoiceStyle = parts[1];
     } else {
-      // Legacy format - try to determine category from style name
       if (voiceSetting.contains('Female') || voiceSetting.contains('Woman') || voiceSetting.contains('Belle') || voiceSetting.contains('Girl')) {
         _selectedVoiceCategory = 'female';
       } else if (voiceSetting.contains('Robot') || voiceSetting.contains('Pirate') || voiceSetting.contains('Wizard') || voiceSetting.contains('Superhero') || voiceSetting.contains('Lana') || voiceSetting.contains('Baxter') || voiceSetting.contains('Argent')) {
@@ -246,7 +272,6 @@ class _SettingsScreenState extends State<SettingsScreen>
   void _selectVoiceCategory(String category) {
     setState(() {
       _selectedVoiceCategory = category;
-      // Set default voice for the category
       if (_voiceCatalog[category]!.isNotEmpty) {
         _selectedVoiceStyle = _voiceCatalog[category]!.first['name'];
       }
@@ -254,31 +279,24 @@ class _SettingsScreenState extends State<SettingsScreen>
     HapticFeedback.selectionClick();
   }
 
-  // ✅ Updated _saveSettings method to save user name to SharedPreferences
   Future<void> _saveSettings() async {
     HapticFeedback.heavyImpact();
     
-    // Get SharedPreferences to save user name
     final prefs = await SharedPreferences.getInstance();
     
-    // Save the user name
     if (_userName.trim().isNotEmpty) {
       await prefs.setString('user_name', _userName.trim());
       print('💾 Saved user name: ${_userName.trim()}');
     }
     
-    // Create updated config
     final updatedConfig = _selectedTaskType != null 
         ? _taskTypeOptions[_selectedTaskType!]
         : null;
     
-    // Combine voice category and style for backend
     final combinedVoiceSetting = '$_selectedVoiceCategory:$_selectedVoiceStyle';
     
-    // Call the callback to update main app
     widget.onSettingsChanged(_selectedTaskType, updatedConfig, combinedVoiceSetting, _selectedToneStyle);
     
-    // Show success feedback
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('✅ Settings saved successfully!'),
@@ -291,67 +309,69 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   @override
   void dispose() {
-    _nameController.dispose(); // ✅ Dispose the controller
+    _nameController.dispose();
     _slideController.dispose();
     _pulseController.dispose();
     super.dispose();
   }
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    body: Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0a1428),
-            Color(0xFF1a2332), 
-            Color(0xFF0f1419),
-            Color(0xFF000000),
-          ],
-          stops: [0.0, 0.3, 0.7, 1.0],
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0a1428),
+              Color(0xFF1a2332), 
+              Color(0xFF0f1419),
+              Color(0xFF000000),
+            ],
+            stops: [0.0, 0.3, 0.7, 1.0],
+          ),
         ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            _buildSophisticatedHeader(),
-            Expanded(
-              child: AnimatedBuilder(
-                animation: _slideController,
-                builder: (context, child) {
-                  return Transform.translate(
-                    offset: Offset(0, _slideAnimation.value),
-                    child: Opacity(
-                      opacity: _fadeAnimation.value,
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-                        child: _buildSettingsContent(),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildSophisticatedHeader(),
+              Expanded(
+                child: AnimatedBuilder(
+                  animation: _slideController,
+                  builder: (context, child) {
+                    return Transform.translate(
+                      offset: Offset(0, _slideAnimation.value),
+                      child: Opacity(
+                        opacity: _fadeAnimation.value,
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                          child: _buildSettingsContent(),
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-            // ADD THIS NEW LINE:
-            AppBottomNavBar(currentScreen: AppScreen.settings),
-          ],
+              AppBottomNavBar(
+                currentScreen: AppScreen.settings,
+                onScreenChanged: (screen) => Navigator.pop(context),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildSophisticatedHeader() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
+        color: Colors.white.withOpacity(0.02),
         border: Border(
           bottom: BorderSide(
-            color: const Color(0xFFD4AF37).withOpacity(0.2), // 🎨 GOLD accent border
+            color: const Color(0xFF8B9DC3).withOpacity(0.1),
             width: 1,
           ),
         ),
@@ -359,80 +379,35 @@ Widget build(BuildContext context) {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF8B9DC3)), // 🎨 Muted blue-gray
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              Navigator.pop(context);
-            },
-          ),
-          AnimatedBuilder(
-            animation: _pulseController,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _pulseAnimation.value,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFFD4AF37).withOpacity(0.3), // 🎨 GOLD gradient
-                        const Color(0xFFFFD700).withOpacity(0.2),
-                      ],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFD4AF37).withOpacity(0.3), // 🎨 GOLD glow
-                        blurRadius: 8,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.settings,
-                    color: Color(0xFFD4AF37), // 🎨 GOLD icon
-                    size: 20,
-                  ),
-                ),
-              );
-            },
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: Color(0xFF8B9DC3),
+              size: 24,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [
-                  Color(0xFFFFD700), // 🎨 GOLD gradient text shader
-                  Color(0xFFD4AF37),
-                  Color(0xFFB8860B),
-                ],
-                stops: [0.0, 0.5, 1.0],
-              ).createShader(bounds),
-              child: const Text(
-                'Settings',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w200, // 🎨 Ultra-light academic font
-                  letterSpacing: 1.0,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Settings',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: _saveSettings,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD4AF37), // 🎨 GOLD button
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              'Save',
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.w600,
-              ),
+                Text(
+                  'Customize your AI experience',
+                  style: TextStyle(
+                    color: const Color(0xFF8B9DC3).withOpacity(0.8),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -441,84 +416,96 @@ Widget build(BuildContext context) {
   }
 
   Widget _buildSettingsContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildProfileSection(),
-          const SizedBox(height: 30),
-          _buildTaskTypeSection(),
-          const SizedBox(height: 30),
-          _buildEnhancedVoiceSection(),
-          const SizedBox(height: 30),
-          _buildToneStyleSection(),
-          const SizedBox(height: 30),
-          _buildNotificationSection(),
-          const SizedBox(height: 30),
-          _buildAppPreferencesSection(),
-          const SizedBox(height: 20),
-        ],
+    return Column(
+      children: [
+        _buildPersonalizationSection(),
+        const SizedBox(height: 20),
+        _buildTaskTypeSection(),
+        const SizedBox(height: 20),
+        _buildEnhancedVoiceSection(),
+        const SizedBox(height: 20),
+        _buildToneStyleSection(),
+        const SizedBox(height: 20),
+        
+        // 🎭 NEW: Smart Reflections Section
+        _buildSectionHeader('Smart Reflections'),
+        ReflectionSettingsSection(),
+        const SizedBox(height: 20),
+        
+        _buildNotificationSection(),
+        const SizedBox(height: 20),
+        _buildAdvancedSection(),
+        const SizedBox(height: 30),
+        _buildSaveButton(),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  // 🎭 NEW: Section header helper
+  Widget _buildSectionHeader(String title) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          color: Color(0xFFD4AF37),
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
 
-  Widget _buildProfileSection() {
+  Widget _buildPersonalizationSection() {
     return _buildSettingsCard(
-      title: 'Profile',
+      title: 'Personalization',
       icon: Icons.person,
-      color: const Color(0xFFD4AF37), // 🎨 GOLD
+      color: const Color(0xFFD4AF37),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
-            controller: _nameController, // ✅ Use the controller
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w300, // 🎨 Light academic font
-            ),
-            decoration: InputDecoration(
-              labelText: 'Display Name',
-              labelStyle: const TextStyle(
-                color: Color(0xFFD4AF37), // 🎨 GOLD
-                fontWeight: FontWeight.w300,
-              ),
-              hintText: 'How should we address you?',
-              hintStyle: TextStyle(
-                color: const Color(0xFF8B9DC3).withOpacity(0.5), // 🎨 Muted blue-gray
-                fontWeight: FontWeight.w300,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: const Color(0xFFD4AF37).withOpacity(0.3), // 🎨 GOLD border
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: Color(0xFFD4AF37), // 🎨 GOLD focused border
-                ),
-              ),
-              filled: true,
-              fillColor: Colors.white.withOpacity(0.05),
+          Text(
+            'Your Name',
+            style: TextStyle(
+              color: const Color(0xFF8B9DC3).withOpacity(0.9),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Icon(Icons.info_outline, color: Color(0xFFD4AF37), size: 16), // 🎨 GOLD
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'This name will appear in your personalized motivations',
-                  style: TextStyle(
-                    color: const Color(0xFF8B9DC3).withOpacity(0.8), // 🎨 Muted blue-gray
-                    fontSize: 12,
-                    fontWeight: FontWeight.w300,
-                  ),
-                ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFF8B9DC3).withOpacity(0.2),
+                width: 1,
               ),
-            ],
+            ),
+            child: TextField(
+              controller: _nameController,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Enter your name',
+                hintStyle: TextStyle(
+                  color: const Color(0xFF8B9DC3).withOpacity(0.5),
+                  fontSize: 16,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _userName = value;
+                });
+              },
+            ),
           ),
         ],
       ),
@@ -527,45 +514,92 @@ Widget build(BuildContext context) {
 
   Widget _buildTaskTypeSection() {
     return _buildSettingsCard(
-      title: 'Primary Focus',
-      icon: Icons.flag,
-      color: const Color(0xFFD4AF37), // 🎨 GOLD
+      title: 'Focus Mode',
+      icon: Icons.psychology,
+      color: const Color(0xFFD4AF37),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'What\'s your main goal area?',
+            'Current Focus',
             style: TextStyle(
-              color: const Color(0xFF8B9DC3).withOpacity(0.9), // 🎨 Muted blue-gray
+              color: const Color(0xFF8B9DC3).withOpacity(0.9),
               fontSize: 14,
-              fontWeight: FontWeight.w300,
+              fontWeight: FontWeight.w400,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedTaskType = null;
+              });
+              HapticFeedback.selectionClick();
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: _selectedTaskType == null
+                    ? const Color(0xFFD4AF37).withOpacity(0.1)
+                    : Colors.white.withOpacity(0.02),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _selectedTaskType == null
+                      ? const Color(0xFFD4AF37).withOpacity(0.5)
+                      : const Color(0xFF8B9DC3).withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.all_inclusive,
+                    color: _selectedTaskType == null ? const Color(0xFFD4AF37) : const Color(0xFF8B9DC3),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'All Activities (Balanced)',
+                    style: TextStyle(
+                      color: _selectedTaskType == null ? const Color(0xFFD4AF37) : const Color(0xFF8B9DC3),
+                      fontWeight: _selectedTaskType == null ? FontWeight.w600 : FontWeight.w300,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
           Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: _taskTypeOptions.keys.map((taskType) {
-              final config = _taskTypeOptions[taskType]!;
+            spacing: 8,
+            runSpacing: 8,
+            children: _taskTypeOptions.entries.map((entry) {
+              final taskType = entry.key;
+              final config = entry.value;
               final isSelected = _selectedTaskType == taskType;
               
               return GestureDetector(
                 onTap: () {
+                  setState(() {
+                    _selectedTaskType = taskType;
+                  });
                   HapticFeedback.selectionClick();
-                  setState(() => _selectedTaskType = taskType);
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFFFD700)]) // 🎨 GOLD gradient when selected
-                        : null,
-                    color: isSelected ? null : Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(20),
+                    color: isSelected
+                        ? config['color']
+                        : Colors.white.withOpacity(0.02),
+                    borderRadius: BorderRadius.circular(25),
                     border: Border.all(
                       color: isSelected
-                          ? Colors.transparent
-                          : const Color(0xFF8B9DC3).withOpacity(0.2), // 🎨 Muted blue-gray border
+                          ? config['color']
+                          : const Color(0xFF8B9DC3).withOpacity(0.1),
                       width: 1,
                     ),
                   ),
@@ -581,7 +615,7 @@ Widget build(BuildContext context) {
                       Text(
                         taskType,
                         style: TextStyle(
-                          color: isSelected ? Colors.black : const Color(0xFF8B9DC3), // 🎨 Black when selected, muted blue-gray when not
+                          color: isSelected ? Colors.black : const Color(0xFF8B9DC3),
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w300,
                           fontSize: 14,
                         ),
@@ -601,15 +635,14 @@ Widget build(BuildContext context) {
     return _buildSettingsCard(
       title: 'Voice & Character',
       icon: Icons.record_voice_over,
-      color: const Color(0xFFD4AF37), // 🎨 GOLD
+      color: const Color(0xFFD4AF37),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Voice Category Selection
           Text(
             'Voice Category',
             style: TextStyle(
-              color: const Color(0xFF8B9DC3).withOpacity(0.9), // 🎨 Muted blue-gray
+              color: const Color(0xFF8B9DC3).withOpacity(0.9),
               fontSize: 14,
               fontWeight: FontWeight.w400,
             ),
@@ -633,18 +666,16 @@ Widget build(BuildContext context) {
           
           const SizedBox(height: 20),
           
-          // Voice Style Selection
           Text(
             'Voice Style',
             style: TextStyle(
-              color: const Color(0xFF8B9DC3).withOpacity(0.9), // 🎨 Muted blue-gray
+              color: const Color(0xFF8B9DC3).withOpacity(0.9),
               fontSize: 14,
               fontWeight: FontWeight.w400,
             ),
           ),
           const SizedBox(height: 12),
           
-          // Voice options for selected category
           ...(_voiceCatalog[_selectedVoiceCategory] ?? []).map((voice) {
             final isSelected = _selectedVoiceStyle == voice['name'];
             
@@ -652,50 +683,42 @@ Widget build(BuildContext context) {
               margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? const Color(0xFFD4AF37).withOpacity(0.1) // 🎨 GOLD background when selected
+                    ? const Color(0xFFD4AF37).withOpacity(0.1)
                     : Colors.white.withOpacity(0.02),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: isSelected
-                      ? const Color(0xFFD4AF37) // 🎨 GOLD border when selected
-                      : const Color(0xFF8B9DC3).withOpacity(0.1), // 🎨 Muted blue-gray border
+                      ? const Color(0xFFD4AF37).withOpacity(0.5)
+                      : const Color(0xFF8B9DC3).withOpacity(0.1),
                   width: 1,
                 ),
               ),
               child: ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD4AF37).withOpacity(0.1), // 🎨 GOLD background
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    voice['icon'],
-                    color: const Color(0xFFD4AF37), // 🎨 GOLD icon
-                    size: 20,
-                  ),
+                leading: Icon(
+                  voice['icon'],
+                  color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF8B9DC3),
+                  size: 20,
                 ),
                 title: Text(
                   voice['name'],
                   style: TextStyle(
-                    color: isSelected ? const Color(0xFFD4AF37) : Colors.white, // 🎨 GOLD when selected
-                    fontWeight: isSelected ? FontWeight.w500 : FontWeight.w300,
+                    color: isSelected ? const Color(0xFFD4AF37) : Colors.white,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    fontSize: 14,
                   ),
                 ),
                 subtitle: Text(
                   voice['description'],
                   style: TextStyle(
-                    color: const Color(0xFF8B9DC3).withOpacity(0.7), // 🎨 Muted blue-gray
+                    color: const Color(0xFF8B9DC3).withOpacity(0.7),
                     fontSize: 12,
-                    fontWeight: FontWeight.w300,
                   ),
                 ),
-                trailing: isSelected
-                    ? const Icon(Icons.check_circle, color: Color(0xFFD4AF37)) // 🎨 GOLD check
-                    : null,
                 onTap: () {
+                  setState(() {
+                    _selectedVoiceStyle = voice['name'];
+                  });
                   HapticFeedback.selectionClick();
-                  setState(() => _selectedVoiceStyle = voice['name']);
                 },
               ),
             );
@@ -713,13 +736,14 @@ Widget build(BuildContext context) {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          gradient: isSelected
-              ? const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFFFD700)]) // 🎨 GOLD gradient when selected
-              : null,
-          color: isSelected ? null : Colors.white.withOpacity(0.05),
+          color: isSelected
+              ? color.withOpacity(0.1)
+              : Colors.white.withOpacity(0.02),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? Colors.transparent : const Color(0xFF8B9DC3).withOpacity(0.2), // 🎨 Muted blue-gray border
+            color: isSelected
+                ? color.withOpacity(0.5)
+                : const Color(0xFF8B9DC3).withOpacity(0.1),
             width: 1,
           ),
         ),
@@ -727,16 +751,16 @@ Widget build(BuildContext context) {
           children: [
             Icon(
               icon,
-              color: isSelected ? Colors.black : const Color(0xFF8B9DC3), // 🎨 Black when selected, muted blue-gray when not
-              size: 24,
+              color: isSelected ? color : const Color(0xFF8B9DC3),
+              size: 20,
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.black : const Color(0xFF8B9DC3), // 🎨 Black when selected, muted blue-gray when not
+                color: isSelected ? color : const Color(0xFF8B9DC3),
                 fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w300,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
           ],
@@ -747,121 +771,84 @@ Widget build(BuildContext context) {
 
   Widget _buildToneStyleSection() {
     return _buildSettingsCard(
-      title: 'Motivation Style',
+      title: 'Motivational Tone',
       icon: Icons.psychology,
-      color: const Color(0xFFD4AF37), // 🎨 GOLD
+      color: const Color(0xFFD4AF37),
       child: Column(
-        children: _toneStyles.map((tone) {
-          final isSelected = _selectedToneStyle == tone['name'];
-          
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? const Color(0xFFD4AF37).withOpacity(0.1) // 🎨 GOLD background when selected
-                  : Colors.white.withOpacity(0.02),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isSelected
-                    ? const Color(0xFFD4AF37) // 🎨 GOLD border when selected
-                    : const Color(0xFF8B9DC3).withOpacity(0.1), // 🎨 Muted blue-gray border
-                width: 1,
-              ),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Choose Your Coaching Style',
+            style: TextStyle(
+              color: const Color(0xFF8B9DC3).withOpacity(0.9),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: isSelected 
-                              ? const Color(0xFFD4AF37).withOpacity(0.2) // 🎨 GOLD background when selected
-                              : tone['color'].withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          tone['icon'],
-                          color: isSelected ? const Color(0xFFD4AF37) : tone['color'], // 🎨 GOLD when selected
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              tone['name'],
-                              style: TextStyle(
-                                color: isSelected ? const Color(0xFFD4AF37) : Colors.white, // 🎨 GOLD when selected
-                                fontWeight: FontWeight.w500,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Text(
-                              tone['description'],
-                              style: TextStyle(
-                                color: const Color(0xFF8B9DC3).withOpacity(0.7), // 🎨 Muted blue-gray
-                                fontSize: 12,
-                                fontWeight: FontWeight.w300,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Radio<String>(
-                        value: tone['name'],
-                        groupValue: _selectedToneStyle,
-                        onChanged: (value) {
-                          HapticFeedback.selectionClick();
-                          setState(() => _selectedToneStyle = value!);
-                        },
-                        activeColor: const Color(0xFFD4AF37), // 🎨 GOLD radio button
-                      ),
-                    ],
+          ),
+          const SizedBox(height: 12),
+          
+          ..._toneStyles.map((tone) {
+            final isSelected = _selectedToneStyle == tone['name'];
+            
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? tone['color'].withOpacity(0.1)
+                    : Colors.white.withOpacity(0.02),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected
+                      ? tone['color'].withOpacity(0.5)
+                      : const Color(0xFF8B9DC3).withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: ListTile(
+                leading: Icon(
+                  tone['icon'],
+                  color: isSelected ? tone['color'] : const Color(0xFF8B9DC3),
+                  size: 20,
+                ),
+                title: Text(
+                  tone['name'],
+                  style: TextStyle(
+                    color: isSelected ? tone['color'] : Colors.white,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    fontSize: 14,
                   ),
-                  if (isSelected) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD4AF37).withOpacity(0.1), // 🎨 GOLD background
-                        borderRadius: BorderRadius.circular(8),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tone['description'],
+                      style: TextStyle(
+                        color: const Color(0xFF8B9DC3).withOpacity(0.7),
+                        fontSize: 12,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Example:',
-                            style: TextStyle(
-                              color: const Color(0xFFD4AF37), // 🎨 GOLD
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            tone['example'],
-                            style: TextStyle(
-                              color: const Color(0xFF8B9DC3).withOpacity(0.9), // 🎨 Muted blue-gray
-                              fontSize: 12,
-                              fontStyle: FontStyle.italic,
-                              fontWeight: FontWeight.w300,
-                            ),
-                          ),
-                        ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      tone['example'],
+                      style: TextStyle(
+                        color: const Color(0xFF8B9DC3).withOpacity(0.8),
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ],
-                ],
+                ),
+                onTap: () {
+                  setState(() {
+                    _selectedToneStyle = tone['name'];
+                  });
+                  HapticFeedback.selectionClick();
+                },
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ],
       ),
     );
   }
@@ -870,82 +857,75 @@ Widget build(BuildContext context) {
     return _buildSettingsCard(
       title: 'Notifications',
       icon: Icons.notifications,
-      color: const Color(0xFFD4AF37), // 🎨 GOLD
+      color: const Color(0xFFD4AF37),
       child: Column(
         children: [
-          _buildSwitchTile(
-            title: 'Enable Notifications',
-            subtitle: 'Receive motivational reminders',
-            value: _notificationsEnabled,
-            onChanged: (value) => setState(() => _notificationsEnabled = value),
-            color: const Color(0xFFD4AF37), // 🎨 GOLD
+          _buildToggleOption(
+            'Push Notifications',
+            'Receive task reminders and motivational alerts',
+            _notificationsEnabled,
+            (value) => setState(() => _notificationsEnabled = value),
+            Icons.notifications_active,
           ),
-          const SizedBox(height: 8),
-          _buildSwitchTile(
-            title: 'Bypass Silent Mode',
-            subtitle: 'Play audio even when phone is silent',
-            value: _bypassSilentMode,
-            onChanged: (value) => setState(() => _bypassSilentMode = value),
-            color: Colors.red,
-            icon: Icons.volume_up,
+          const SizedBox(height: 16),
+          _buildToggleOption(
+            'Override Silent Mode',
+            'Play audio even when phone is on silent',
+            _bypassSilentMode,
+            (value) => setState(() => _bypassSilentMode = value),
+            Icons.volume_up,
           ),
-          const SizedBox(height: 8),
-          _buildSwitchTile(
-            title: 'Daily Reminders',
-            subtitle: 'Get reminded to stay motivated',
-            value: _dailyReminders,
-            onChanged: (value) => setState(() => _dailyReminders = value),
-            color: const Color(0xFFD4AF37), // 🎨 GOLD
-            icon: Icons.schedule,
+          const SizedBox(height: 16),
+          _buildToggleOption(
+            'Haptic Feedback',
+            'Feel vibrations for interactions',
+            _hapticFeedback,
+            (value) => setState(() => _hapticFeedback = value),
+            Icons.vibration,
           ),
-          if (_dailyReminders) ...[
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFD4AF37).withOpacity(0.1), // 🎨 GOLD background
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: const Color(0xFFD4AF37).withOpacity(0.3), // 🎨 GOLD border
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.access_time, color: Color(0xFFD4AF37), size: 16), // 🎨 GOLD
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Reminder Time:',
-                    style: TextStyle(
-                      color: Color(0xFFD4AF37), // 🎨 GOLD
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () {
-                      // Show time picker
-                      HapticFeedback.selectionClick();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD4AF37).withOpacity(0.2), // 🎨 GOLD background
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        _reminderTime,
-                        style: const TextStyle(
-                          color: Color(0xFFD4AF37), // 🎨 GOLD
-                          fontWeight: FontWeight.w500,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdvancedSection() {
+    return _buildSettingsCard(
+      title: 'Advanced',
+      icon: Icons.settings,
+      color: const Color(0xFFD4AF37),
+      child: Column(
+        children: [
+          _buildActionButton(
+            'Reset All Settings',
+            'Restore default configuration',
+            Icons.refresh,
+            Colors.orange,
+            () => _showResetDialog(),
+          ),
+          const SizedBox(height: 12),
+          _buildActionButton(
+            'Export Data',
+            'Download your settings and data',
+            Icons.download,
+            Colors.blue,
+            () => _exportData(),
+          ),
+          const SizedBox(height: 12),
+          _buildActionButton(
+            'Privacy Policy',
+            'View our privacy and data policies',
+            Icons.privacy_tip,
+            Colors.green,
+            () => _openPrivacyPolicy(),
+          ),
+          if (!_hasShownReflectionOnboarding) ...[
+            const SizedBox(height: 12),
+            _buildActionButton(
+              'Smart Reflections Tour',
+              'Learn about AI check-ins and reflections',
+              Icons.psychology,
+              Color(0xFFD4AF37),
+              () => _showReflectionOnboarding(),
             ),
           ],
         ],
@@ -953,40 +933,50 @@ Widget build(BuildContext context) {
     );
   }
 
-  Widget _buildAppPreferencesSection() {
-    return _buildSettingsCard(
-      title: 'App Preferences',
-      icon: Icons.tune,
-      color: const Color(0xFFD4AF37), // 🎨 GOLD
-      child: Column(
-        children: [
-          _buildSwitchTile(
-            title: 'Haptic Feedback',
-            subtitle: 'Feel vibrations for interactions',
-            value: _hapticFeedback,
-            onChanged: (value) => setState(() => _hapticFeedback = value),
-            color: const Color(0xFFD4AF37), // 🎨 GOLD
-            icon: Icons.vibration,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Icon(Icons.info_outline, color: Color(0xFFD4AF37), size: 16), // 🎨 GOLD
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'More settings coming soon: Dark mode, export data, backup & sync',
-                  style: TextStyle(
-                    color: const Color(0xFF8B9DC3).withOpacity(0.7), // 🎨 Muted blue-gray
-                    fontSize: 12,
-                    fontWeight: FontWeight.w300,
+  Widget _buildSaveButton() {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _pulseAnimation.value,
+          child: Container(
+            width: double.infinity,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFD4AF37), Color(0xFFB8941F)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFD4AF37).withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _saveSettings,
+                child: const Center(
+                  child: Text(
+                    'Save Settings',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -998,108 +988,594 @@ Widget build(BuildContext context) {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFD4AF37).withOpacity(0.2), // 🎨 GOLD border
+          color: const Color(0xFF8B9DC3).withOpacity(0.1),
           width: 1,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: color,
+                    size: 20,
+                  ),
                 ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(width: 12),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggleOption(
+    String title,
+    String description,
+    bool value,
+    Function(bool) onChanged,
+    IconData icon,
+  ) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: value ? const Color(0xFFD4AF37) : const Color(0xFF8B9DC3),
+          size: 20,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
                 title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w400, // 🎨 Academic light font weight
-                  letterSpacing: 0.5,
+                style: TextStyle(
+                  color: value ? const Color(0xFFD4AF37) : Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                description,
+                style: TextStyle(
+                  color: const Color(0xFF8B9DC3).withOpacity(0.7),
+                  fontSize: 12,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          child,
+        ),
+        Switch(
+          value: value,
+          onChanged: onChanged,
+          activeColor: const Color(0xFFD4AF37),
+          activeTrackColor: const Color(0xFFD4AF37).withOpacity(0.3),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton(
+    String title,
+    String description,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF8B9DC3).withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: ListTile(
+        leading: Icon(
+          icon,
+          color: color,
+          size: 20,
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          description,
+          style: TextStyle(
+            color: const Color(0xFF8B9DC3).withOpacity(0.7),
+            fontSize: 12,
+          ),
+        ),
+        trailing: Icon(
+          Icons.arrow_forward_ios,
+          color: const Color(0xFF8B9DC3),
+          size: 16,
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  // Helper methods
+  void _showResetDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2A2D3E),
+        title: const Text(
+          'Reset Settings',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Are you sure you want to reset all settings to default? This action cannot be undone.',
+          style: TextStyle(color: Color(0xFF8B9DC3)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF8B9DC3)),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              // Reset reflection settings
+              await _reflectionSettings.resetToDefaults();
+              
+              // Reset other settings
+              setState(() {
+                _selectedTaskType = null;
+                _selectedVoiceCategory = 'male';
+                _selectedVoiceStyle = 'Default Male';
+                _selectedToneStyle = 'Balanced';
+                _userName = 'Champion';
+                _nameController.text = 'Champion';
+                _notificationsEnabled = true;
+                _bypassSilentMode = false;
+                _hapticFeedback = true;
+              });
+              
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('✅ Settings reset to defaults'),
+                  backgroundColor: Color(0xFFD4AF37),
+                ),
+              );
+            },
+            child: const Text(
+              'Reset',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSwitchTile({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required Function(bool) onChanged,
-    required Color color,
-    IconData? icon,
-  }) {
+  void _exportData() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('📊 Data export feature coming soon!'),
+        backgroundColor: Color(0xFFD4AF37),
+      ),
+    );
+  }
+
+  void _openPrivacyPolicy() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🔒 Privacy policy will open in browser'),
+        backgroundColor: Color(0xFFD4AF37),
+      ),
+    );
+  }
+}
+
+// 🎭 NEW: Reflection Settings Section Widget
+class ReflectionSettingsSection extends StatefulWidget {
+  const ReflectionSettingsSection({Key? key}) : super(key: key);
+
+  @override
+  _ReflectionSettingsSectionState createState() => _ReflectionSettingsSectionState();
+}
+
+class _ReflectionSettingsSectionState extends State<ReflectionSettingsSection> {
+  final ReflectionSettingsService _settingsService = ReflectionSettingsService();
+  
+  bool _reflectionEnabled = false;
+  ReflectionStyle _notificationStyle = ReflectionStyle.audio;
+  Map<String, dynamic> _settings = {};
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    setState(() => _loading = true);
+    
+    try {
+      final settings = await _settingsService.getAllSettings();
+      setState(() {
+        _settings = settings;
+        _reflectionEnabled = settings['enabled'] as bool;
+        _notificationStyle = settings['style'] as ReflectionStyle;
+        _loading = false;
+      });
+    } catch (e) {
+      print('Error loading reflection settings: $e');
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _updateReflectionEnabled(bool enabled) async {
+    await _settingsService.setReflectionEnabled(enabled);
+    setState(() => _reflectionEnabled = enabled);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(enabled 
+          ? '✅ Smart reflections enabled'
+          : '❌ Smart reflections disabled'
+        ),
+        backgroundColor: enabled ? Color(0xFFD4AF37) : Colors.grey,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Center(
+        child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
+      );
+    }
+
+    return Column(
+      children: [
+        _buildMainToggle(),
+        if (_reflectionEnabled) ...[
+          SizedBox(height: 16),
+          _buildAdvancedSettings(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMainToggle() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.symmetric(horizontal: 0, vertical: 8),
       decoration: BoxDecoration(
-        color: value
-            ? color.withOpacity(0.1)
-            : Colors.white.withOpacity(0.02),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: value
-              ? color.withOpacity(0.3)
-              : const Color(0xFF8B9DC3).withOpacity(0.1), // 🎨 Muted blue-gray border
+          color: Color(0xFF8B9DC3).withOpacity(0.1),
           width: 1,
         ),
       ),
-      child: Row(
+      child: ListTile(
+        leading: Container(
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Color(0xFFD4AF37).withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.psychology,
+            color: Color(0xFFD4AF37),
+            size: 24,
+          ),
+        ),
+        title: Text(
+          'Smart Reflections',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          'AI automatically checks in after your tasks',
+          style: TextStyle(
+            color: Color(0xFF8B9DC3),
+            fontSize: 14,
+          ),
+        ),
+        trailing: Switch(
+          value: _reflectionEnabled,
+          onChanged: _updateReflectionEnabled,
+          activeColor: Color(0xFFD4AF37),
+          activeTrackColor: Color(0xFFD4AF37).withOpacity(0.3),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdvancedSettings() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Color(0xFF8B9DC3).withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: ExpansionTile(
+        leading: Icon(
+          Icons.tune,
+          color: Color(0xFFD4AF37),
+        ),
+        title: Text(
+          'Reflection Preferences',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          'Customize your check-in experience',
+          style: TextStyle(
+            color: Color(0xFF8B9DC3),
+            fontSize: 14,
+          ),
+        ),
         children: [
-          if (icon != null) ...[
-            Icon(icon, color: value ? color : const Color(0xFF8B9DC3), size: 16), // 🎨 Muted blue-gray when off
-            const SizedBox(width: 8),
-          ],
+          _buildQuickSettings(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickSettings() {
+    return Padding(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Quick Settings',
+            style: TextStyle(
+              color: Color(0xFFD4AF37),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: 12),
+          Text(
+            'For detailed customization, use the main settings above.',
+            style: TextStyle(
+              color: Color(0xFF8B9DC3),
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          SizedBox(height: 16),
+          
+          // Fixed layout with proper constraints
+          Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.schedule, color: Color(0xFF8B9DC3), size: 16),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Default: 2 hours after tasks',
+                      style: TextStyle(color: Color(0xFF8B9DC3), fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.category, color: Color(0xFF8B9DC3), size: 16),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Enabled: Medical appointments, Important meetings',
+                      style: TextStyle(color: Color(0xFF8B9DC3), fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.volume_up, color: Color(0xFF8B9DC3), size: 16),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Style: Audio check-in (recommended)',
+                      style: TextStyle(color: Color(0xFF8B9DC3), fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 🎭 NEW: Reflection Onboarding Dialog
+class ReflectionOnboardingDialog extends StatelessWidget {
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+  final VoidCallback onLater;
+
+  const ReflectionOnboardingDialog({
+    Key? key,
+    required this.onAccept,
+    required this.onDecline,
+    required this.onLater,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Color(0xFF2A2D3E),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(
+        children: [
+          Icon(Icons.psychology, color: Color(0xFFD4AF37), size: 28),
+          SizedBox(width: 12),
           Expanded(
+            child: Text(
+              'Smart Reflections',
+              style: TextStyle(
+                color: Color(0xFFD4AF37),
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Would you like your AI companion to check in with you after important appointments and tasks?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              height: 1.4,
+            ),
+          ),
+          SizedBox(height: 16),
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Color(0xFFD4AF37).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Color(0xFFD4AF37).withOpacity(0.3),
+                width: 1,
+              ),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  'Benefits:',
                   style: TextStyle(
-                    color: value ? color : Colors.white,
-                    fontWeight: FontWeight.w500,
+                    color: Color(0xFFD4AF37),
                     fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: const Color(0xFF8B9DC3).withOpacity(0.7), // 🎨 Muted blue-gray
-                    fontSize: 12,
-                    fontWeight: FontWeight.w300,
-                  ),
-                ),
+                SizedBox(height: 8),
+                _buildBenefit('✅ Build positive completion habits'),
+                _buildBenefit('🎯 Emotional support when you need it'),
+                _buildBenefit('📈 Track your progress and patterns'),
+                _buildBenefit('🎭 Personalized, caring conversations'),
               ],
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: (newValue) {
-              HapticFeedback.lightImpact();
-              onChanged(newValue);
-            },
-            activeColor: color,
-            activeTrackColor: color.withOpacity(0.3),
+          SizedBox(height: 12),
+          Text(
+            'You can always customize or disable this in settings.',
+            style: TextStyle(
+              color: Color(0xFF8B9DC3),
+              fontSize: 14,
+              fontStyle: FontStyle.italic,
+            ),
           ),
         ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: onLater,
+          child: Text(
+            'Ask me later',
+            style: TextStyle(color: Color(0xFF8B9DC3)),
+          ),
+        ),
+        TextButton(
+          onPressed: onDecline,
+          child: Text(
+            'No thanks',
+            style: TextStyle(color: Color(0xFF8B9DC3)),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: onAccept,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Color(0xFFD4AF37),
+            foregroundColor: Colors.black,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: Text(
+            'Yes, enable!',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBenefit(String text) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 4),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: Colors.white.withOpacity(0.9),
+          fontSize: 14,
+        ),
       ),
     );
   }

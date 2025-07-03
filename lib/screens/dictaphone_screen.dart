@@ -416,41 +416,109 @@ class _DictaphoneScreenState extends State<DictaphoneScreen>
   }
 
   // 🕒 Smart time parsing from AI data
-  DateTime _parseWhenField(String? when, String transcribedText) {
-    final whenLower = when?.toLowerCase() ?? '';
-    final textLower = transcribedText.toLowerCase();
-    
-    DateTime baseTime = DateTime.now().add(const Duration(hours: 1)); // Default: 1 hour from now
-    
-    // Parse "tomorrow"
-    if (whenLower.contains('tomorrow') || textLower.contains('tomorrow')) {
-      baseTime = DateTime.now().add(const Duration(days: 1));
-      
-      // Try to extract specific time
-      if (textLower.contains('10 o\'clock') || textLower.contains('10am') || textLower.contains('10 a.m')) {
-        baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 10, 0);
-      } else if (textLower.contains('2 o\'clock') || textLower.contains('2pm') || textLower.contains('2 p.m')) {
-        baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 14, 0);
-      } else if (textLower.contains('3 o\'clock') || textLower.contains('3pm') || textLower.contains('3 p.m')) {
-        baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 15, 0);
+  // 🔧 FIXED _parseWhenField - REPLACE in dictaphone_screen.dart
+DateTime _parseWhenField(String? when, String transcribedText) {
+  print('🔍 Parsing when field: "$when"');
+  print('🔍 Transcribed text: "$transcribedText"');
+  
+  // 🚀 PRIORITY: If GPT-4.1 provided a valid ISO date, use it directly
+  if (when != null && when != "Not specified" && when.trim().isNotEmpty) {
+    try {
+      // 🔧 FIXED: Check for ISO date format including timezone offsets
+      // Valid formats: "2025-07-29T09:00:00Z" OR "2025-07-29T09:00:00-04:00" OR "2025-07-29T09:00:00+09:00"
+      if (when.contains('T') && (when.contains('Z') || when.contains('+') || when.contains('-'))) {
+        
+        // 🔧 ADDITIONAL CHECK: Ensure it has the timezone part at the end
+        final hasTimezone = when.endsWith('Z') || 
+                           (when.length > 19 && (when.substring(19).contains('+') || when.substring(19).contains('-')));
+        
+        if (hasTimezone) {
+          final parsedDate = DateTime.parse(when);
+          final localDate = parsedDate.toLocal();
+          print('✅ Successfully parsed timezone-aware ISO date: $when → ${localDate.toString()}');
+          print('📅 Scheduled for: ${localDate.day}/${localDate.month}/${localDate.year} at ${localDate.hour}:${localDate.minute.toString().padLeft(2, '0')}');
+          return localDate;
+        } else {
+          print('⚠️ Date has T but no timezone info: "$when"');
+        }
       } else {
-        // Default tomorrow time
-        baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 9, 0);
+        print('⚠️ Date format doesn\'t look like ISO: "$when"');
       }
+    } catch (e) {
+      print('❌ Failed to parse ISO date "$when": $e');
     }
-    // Parse "today"
-    else if (whenLower.contains('today') || textLower.contains('today')) {
-      baseTime = DateTime.now().add(const Duration(hours: 2)); // 2 hours from now
-    }
-    // Parse "next week"
-    else if (whenLower.contains('next week')) {
-      baseTime = DateTime.now().add(const Duration(days: 7));
+  }
+  
+  print('🔄 Falling back to manual date parsing...');
+  
+  // Fallback for legacy dates or parsing failures
+  final whenLower = when?.toLowerCase() ?? '';
+  final textLower = transcribedText.toLowerCase();
+  
+  DateTime baseTime = DateTime.now().add(const Duration(hours: 1)); // Default: 1 hour from now
+  
+  // Handle simple cases as fallback
+  if (whenLower.contains('tomorrow') || textLower.contains('tomorrow')) {
+    baseTime = DateTime.now().add(const Duration(days: 1));
+    
+    // Try to extract specific time from transcribed text
+    if (textLower.contains('10 o\'clock') || textLower.contains('10am') || textLower.contains('10 a.m')) {
+      baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 10, 0);
+    } else if (textLower.contains('2 o\'clock') || textLower.contains('2pm') || textLower.contains('2 p.m')) {
+      baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 14, 0);
+    } else if (textLower.contains('3 o\'clock') || textLower.contains('3pm') || textLower.contains('3 p.m')) {
+      baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 15, 0);
+    } else {
+      // Default tomorrow time
       baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 9, 0);
     }
-    
-    print('🕒 Parsed time: $baseTime from "$when" and "$transcribedText"');
-    return baseTime;
+    print('📅 Detected "tomorrow" - scheduled for: $baseTime');
   }
+  else if (whenLower.contains('today') || textLower.contains('today')) {
+    baseTime = DateTime.now().add(const Duration(hours: 2)); // 2 hours from now
+    print('📅 Detected "today" - scheduled for: $baseTime');
+  }
+  else if (whenLower.contains('next week')) {
+    baseTime = DateTime.now().add(const Duration(days: 7));
+    baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 9, 0);
+    print('📅 Detected "next week" - scheduled for: $baseTime');
+  }
+  else {
+    // Enhanced weekday detection as fallback
+    final now = DateTime.now();
+    final weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    
+    bool foundWeekday = false;
+    for (int i = 0; i < weekdays.length; i++) {
+      if (whenLower.contains(weekdays[i]) || textLower.contains(weekdays[i])) {
+        // Find the next occurrence of this weekday
+        final targetWeekday = i + 1; // DateTime.weekday is 1-based (Monday=1)
+        int daysUntilTarget = (targetWeekday - now.weekday) % 7;
+        if (daysUntilTarget == 0) daysUntilTarget = 7; // If today is the target day, schedule for next week
+        
+        baseTime = DateTime(now.year, now.month, now.day).add(Duration(days: daysUntilTarget));
+        
+        // Try to extract time from text
+        if (textLower.contains('3pm') || textLower.contains('3 pm') || textLower.contains('3 o\'clock')) {
+          baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 15, 0);
+        } else {
+          baseTime = DateTime(baseTime.year, baseTime.month, baseTime.day, 9, 0); // Default 9 AM
+        }
+        
+        print('📅 Detected weekday "${weekdays[i]}" - scheduled for: $baseTime');
+        foundWeekday = true;
+        break;
+      }
+    }
+    
+    if (!foundWeekday) {
+      print('📅 No specific date detected - using default: $baseTime');
+    }
+  }
+  
+  print('🕒 Final parsed time: $baseTime');
+  return baseTime;
+}
 
   void _deleteHistoryItem(String id) {
     setState(() {

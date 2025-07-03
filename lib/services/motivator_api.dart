@@ -1,3 +1,4 @@
+// lib/services/motivator_api.dart - COMPLETE FILE WITH GLOBAL TIMEZONE SUPPORT
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
@@ -100,7 +101,7 @@ class MotivatorApi {
     }
   }
 
-  // 🚀 NEW: Process speech with OpenAI Whisper + GPT extraction
+  // 🌍 ENHANCED: Process speech with global timezone support
   Future<Map<String, dynamic>> processSpeech(
     String audioFilePath, {
     int? durationSeconds,
@@ -108,6 +109,19 @@ class MotivatorApi {
     try {
       print('🎤 Processing speech file: $audioFilePath');
       print('⏱️ Duration: ${durationSeconds ?? 0} seconds');
+
+      // 🌍 NEW: Get user's actual timezone from device
+      final now = DateTime.now();
+      final localTimeZone = now.timeZoneName; // e.g., "EDT", "PST", "GMT"
+      final timeZoneOffset = now.timeZoneOffset; // Duration offset from UTC
+      final offsetHours = timeZoneOffset.inHours;
+      final offsetMinutes = timeZoneOffset.inMinutes % 60;
+      
+      // Format timezone offset as "+05:30" or "-04:00"
+      final offsetString = '${offsetHours >= 0 ? '+' : ''}${offsetHours.toString().padLeft(2, '0')}:${offsetMinutes.abs().toString().padLeft(2, '0')}';
+      
+      print('🌍 User timezone: $localTimeZone (UTC$offsetString)');
+      print('🌍 Timezone offset: ${timeZoneOffset.inHours} hours from UTC');
 
       // Create multipart request
       var request = http.MultipartRequest(
@@ -128,7 +142,13 @@ class MotivatorApi {
         request.fields['duration'] = durationSeconds.toString();
       }
 
+      // 🌍 NEW: Add timezone information to the request
+      request.fields['userTimezone'] = localTimeZone; // e.g., "EDT"
+      request.fields['timezoneOffset'] = offsetString; // e.g., "-04:00"
+      request.fields['timezoneOffsetHours'] = offsetHours.toString(); // e.g., "-4"
+
       print('📤 Sending audio file to backend...');
+      print('🌍 Sending timezone info: $localTimeZone (UTC$offsetString)');
 
       // Send request
       var streamedResponse = await request.send();
@@ -148,6 +168,7 @@ class MotivatorApi {
           print('✅ Speech processed successfully!');
           print('📝 Transcribed: ${data['transcribedText']}');
           print('🤖 Extracted: ${data['extractedData']}');
+          print('🌍 Timezone context: ${data['processing']?['currentContext']?['userTimezone'] ?? 'Unknown'}');
           
           return {
             'transcribedText': data['transcribedText'],
