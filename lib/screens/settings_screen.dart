@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'widgets/app_bottom_navbar.dart';
 import '../services/reflection_settings_service.dart';
+import '../services/privacy_control_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String? currentTaskType;
@@ -32,6 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   late Animation<double> _slideAnimation;
   late Animation<double> _fadeAnimation;
   late Animation<double> _pulseAnimation;
+  late PrivacyControlService _privacyService;
 
   // Settings state
   bool _notificationsEnabled = true;
@@ -162,7 +164,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     _setupAnimations();
     _loadCurrentSettings();
     _loadUserPreferences();
-    _checkReflectionOnboarding(); // 🎭 NEW: Check reflection onboarding
+    _checkReflectionOnboarding();
+    _privacyService = PrivacyControlService(); // ✅ Add this line
     _slideController.forward();
   }
 
@@ -416,31 +419,37 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildSettingsContent() {
-    return Column(
-      children: [
-        _buildPersonalizationSection(),
-        const SizedBox(height: 20),
-        _buildTaskTypeSection(),
-        const SizedBox(height: 20),
-        _buildEnhancedVoiceSection(),
-        const SizedBox(height: 20),
-        _buildToneStyleSection(),
-        const SizedBox(height: 20),
-        
-        // 🎭 NEW: Smart Reflections Section
-        _buildSectionHeader('Smart Reflections'),
-        ReflectionSettingsSection(),
-        const SizedBox(height: 20),
-        
-        _buildNotificationSection(),
-        const SizedBox(height: 20),
-        _buildAdvancedSection(),
-        const SizedBox(height: 30),
-        _buildSaveButton(),
-        const SizedBox(height: 20),
-      ],
-    );
-  }
+  return Column(
+    children: [
+      _buildPersonalizationSection(),
+      const SizedBox(height: 20),
+      _buildTaskTypeSection(),
+      const SizedBox(height: 20),
+      _buildEnhancedVoiceSection(),
+      const SizedBox(height: 20),
+      _buildToneStyleSection(),
+      const SizedBox(height: 20),
+      
+      // 🎭 EXISTING: Smart Reflections Section
+      _buildSectionHeader('Smart Reflections'),
+      ReflectionSettingsSection(),
+      const SizedBox(height: 20),
+      
+      // 🛡️ NEW: Privacy & AI Controls Section (ADD THIS)
+      _buildSectionHeader('Privacy & AI Controls'),
+      PrivacyControlsSection(),
+      const SizedBox(height: 20),
+      
+      // 📱 EXISTING: Continue with existing sections
+      _buildNotificationSection(),
+      const SizedBox(height: 20),
+      _buildAdvancedSection(),
+      const SizedBox(height: 30),
+      _buildSaveButton(),
+      const SizedBox(height: 20),
+    ],
+  );
+}
 
   // 🎭 NEW: Section header helper
   Widget _buildSectionHeader(String title) {
@@ -1579,4 +1588,361 @@ class ReflectionOnboardingDialog extends StatelessWidget {
       ),
     );
   }
+  // 🛡️ Privacy Controls Section Widget
+class PrivacyControlsSection extends StatefulWidget {
+  const PrivacyControlsSection({Key? key}) : super(key: key);
+
+  @override
+  _PrivacyControlsSectionState createState() => _PrivacyControlsSectionState();
+}
+
+class _PrivacyControlsSectionState extends State<PrivacyControlsSection> {
+  late PrivacyControlService _privacyService;
+  
+  bool _dataCollectionConsent = false;
+  bool _aiLearningEnabled = false;
+  bool _debuggingConsent = false;
+  bool _humanInLoopEnabled = true;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _privacyService = PrivacyControlService();
+    _loadPrivacySettings();
+  }
+
+  Future<void> _loadPrivacySettings() async {
+    setState(() => _loading = true);
+    
+    try {
+      final dataConsent = await _privacyService.hasDataCollectionConsent();
+      final aiLearning = await _privacyService.isAILearningEnabled();
+      final debugging = await _privacyService.hasDebuggingConsent();
+      final humanInLoop = await _privacyService.isHumanInLoopEnabled();
+      
+      setState(() {
+        _dataCollectionConsent = dataConsent;
+        _aiLearningEnabled = aiLearning;
+        _debuggingConsent = debugging;
+        _humanInLoopEnabled = humanInLoop;
+        _loading = false;
+      });
+    } catch (e) {
+      print('Error loading privacy settings: $e');
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Center(
+        child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
+      );
+    }
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 0),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Color(0xFF8B9DC3).withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.security,
+                    color: Colors.green,
+                    size: 20,
+                  ),
+                ),
+                SizedBox(width: 12),
+                Text(
+                  'Privacy & Data Controls',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+            
+            // Privacy guarantee
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.green.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.verified_user, color: Colors.green, size: 16),
+                      SizedBox(width: 8),
+                      Text(
+                        'Motivator AI Privacy Guarantee',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '✅ We do NOT store, collect, or access your data\n'
+                    '✅ All information stays on YOUR device only\n'
+                    '✅ We have ZERO access to your conversations',
+                    style: TextStyle(
+                      color: Colors.green.withOpacity(0.9),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            SizedBox(height: 16),
+            
+            // Privacy toggles
+            _buildPrivacyToggle(
+              'AI Learning & Personalization',
+              'Allow AI to learn your communication style',
+              _aiLearningEnabled,
+              (value) async {
+                await _privacyService.setAILearningEnabled(value);
+                setState(() => _aiLearningEnabled = value);
+              },
+              Icons.psychology,
+              Colors.purple,
+            ),
+            
+            SizedBox(height: 12),
+            
+            _buildPrivacyToggle(
+              'Human-in-the-Loop Controls',
+              'Require human approval for AI decisions (recommended)',
+              _humanInLoopEnabled,
+              (value) async {
+                await _privacyService.setHumanInLoopEnabled(value);
+                setState(() => _humanInLoopEnabled = value);
+              },
+              Icons.person_pin,
+              Colors.blue,
+            ),
+            
+            SizedBox(height: 16),
+            
+            // Emergency controls
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.red.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '🚨 Emergency Data Controls',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _showKillSwitchDialog,
+                          icon: Icon(Icons.delete_forever, size: 16),
+                          label: Text('Kill Switch', style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _showFactoryResetDialog,
+                          icon: Icon(Icons.restore, size: 16),
+                          label: Text('Factory Reset', style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrivacyToggle(
+    String title,
+    String description,
+    bool value,
+    Function(bool) onChanged,
+    IconData icon,
+    Color color,
+  ) {
+    return Row(
+      children: [
+        Icon(icon, color: value ? color : Color(0xFF8B9DC3), size: 20),
+        SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: value ? color : Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                description,
+                style: TextStyle(
+                  color: Color(0xFF8B9DC3).withOpacity(0.7),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Switch(
+          value: value,
+          onChanged: onChanged,
+          activeColor: color,
+          activeTrackColor: color.withOpacity(0.3),
+        ),
+      ],
+    );
+  }
+
+  void _showKillSwitchDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: Color(0xFF2A2D3E),
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Privacy Kill Switch', style: TextStyle(color: Colors.red)),
+          ],
+        ),
+        content: Text(
+          '🚨 This will PERMANENTLY DELETE all your personal data, conversations, and settings.\n\nThis action CANNOT be undone.',
+          style: TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: Color(0xFF8B9DC3))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _privacyService.activateKillSwitch();
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('🗑️ Privacy kill switch activated. All data wiped.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              _loadPrivacySettings();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('ACTIVATE KILL SWITCH', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFactoryResetDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: Color(0xFF2A2D3E),
+        title: Row(
+          children: [
+            Icon(Icons.restore, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Factory Reset', style: TextStyle(color: Colors.orange)),
+          ],
+        ),
+        content: Text(
+          'This will reset the entire app to its original state. All settings, data, and customizations will be lost.\n\nThis action CANNOT be undone.',
+          style: TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: Color(0xFF8B9DC3))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _privacyService.performFactoryReset();
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('🏭 Factory reset complete.'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: Text('FACTORY RESET', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+}
 }

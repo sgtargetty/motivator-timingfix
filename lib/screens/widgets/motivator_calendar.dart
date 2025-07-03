@@ -40,7 +40,7 @@ class MotivatorCalendar extends StatefulWidget {
 }
 
 class _MotivatorCalendarState extends State<MotivatorCalendar> {
-  TTaskFilter _currentFilter = TaskFilter.all;
+  TaskFilter _currentFilter = TaskFilter.all;
 final TaskStorage _taskStorage = TaskStorage();
 
 @override
