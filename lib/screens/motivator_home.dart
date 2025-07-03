@@ -152,6 +152,67 @@ class _MotivatorHomeState extends State<MotivatorHome>
   void _handleTasksChanged() {
     _loadTasks();
   }
+  void _handleAppNavigation(AppScreen targetScreen) {
+    switch (targetScreen) {
+      case AppScreen.dashboard:
+        setState(() {
+          _currentView = ViewMode.dashboard;
+        });
+        break;
+      case AppScreen.calendar:
+        setState(() {
+          _currentView = ViewMode.calendar;
+        });
+        // 🚀 CRITICAL: Refresh tasks when switching to calendar
+        _loadTasks();
+        break;
+      case AppScreen.dictaphone:
+        // Navigate to dictaphone and listen for result
+        Navigator.of(context).push(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => 
+                const DictaphoneScreen(),
+            transitionDuration: const Duration(milliseconds: 300),
+            reverseTransitionDuration: const Duration(milliseconds: 300),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.0, 0.1),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOut,
+                  )),
+                  child: child,
+                ),
+              );
+            },
+          ),
+        ).then((result) {
+          // 🔄 CRITICAL FIX: Refresh tasks when returning from dictaphone
+          if (result == true) {
+            print('🔄 Dictaphone created task - refreshing calendar');
+            _loadTasks(); // This will update _tasks and refresh calendar
+            
+            // Optional: Show success feedback
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Task added to calendar!'),
+                backgroundColor: Color(0xFFD4AF37),
+                behavior: SnackBarBehavior.floating,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        });
+        break;
+      case AppScreen.settings:
+        // Handle settings navigation
+        break;
+    }
+  }
 
   void _updateQuickActionsForTaskType() {
     switch (_currentTaskType) {
@@ -698,17 +759,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
                     currentScreen: _currentView == ViewMode.dashboard 
                         ? AppScreen.dashboard 
                         : AppScreen.calendar,
-                    onScreenChanged: (screen) {
-                      setState(() {
-                        _currentView = screen == AppScreen.dashboard 
-                            ? ViewMode.dashboard 
-                            : ViewMode.calendar;
-                      });
-                      
-                      if (screen == AppScreen.calendar) {
-                        _loadTasks();
-                      }
-                    },
+                    onScreenChanged: _handleAppNavigation, // 🚀 Use the new method
                   ),
                 ],
               ),

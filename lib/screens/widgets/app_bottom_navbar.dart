@@ -143,10 +143,18 @@ class AppBottomNavBar extends StatelessWidget {
         break;
 
       case AppScreen.dictaphone:
-        Navigator.of(context).push(
-          _createSmoothRoute(const DictaphoneScreen()),
-        );
-        break;
+  // 🚀 FIX: Listen for successful task creation
+  Navigator.of(context).push(
+    _createSmoothRoute(const DictaphoneScreen()),
+  ).then((result) {
+    // 🔄 If task was created successfully, refresh calendar
+    if (result == true && onScreenChanged != null) {
+      print('🔄 Dictaphone returned success - refreshing tasks');
+      // Trigger parent to refresh tasks by calling the callback
+      onScreenChanged!(AppScreen.calendar); // This will refresh
+    }
+  });
+  break;
 
       case AppScreen.settings:
         Navigator.of(context).push(
