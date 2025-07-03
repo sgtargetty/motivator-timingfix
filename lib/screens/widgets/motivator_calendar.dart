@@ -40,7 +40,7 @@ class MotivatorCalendar extends StatefulWidget {
 }
 
 class _MotivatorCalendarState extends State<MotivatorCalendar> {
-  TaskFilter _currentFilter = TaskFilter.active;
+  TaskFilter _currentFilter = TaskFilter.all; // ✅ CHANGED: Start with "All" tab showing all tasks
   final TaskStorage _taskStorage = TaskStorage();
   bool _isRefreshing = false;
 
@@ -575,21 +575,53 @@ Widget build(BuildContext context) {
     return widget.tasks[normalizedDay] ?? [];
   }
 
+  // 🆕 NEW METHOD: Get all tasks from all dates (not just selected day)
+  List<Map<String, dynamic>> _getAllTasksAcrossAllDates() {
+    final allTasks = <Map<String, dynamic>>[];
+    
+    // Loop through all dates and collect all tasks
+    for (final taskList in widget.tasks.values) {
+      allTasks.addAll(taskList);
+    }
+    
+    // Sort by date (earliest first)
+    allTasks.sort((a, b) {
+      final dateA = a['dateTime'] as DateTime?;
+      final dateB = b['dateTime'] as DateTime?;
+      if (dateA == null && dateB == null) return 0;
+      if (dateA == null) return 1;
+      if (dateB == null) return -1;
+      return dateA.compareTo(dateB);
+    });
+    
+    return allTasks;
+  }
+
   List<Map<String, dynamic>> _getFilteredTasksForDay(DateTime day) {
-    final allTasks = _getTasksForDay(day);
+    List<Map<String, dynamic>> tasksToFilter;
+    
+    // 🚀 FIX: For "All" tab, get tasks from all dates, not just selected day
+    if (_currentFilter == TaskFilter.all) {
+      tasksToFilter = _getAllTasksAcrossAllDates();
+    } else {
+      // For other tabs, only show tasks for the selected day
+      tasksToFilter = _getTasksForDay(day);
+    }
     
     switch (_currentFilter) {
-      case TaskFilter.active:
-        return allTasks.where((task) => 
+      case TaskFilter.active: // ✅ CHANGED: upcoming → active
+        return tasksToFilter.where((task) => 
             !(task['isCompleted'] ?? false) && !(task['isArchived'] ?? false)).toList();
       case TaskFilter.completed:
-        return allTasks.where((task) => 
+        return tasksToFilter.where((task) => 
             (task['isCompleted'] ?? false) && !(task['isArchived'] ?? false)).toList();
       case TaskFilter.archived:
-        return allTasks.where((task) => task['isArchived'] ?? false).toList();
+        return tasksToFilter.where((task) => task['isArchived'] ?? false).toList();
       case TaskFilter.all:
       default:
-        return allTasks;
+        // For "All" tab, only show active tasks (not completed/archived)
+        return tasksToFilter.where((task) => 
+            !(task['isCompleted'] ?? false) && !(task['isArchived'] ?? false)).toList();
     }
   }
 
@@ -601,8 +633,8 @@ Widget build(BuildContext context) {
   String _getFilterName(TaskFilter filter) {
     switch (filter) {
       case TaskFilter.all:
-        return 'All';
-      case TaskFilter.active:
+        return 'All'; // Shows all active tasks across all dates
+      case TaskFilter.active: // ✅ CHANGED: upcoming → active
         return 'Active';
       case TaskFilter.completed:
         return 'Done';
@@ -614,9 +646,9 @@ Widget build(BuildContext context) {
   IconData _getFilterIcon(TaskFilter filter) {
     switch (filter) {
       case TaskFilter.all:
-        return Icons.view_list;
-      case TaskFilter.active:
-        return Icons.radio_button_unchecked;
+        return Icons.view_list; // All tasks
+      case TaskFilter.active: // ✅ CHANGED: upcoming → active
+        return Icons.radio_button_unchecked; // Original icon for active tasks
       case TaskFilter.completed:
         return Icons.check_circle;
       case TaskFilter.archived:
@@ -626,7 +658,7 @@ Widget build(BuildContext context) {
 
   IconData _getEmptyStateIcon() {
     switch (_currentFilter) {
-      case TaskFilter.active:
+      case TaskFilter.active: // ✅ CHANGED: upcoming → active
         return Icons.add_task;
       case TaskFilter.completed:
         return Icons.check_circle_outline;
@@ -640,7 +672,7 @@ Widget build(BuildContext context) {
 
   String _getEmptyStateText() {
     switch (_currentFilter) {
-      case TaskFilter.active:
+      case TaskFilter.active: // ✅ CHANGED: upcoming → active
         return 'No active tasks for this day.\nTap "Add Task" to get started! 🎯';
       case TaskFilter.completed:
         return 'No completed tasks yet.\nComplete some tasks to see them here! ✅';
@@ -648,7 +680,7 @@ Widget build(BuildContext context) {
         return 'No archived tasks.\nArchive completed tasks to organize your history! 📦';
       case TaskFilter.all:
       default:
-        return 'No tasks for this day.\nTap "Add Task" to get started! 🎯';
+        return 'No active tasks found.\nTap "Add Task" to create your first task! 🎯';
     }
   }
 
