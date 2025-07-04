@@ -69,34 +69,14 @@ class PrivacyControlService {
   /// Check if human-in-the-loop is enabled
   Future<bool> isHumanInLoopEnabled() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_humanInLoopKey) ?? true; // Default to true for safety
+    return prefs.getBool(_humanInLoopKey) ?? true; // Default to enabled for safety
   }
 
   /// Enable/disable human-in-the-loop controls
   Future<void> setHumanInLoopEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_humanInLoopKey, enabled);
-    print('👤 Human-in-the-loop enabled: $enabled');
-  }
-
-  // 🚨 KILL SWITCH FUNCTIONALITY
-
-  /// Activate emergency kill switch - wipes ALL user data
-  Future<void> activateKillSwitch() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    print('🚨 ACTIVATING PRIVACY KILL SWITCH 🚨');
-    
-    // Mark kill switch as activated
-    await prefs.setBool(_killSwitchActivatedKey, true);
-    
-    // Wipe all user data
-    await _performCompleteDataWipe();
-    
-    // Reset all privacy settings to defaults
-    await _resetPrivacySettings();
-    
-    print('🗑️ All user data wiped. Privacy kill switch activated.');
+    print('👤 Human-in-loop enabled: $enabled');
   }
 
   /// Check if kill switch has been activated
@@ -105,81 +85,81 @@ class PrivacyControlService {
     return prefs.getBool(_killSwitchActivatedKey) ?? false;
   }
 
-  /// Factory reset - complete app reset
-  Future<void> performFactoryReset() async {
+  /// Activate emergency kill switch
+  Future<void> activateKillSwitch() async {
+    print('🚨 EMERGENCY KILL SWITCH ACTIVATED');
+    
+    // Stop all data collection immediately
+    await setDataCollectionConsent(false);
+    await setAILearningEnabled(false);
+    await setDebuggingConsent(false);
+    
+    // Clear all data
+    await _performCompleteDataWipe();
+    
+    // Mark kill switch as activated
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_killSwitchActivatedKey, true);
     
-    print('🏭 PERFORMING FACTORY RESET 🏭');
+    // Provide haptic feedback
+    HapticFeedback.heavyImpact();
     
-    // Clear ALL SharedPreferences
-    await prefs.clear();
-    
-    // Clear any cached files
-    await _clearCachedFiles();
-    
-    print('✅ Factory reset complete. App restored to initial state.');
+    print('💀 All user data wiped, AI features disabled');
   }
 
-  // 📊 DATA TRANSPARENCY
-
-  /// Get summary of what data is stored locally
-  Future<Map<String, dynamic>> getDataTransparencyReport() async {
+  /// Get transparency report
+  Future<Map<String, dynamic>> getTransparencyReport() async {
     final prefs = await SharedPreferences.getInstance();
     
+    // Count stored data
     final allKeys = prefs.getKeys();
-    final dataCategories = <String, List<String>>{
-      'User Preferences': [],
-      'Task Data': [],
-      'Conversation History': [],
-      'Learning Patterns': [],
-      'Privacy Settings': [],
-      'App Settings': [],
-    };
-
-    for (final key in allKeys) {
-      if (key.contains('user_') || key.contains('name')) {
-        dataCategories['User Preferences']!.add(key);
-      } else if (key.contains('task') || key.contains('calendar')) {
-        dataCategories['Task Data']!.add(key);
-      } else if (key.contains('conversation') || key.contains('reflection')) {
-        dataCategories['Conversation History']!.add(key);
-      } else if (key.contains('learning') || key.contains('pattern')) {
-        dataCategories['Learning Patterns']!.add(key);
-      } else if (key.contains('privacy') || key.contains('consent')) {
-        dataCategories['Privacy Settings']!.add(key);
-      } else {
-        dataCategories['App Settings']!.add(key);
-      }
-    }
-
+    final userDataKeys = allKeys.where((key) => 
+      !key.startsWith('flutter.') && 
+      !key.startsWith('system_')
+    ).toList();
+    
     return {
-      'totalDataPoints': allKeys.length,
-      'categories': dataCategories,
-      'dataCollectionEnabled': await hasDataCollectionConsent(),
+      'dataCollectionConsent': await hasDataCollectionConsent(),
       'aiLearningEnabled': await isAILearningEnabled(),
-      'debuggingEnabled': await hasDebuggingConsent(),
+      'debuggingConsent': await hasDebuggingConsent(),
       'humanInLoopEnabled': await isHumanInLoopEnabled(),
+      'killSwitchActivated': await isKillSwitchActivated(),
+      'storedDataKeys': userDataKeys.length,
+      'storageBreakdown': _analyzeStoredData(allKeys),
       'lastUpdated': DateTime.now().toIso8601String(),
+      'privacyStatement': 'No data is sent to our servers without your explicit consent.',
     };
   }
 
-  /// Export user data (for GDPR compliance)
+  /// Export all user data for portability
   Future<Map<String, dynamic>> exportUserData() async {
     final prefs = await SharedPreferences.getInstance();
     final allKeys = prefs.getKeys();
-    final userData = <String, dynamic>{};
-
-    for (final key in allKeys) {
-      final value = prefs.get(key);
-      userData[key] = value;
+    
+    Map<String, dynamic> exportData = {};
+    
+    for (String key in allKeys) {
+      if (!key.startsWith('flutter.') && !key.startsWith('system_')) {
+        final value = prefs.get(key);
+        exportData[key] = value;
+      }
     }
-
+    
     return {
-      'exportedAt': DateTime.now().toIso8601String(),
-      'version': '1.0',
-      'data': userData,
-      'note': 'This is ALL data stored locally on your device. No data is sent to our servers without your explicit consent.',
+      'exportDate': DateTime.now().toIso8601String(),
+      'userData': exportData,
+      'privacySettings': await getTransparencyReport(),
     };
+  }
+
+  /// Factory reset - clear everything and reset to defaults
+  Future<void> factoryReset() async {
+    print('🏭 Factory reset initiated');
+    
+    await _performCompleteDataWipe();
+    await _resetPrivacySettings();
+    
+    print('🔄 Factory reset complete');
   }
 
   // 🔒 PRIVATE HELPER METHODS
@@ -246,8 +226,36 @@ class PrivacyControlService {
     await prefs.setBool(_aiLearningKey, false);
     await prefs.setBool(_debuggingConsentKey, false);
     await prefs.setBool(_humanInLoopKey, true);
+    await prefs.setBool(_killSwitchActivatedKey, false);
     
     print('🛡️ Privacy settings reset to secure defaults');
+  }
+
+  /// Analyze stored data for transparency report
+  Map<String, dynamic> _analyzeStoredData(Set<String> allKeys) {
+    Map<String, int> breakdown = {
+      'settings': 0,
+      'tasks': 0,
+      'conversations': 0,
+      'learning': 0,
+      'other': 0,
+    };
+
+    for (String key in allKeys) {
+      if (key.contains('setting') || key.contains('config')) {
+        breakdown['settings'] = breakdown['settings']! + 1;
+      } else if (key.contains('task') || key.contains('calendar')) {
+        breakdown['tasks'] = breakdown['tasks']! + 1;
+      } else if (key.contains('conversation') || key.contains('reflection')) {
+        breakdown['conversations'] = breakdown['conversations']! + 1;
+      } else if (key.contains('learning') || key.contains('pattern')) {
+        breakdown['learning'] = breakdown['learning']! + 1;
+      } else if (!key.startsWith('flutter.')) {
+        breakdown['other'] = breakdown['other']! + 1;
+      }
+    }
+
+    return breakdown;
   }
 
   /// Clear cached files
@@ -255,142 +263,5 @@ class PrivacyControlService {
     // Implementation depends on your file storage strategy
     // This would clear any cached audio files, temporary data, etc.
     print('📁 Cached files cleared');
-  }
-
-  // 🎯 CONSENT MANAGEMENT
-
-  /// Show privacy consent dialog for new users
-  static Future<Map<String, bool>> showPrivacyConsentDialog() async {
-    // This would return user choices for different consent types
-    return {
-      'dataCollection': false,
-      'aiLearning': false,
-      'debugging': false,
-      'analytics': false,
-    };
-  }
-
-  /// Check if all required consents are obtained
-  Future<bool> hasRequiredConsents() async {
-    // Basic app functionality doesn't require any consents
-    // All advanced features are opt-in only
-    return true;
-  }
-
-  // 📋 COMPLIANCE HELPERS
-
-  /// Generate privacy policy compliance text with third-party disclaimers
-  String getPrivacyPolicyText() {
-    return '''
-🛡️ MOTIVATOR AI PRIVACY POLICY
-
-═══════════════════════════════════════════
-
-📱 MOTIVATOR AI APP - ZERO DATA STORAGE:
-• We do NOT store, collect, or access your personal data
-• All conversations, tasks, and reflections stay on YOUR device only
-• We cannot see, read, or access your information
-• No data is uploaded to our servers without explicit consent
-• We have ZERO access to your personal information
-
-⚠️ THIRD-PARTY SERVICE DISCLAIMERS:
-
-🤖 OPENAI (Chat/Reflection Processing):
-• When you use reflection features, text is sent to OpenAI's API
-• OpenAI processes your text to generate AI responses
-• OpenAI has their own privacy policy and data handling
-• We are NOT responsible for OpenAI's data practices
-• You consent directly to OpenAI's terms when using AI features
-• Disable AI features to avoid any OpenAI data processing
-
-🎤 ELEVENLABS (Voice Generation):
-• When you use voice features, text is sent to ElevenLabs API
-• ElevenLabs converts text to speech audio
-• ElevenLabs has their own privacy policy and data handling  
-• We are NOT responsible for ElevenLabs' data practices
-• You consent directly to ElevenLabs' terms when using voice features
-• Disable voice features to avoid any ElevenLabs data processing
-
-═══════════════════════════════════════════
-
-🔒 YOUR DATA CONTROL OPTIONS:
-
-FULL OFFLINE MODE:
-• Use app without any AI features
-• No data sent to any external services
-• 100% local functionality only
-
-SELECTIVE FEATURE USE:
-• Choose which AI features to enable
-• Each feature clearly shows what data is sent where
-• Opt-in consent required for each service
-
-INSTANT DATA CONTROL:
-• Kill Switch: Wipe all local data instantly
-• Factory Reset: Complete app reset
-• Export Data: Download everything we store locally
-
-═══════════════════════════════════════════
-
-⚖️ LEGAL DISCLAIMERS:
-
-LIABILITY LIMITATION:
-• Motivator AI app holds NO LIABILITY for third-party data practices
-• OpenAI and ElevenLabs are independent services with separate terms
-• Users consent directly to third-party services when using features
-• We provide tools to disable all external data sharing
-• Use app in offline mode for complete data privacy
-
-DATA FLOW TRANSPARENCY:
-• App → OpenAI: Only when using AI reflection features
-• App → ElevenLabs: Only when using voice generation features  
-• App → Our Servers: NEVER (we have no servers for user data)
-• All data sharing is explicit, opt-in, and user-controlled
-
-USER RESPONSIBILITY:
-• Review OpenAI's privacy policy before using AI features
-• Review ElevenLabs' privacy policy before using voice features
-• Disable features you're not comfortable with
-• Use offline mode for maximum privacy
-
-═══════════════════════════════════════════
-
-🌟 OUR PRIVACY COMMITMENT:
-
-WE PROMISE:
-✅ Zero data collection by Motivator AI
-✅ Complete transparency about data flow  
-✅ Full user control over all features
-✅ No hidden data sharing
-✅ Instant data deletion capabilities
-✅ Clear third-party service disclosures
-
-WE CANNOT CONTROL:
-❌ OpenAI's data handling practices
-❌ ElevenLabs' data handling practices
-❌ Third-party API data retention
-❌ External service privacy policies
-❌ Data processing by services you choose to use
-
-═══════════════════════════════════════════
-
-📞 CONTACT & SUPPORT:
-
-Questions about Motivator AI privacy: [Your contact]
-Questions about OpenAI data: contact@openai.com
-Questions about ElevenLabs data: support@elevenlabs.io
-
-Last Updated: ${DateTime.now().toString().split(' ')[0]}
-Version: 1.0.0
-
-═══════════════════════════════════════════
-
-By using this app, you acknowledge:
-• You understand the data flow to third-party services
-• You take responsibility for enabling/disabling features
-• You will review third-party privacy policies independently  
-• Motivator AI is not liable for third-party data practices
-• You have full control to use the app completely offline
-''';
   }
 }

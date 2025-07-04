@@ -124,13 +124,32 @@ class ReflectionSettingsService {
         return ReflectionStyle.silent;
       case 'takeover':
         return ReflectionStyle.takeover;
-      case 'audio':
       default:
         return ReflectionStyle.audio;
     }
   }
 
-  /// Get enabled reflection categories
+  /// Set notification style
+  Future<void> setNotificationStyle(ReflectionStyle style) async {
+    final prefs = await SharedPreferences.getInstance();
+    String styleString;
+    
+    switch (style) {
+      case ReflectionStyle.silent:
+        styleString = 'silent';
+        break;
+      case ReflectionStyle.takeover:
+        styleString = 'takeover';
+        break;
+      default:
+        styleString = 'audio';
+    }
+    
+    await prefs.setString(_styleKey, styleString);
+    print('🎭 Reflection style set to: $styleString');
+  }
+
+  /// Get enabled categories
   Future<List<String>> getEnabledCategories() async {
     final prefs = await SharedPreferences.getInstance();
     final categoriesJson = prefs.getString(_categoriesKey);
@@ -142,47 +161,15 @@ class ReflectionSettingsService {
     }
   }
 
-  /// Update reflection settings
-  Future<void> updateSettings(Map<String, dynamic> settings) async {
+  /// Set enabled categories
+  Future<void> setEnabledCategories(List<String> categories) async {
     final prefs = await SharedPreferences.getInstance();
-
-    for (final entry in settings.entries) {
-      final key = entry.key;
-      final value = entry.value;
-
-      switch (key) {
-        case 'enabled':
-          await prefs.setBool(_enabledKey, value as bool);
-          break;
-        case 'style':
-          await prefs.setString(_styleKey, value as String);
-          break;
-        case 'timing':
-          await prefs.setString(_timingKey, jsonEncode(value));
-          break;
-        case 'categories':
-          await prefs.setString(_categoriesKey, jsonEncode(value));
-          break;
-        case 'voiceStyle':
-          await prefs.setString(_voiceStyleKey, value as String);
-          break;
-        case 'tone':
-          await prefs.setString(_toneKey, value as String);
-          break;
-        case 'quietHours':
-          await prefs.setString(_quietHoursKey, jsonEncode(value));
-          break;
-        case 'respectDND':
-          await prefs.setBool(_respectDNDKey, value as bool);
-          break;
-      }
-    }
-
-    print('⚙️ Reflection settings updated: ${settings.keys.join(', ')}');
+    await prefs.setString(_categoriesKey, jsonEncode(categories));
+    print('📋 Reflection categories updated: $categories');
   }
 
-  /// Get current reflection voice and tone preferences
-  Future<Map<String, String>> getVoicePreferences() async {
+  /// Get voice preferences
+  Future<Map<String, dynamic>> getVoicePreferences() async {
     final prefs = await SharedPreferences.getInstance();
     
     return {
@@ -191,19 +178,66 @@ class ReflectionSettingsService {
     };
   }
 
+  /// Set voice style
+  Future<void> setVoiceStyle(String voiceStyle) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_voiceStyleKey, voiceStyle);
+    print('🎵 Reflection voice style set to: $voiceStyle');
+  }
+
+  /// Set tone
+  Future<void> setTone(String tone) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_toneKey, tone);
+    print('🎭 Reflection tone set to: $tone');
+  }
+
+  /// Get quiet hours settings
+  Future<Map<String, dynamic>> getQuietHours() async {
+    final prefs = await SharedPreferences.getInstance();
+    final quietHoursJson = prefs.getString(_quietHoursKey);
+    
+    if (quietHoursJson != null) {
+      return jsonDecode(quietHoursJson);
+    } else {
+      return Map<String, dynamic>.from(_defaultSettings[_quietHoursKey] as Map);
+    }
+  }
+
+  /// Set quiet hours
+  Future<void> setQuietHours(Map<String, dynamic> quietHours) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_quietHoursKey, jsonEncode(quietHours));
+    print('🌙 Quiet hours updated: $quietHours');
+  }
+
+  /// Check if Do Not Disturb should be respected
+  Future<bool> shouldRespectDND() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_respectDNDKey) ?? _defaultSettings[_respectDNDKey] as bool;
+  }
+
+  /// Set DND respect preference
+  Future<void> setRespectDND(bool respect) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_respectDNDKey, respect);
+    print('📵 DND respect set to: $respect');
+  }
+
   /// Check if onboarding has been shown
   Future<bool> hasShownOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_onboardingShownKey) ?? false;
+    return prefs.getBool(_onboardingShownKey) ?? _defaultSettings[_onboardingShownKey] as bool;
   }
 
   /// Mark onboarding as shown
-  Future<void> setOnboardingShown() async {
+  Future<void> markOnboardingShown() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_onboardingShownKey, true);
+    print('🎓 Reflection onboarding marked as shown');
   }
 
-  /// Get all current settings for display
+  /// Get all settings as a map for UI display
   Future<Map<String, dynamic>> getAllSettings() async {
     final prefs = await SharedPreferences.getInstance();
     
@@ -273,55 +307,40 @@ class ReflectionSettingsService {
   /// Determine task category for reflection filtering
   String _determineTaskCategory(Map<String, dynamic> task) {
     final description = (task['description'] as String? ?? '').toLowerCase();
-    final taskType = task['taskType'] as String?;
+    final taskType = task['taskType'] as String? ?? '';
 
-    // Check explicit task type first
-    if (taskType != null) {
-      switch (taskType.toLowerCase()) {
-        case 'medical':
-          return 'medical';
-        case 'work':
-          return 'work';
-        case 'exercise':
-        case 'fitness':
-          return 'fitness';
-        case 'study':
-        case 'learning':
-          return 'study';
-        case 'personal':
-          return 'personal';
-        case 'creative':
-          return 'creative';
-      }
-    }
-
-    // Fallback to description analysis
-    if (description.contains('doctor') || description.contains('dentist') || 
-        description.contains('appointment') || description.contains('medical') ||
-        description.contains('therapy') || description.contains('va ')) {
+    // Medical appointments
+    if (description.contains('doctor') || 
+        description.contains('appointment') || 
+        description.contains('medical') ||
+        description.contains('dentist') ||
+        description.contains('therapy')) {
       return 'medical';
     }
 
-    if (description.contains('meeting') || description.contains('important') ||
-        description.contains('presentation') || description.contains('interview')) {
+    // Important meetings
+    if (description.contains('meeting') || 
+        description.contains('interview') || 
+        description.contains('presentation') ||
+        taskType.toLowerCase() == 'work') {
       return 'important_meeting';
     }
 
-    if (description.contains('gym') || description.contains('workout') || 
-        description.contains('exercise') || description.contains('run')) {
+    // Fitness
+    if (description.contains('workout') || 
+        description.contains('gym') || 
+        description.contains('exercise') ||
+        taskType.toLowerCase() == 'exercise') {
       return 'fitness';
     }
 
-    if (description.contains('study') || description.contains('learn') || 
-        description.contains('class') || description.contains('exam')) {
-      return 'study';
+    // Personal
+    if (taskType.toLowerCase() == 'personal' || 
+        description.contains('personal')) {
+      return 'personal';
     }
 
-    if (description.contains('work') || description.contains('project') ||
-        description.contains('deadline')) {
-      return 'work';
-    }
-
+    // Default to general
     return 'general';
   }
 }
