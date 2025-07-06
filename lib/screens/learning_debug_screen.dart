@@ -1,7 +1,9 @@
-// lib/screens/learning_debug_screen.dart
+// lib/screens/learning_debug_screen.dart - AUTHENTIC VERSION
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../services/simple_learning_service.dart';
+import '../services/authentic_tone_detection.dart';
+import '../services/hybrid_tone_detection.dart';
 
 class LearningDebugScreen extends StatefulWidget {
   const LearningDebugScreen({Key? key}) : super(key: key);
@@ -14,6 +16,7 @@ class _LearningDebugScreenState extends State<LearningDebugScreen> {
   Map<String, dynamic> _learningStats = {};
   final TextEditingController _testResponseController = TextEditingController();
   bool _isLoading = true;
+  Map<String, dynamic> _lastHybridAnalysis = {};
 
   @override
   void initState() {
@@ -33,16 +36,116 @@ class _LearningDebugScreenState extends State<LearningDebugScreen> {
   Future<void> _testResponse(String response) async {
     if (response.trim().isEmpty) return;
     
+    // 🎭 Show immediate HYBRID tone analysis
+    final hybridAnalysis = HybridToneDetection.analyzeHybridTones(response);
+    
+    setState(() {
+      _lastHybridAnalysis = hybridAnalysis;
+    });
+    
+    // Learn from response
     await SimpleLearningService.learnFromResponse(response);
     _testResponseController.clear();
     await _loadLearningStats();
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Response analyzed and learned!'),
-        backgroundColor: Color(0xFFD4AF37),
+    // Show hybrid results
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Color(0xFF1A1F2E),
+        title: Text('🎭 HYBRID Tone Analysis', style: TextStyle(color: Colors.white)),
+        content: Container(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Response: "$response"', 
+                   style: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic)),
+              SizedBox(height: 12),
+              Text('Analysis: ${HybridToneDetection.getHybridAnalysisString(hybridAnalysis)}',
+                   style: TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold)),
+              SizedBox(height: 8),
+              if (hybridAnalysis['type'] == 'hybrid') ...[
+                Text('🎯 Detected Blend:', style: TextStyle(color: Colors.white)),
+                SizedBox(height: 4),
+                if (hybridAnalysis['hybrid'] != null) ...[
+                  Text('Name: ${hybridAnalysis['hybrid']['name']}',
+                       style: TextStyle(color: Color(0xFFD4AF37))),
+                  Text('Description: ${hybridAnalysis['hybrid']['description']}',
+                       style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  SizedBox(height: 8),
+                ],
+                Text('🔥 Component Tones:', style: TextStyle(color: Colors.white)),
+                if (hybridAnalysis['significantTones'] != null)
+                  ...((hybridAnalysis['significantTones'] as List<dynamic>).map((tone) => 
+                    Padding(
+                      padding: EdgeInsets.only(left: 16),
+                      child: Text('${_getToneDisplayName(tone['tone'])}: ${tone['score']}',
+                                 style: TextStyle(color: Colors.white70)),
+                    ))),
+              ] else ...[
+                Text('Single Tone Detected:', style: TextStyle(color: Colors.white)),
+                Padding(
+                  padding: EdgeInsets.only(left: 16),
+                  child: Text('${_getToneDisplayName(hybridAnalysis['primary'])}',
+                             style: TextStyle(color: Colors.white70)),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Roger that! 🎖️', style: TextStyle(color: Color(0xFFD4AF37))),
+          ),
+        ],
       ),
     );
+  }
+
+  String _getToneDisplayName(String toneKey) {
+    final toneNames = {
+      'nerdy': '🤓 Nerdy/Academic',
+      'street': '🗣️ Street/Urban',
+      'latin': '🌮 Latin Colloquial',
+      'southern': '🤠 Southern Eccentric',
+      'theatrical': '🎭 Theatrical/Dramatic',
+      'finance_bro': '💰 Finance Bro',
+      'gamer': '🎮 Gamer/Internet',
+      'spiritual': '🧘 Spiritual/Wellness',
+      'gen_z': '🔥 Gen Z Core',
+      'military': '🎖️ Trained Soldier',
+      'neutral': '⚖️ Neutral/Balanced'
+    };
+    return toneNames[toneKey] ?? toneKey;
+  }
+
+  String _getHybridDisplayName(String hybridKey) {
+    final hybridNames = {
+      'military_street': '🎖️🗣️ Military Hood',
+      'nerdy_street': '🤓🗣️ Smart Street',
+      'military_nerdy': '🎖️🤓 Tactical Scholar',
+      'military_southern': '🎖️🤠 Country Soldier',
+      'street_gen_z': '🗣️🔥 Urban Gen Z',
+      'military_gamer': '🎖️🎮 Tactical Gamer',
+      'nerdy_theatrical': '🤓🎭 Dramatic Scholar',
+      'street_finance_bro': '🗣️💰 Hood Entrepreneur',
+      'military_street_nerdy': '🎖️🗣️🤓 Scholar Warrior Hood',
+    };
+    
+    if (hybridNames.containsKey(hybridKey)) {
+      return hybridNames[hybridKey]!;
+    }
+    
+    // Handle custom hybrids
+    if (hybridKey.startsWith('custom_')) {
+      final parts = hybridKey.replaceFirst('custom_', '').split('_');
+      return parts.map((p) => _getToneDisplayName(p).split(' ').first).join(' + ');
+    }
+    
+    return hybridKey;
   }
 
   Future<void> _resetLearning() async {
@@ -52,7 +155,7 @@ class _LearningDebugScreenState extends State<LearningDebugScreen> {
         backgroundColor: Color(0xFF1A1F2E),
         title: Text('Reset Learning Data?', style: TextStyle(color: Colors.white)),
         content: Text(
-          'This will clear all learned patterns and start fresh.',
+          'This will clear all learned patterns and tone profiles. Start fresh?',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -65,9 +168,10 @@ class _LearningDebugScreenState extends State<LearningDebugScreen> {
               await SimpleLearningService.resetLearningData();
               Navigator.pop(context);
               await _loadLearningStats();
+              setState(() => _lastHybridAnalysis = {});
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Learning data reset!'),
+                  content: Text('🔄 Learning data reset - ready for fresh hybrid analysis!'),
                   backgroundColor: Colors.red,
                 ),
               );
@@ -85,7 +189,7 @@ class _LearningDebugScreenState extends State<LearningDebugScreen> {
       backgroundColor: Color(0xFF0A0E27),
       appBar: AppBar(
         backgroundColor: Color(0xFF1A1F2E),
-        title: Text('🧠 AI Learning Debug'),
+        title: Text('🎭 HYBRID AI Learning Debug'),
         actions: [
           IconButton(
             icon: Icon(Icons.refresh),
@@ -98,339 +202,333 @@ class _LearningDebugScreenState extends State<LearningDebugScreen> {
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37)))
+          ? Center(
+              child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
+            )
           : SingleChildScrollView(
               padding: EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildTestInput(),
-                  SizedBox(height: 24),
-                  _buildStatsCard(),
-                  SizedBox(height: 16),
-                  _buildPatternAnalysis(),
-                  SizedBox(height: 16),
-                  _buildPersonalizationStatus(),
-                  SizedBox(height: 16),
-                  _buildExamplePrompt(),
+                  _buildOverallProfile(),
+                  SizedBox(height: 20),
+                  _buildTestSection(),
+                  SizedBox(height: 20),
+                  _buildToneFrequencies(),
+                  SizedBox(height: 20),
+                  _buildRecentAnalysis(),
+                  SizedBox(height: 20),
+                  _buildDetailedStats(),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildTestInput() {
+  Widget _buildOverallProfile() {
+    final hasData = _learningStats['hasEnoughData'] ?? false;
+    final primaryTone = _learningStats['primaryTone'] ?? 'unknown';
+    final hybridBlend = _learningStats['hybridBlend'];
+    final confidence = _learningStats['toneConfidence'] ?? 'unknown';
+
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Color(0xFF1A1F2E),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Color(0xFFD4AF37).withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: Color(0xFFD4AF37).withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '🧪 Test Response Input',
+            '🎭 YOUR HYBRID COMMUNICATION PROFILE',
             style: TextStyle(
               color: Color(0xFFD4AF37),
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 8),
+          SizedBox(height: 12),
+          if (hasData) ...[
+            if (hybridBlend != null) ...[
+              _buildProfileRow('🔥 Dominant Blend', _getHybridDisplayName(hybridBlend)),
+              _buildProfileRow('Primary Fallback', _getToneDisplayName(primaryTone)),
+            ] else ...[
+              _buildProfileRow('Primary Style', _getToneDisplayName(primaryTone)),
+            ],
+            _buildProfileRow('Confidence', confidence.toUpperCase()),
+            _buildProfileRow('Conversations', '${_learningStats['conversationCount']}'),
+            if (_learningStats['hybridProfile'] != null)
+              _buildProfileRow('Hybrid Combos', '${_learningStats['hybridProfile']['totalCombos']}'),
+          ] else ...[
+            Text(
+              'Need ${3 - (_learningStats['conversationCount'] ?? 0)} more conversations for hybrid analysis',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Colors.white70)),
+          Text(value, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTestSection() {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Color(0xFF1A1F2E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            'Type test responses to see how the AI learns:',
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+            '🧪 TEST TONE DETECTION',
+            style: TextStyle(
+              color: Color(0xFFD4AF37),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 12),
+          TextField(
+            controller: _testResponseController,
+            style: TextStyle(color: Colors.white),
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Try hybrid: "Roger that bro, the algorithmic approach is fire!" or "¡Órale! Mission accomplished, no cap!" or single tones...',
+              hintStyle: TextStyle(color: Colors.white54),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Color(0xFFD4AF37)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Color(0xFFD4AF37).withOpacity(0.5)),
+              ),
+            ),
           ),
           SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _testResponseController,
-                  style: TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Try: "Great! Had an amazing time!" or "yeah, was ok"',
-                    hintStyle: TextStyle(color: Colors.white30),
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.05),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
+                child: ElevatedButton(
+                  onPressed: () => _testResponse(_testResponseController.text),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFFD4AF37),
+                    foregroundColor: Colors.black,
                   ),
-                  onSubmitted: _testResponse,
+                  child: Text('🎯 Analyze Tone'),
                 ),
-              ),
-              SizedBox(width: 8),
-              IconButton(
-                icon: Icon(Icons.send, color: Color(0xFFD4AF37)),
-                onPressed: () => _testResponse(_testResponseController.text),
               ),
             ],
           ),
+          if (_lastHybridAnalysis.isNotEmpty) ...[
+            SizedBox(height: 16),
+            Text('Last Analysis:', style: TextStyle(color: Colors.white70)),
+            if (_lastHybridAnalysis['type'] == 'hybrid') ...[
+              Padding(
+                padding: EdgeInsets.only(left: 16, top: 4),
+                child: Text(
+                  '${HybridToneDetection.getHybridAnalysisString(_lastHybridAnalysis)}',
+                  style: TextStyle(color: Color(0xFFD4AF37)),
+                ),
+              ),
+              if (_lastHybridAnalysis['significantTones'] != null)
+                ...(_lastHybridAnalysis['significantTones'] as List<dynamic>).map((tone) =>
+                  Padding(
+                    padding: EdgeInsets.only(left: 32, top: 2),
+                    child: Text(
+                      '• ${_getToneDisplayName(tone['tone'])}: ${tone['score']}',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  )),
+            ] else ...[
+              Padding(
+                padding: EdgeInsets.only(left: 16, top: 4),
+                child: Text(
+                  'Single: ${_getToneDisplayName(_lastHybridAnalysis['primary'])}',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildStatsCard() {
-    final conversationCount = _learningStats['conversationCount'] ?? 0;
-    final avgLength = (_learningStats['averageResponseLength'] ?? 0.0).toStringAsFixed(1);
+  Widget _buildToneFrequencies() {
+    final frequencies = _learningStats['toneFrequencies'] as Map<String, dynamic>? ?? {};
+    final hybridFreqs = _learningStats['hybridFrequencies'] as Map<String, dynamic>? ?? {};
     
+    if (frequencies.isEmpty && hybridFreqs.isEmpty) return Container();
+
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFFD4AF37).withOpacity(0.1),
-            Color(0xFF1A1F2E),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Color(0xFF1A1F2E),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '📊 Learning Statistics',
+            '📊 TONE & HYBRID FREQUENCY BREAKDOWN',
             style: TextStyle(
               color: Color(0xFFD4AF37),
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 16),
-          _buildStatRow('Total Conversations', conversationCount.toString()),
-          _buildStatRow('Average Response Length', '$avgLength chars'),
-          _buildStatRow('Enthusiastic Responses', '${_learningStats['enthusiasticResponses'] ?? 0}'),
-          _buildStatRow('Casual Responses', '${_learningStats['casualResponses'] ?? 0}'),
-          _buildStatRow('Short Responses', '${_learningStats['shortResponses'] ?? 0}'),
-          _buildStatRow('Detailed Responses', '${_learningStats['detailedResponses'] ?? 0}'),
+          SizedBox(height: 12),
+          if (hybridFreqs.isNotEmpty) ...[
+            Text('🔥 Hybrid Patterns:', style: TextStyle(color: Color(0xFFD4AF37))),
+            ...hybridFreqs.entries.map((entry) {
+              final percentage = (_learningStats['conversationCount'] > 0)
+                  ? (entry.value / _learningStats['conversationCount'] * 100).round()
+                  : 0;
+              return Padding(
+                padding: EdgeInsets.only(bottom: 6, left: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(_getHybridDisplayName(entry.key), 
+                         style: TextStyle(color: Color(0xFFD4AF37))),
+                    Text('${entry.value} (${percentage}%)', 
+                         style: TextStyle(color: Color(0xFFD4AF37))),
+                  ],
+                ),
+              );
+            }).toList(),
+            SizedBox(height: 8),
+          ],
+          Text('🎭 Individual Tones:', style: TextStyle(color: Colors.white)),
+          ...frequencies.entries.map((entry) {
+            final percentage = (_learningStats['conversationCount'] > 0)
+                ? (entry.value / _learningStats['conversationCount'] * 100).round()
+                : 0;
+            return Padding(
+              padding: EdgeInsets.only(bottom: 6, left: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(_getToneDisplayName(entry.key), 
+                       style: TextStyle(color: Colors.white70)),
+                  Text('${entry.value} (${percentage}%)', 
+                       style: TextStyle(color: Colors.white)),
+                ],
+              ),
+            );
+          }).toList(),
         ],
       ),
     );
   }
 
-  Widget _buildStatRow(String label, String value) {
+  Widget _buildRecentAnalysis() {
+    final recentTones = _learningStats['recentTones'] as List<dynamic>? ?? [];
+    if (recentTones.isEmpty) return Container();
+
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Color(0xFF1A1F2E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '🔄 RECENT CONVERSATION TONES',
+            style: TextStyle(
+              color: Color(0xFFD4AF37),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 12),
+          ...recentTones.reversed.map((tone) => Padding(
+            padding: EdgeInsets.only(bottom: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Conversation #${tone['conversation']}',
+                     style: TextStyle(color: Colors.white70)),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (tone['type'] == 'hybrid' && tone['hybrid'] != null)
+                      Text('🔥 ${tone['hybrid']}',
+                           style: TextStyle(color: Color(0xFFD4AF37), fontSize: 12))
+                    else
+                      Text('${_getToneDisplayName(tone['primary'])}',
+                           style: TextStyle(color: Colors.white)),
+                    Text('${((tone['confidence'] ?? 0.0) * 100).round()}% conf',
+                         style: TextStyle(color: Colors.white54, fontSize: 10)),
+                  ],
+                ),
+              ],
+            ),
+          )).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailedStats() {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Color(0xFF1A1F2E),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '📈 DETAILED ANALYTICS',
+            style: TextStyle(
+              color: Color(0xFFD4AF37),
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 12),
+          _buildDetailRow('Total Conversations', '${_learningStats['conversationCount']}'),
+          _buildDetailRow('Average Response Length', 
+                         '${(_learningStats['averageResponseLength'] ?? 0).round()} chars'),
+          _buildDetailRow('Profile Confidence', _learningStats['toneConfidence'] ?? 'Unknown'),
+          _buildDetailRow('Data Status', 
+                         _learningStats['hasEnoughData'] ? '✅ Ready for personalization' : '⏳ Still learning'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.only(bottom: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: TextStyle(color: Colors.white70)),
-          Text(
-            value,
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text(value, style: TextStyle(color: Colors.white)),
         ],
       ),
     );
-  }
-
-  Widget _buildPatternAnalysis() {
-    final conversationCount = _learningStats['conversationCount'] ?? 0;
-    final enthusiasticCount = _learningStats['enthusiasticResponses'] ?? 0;
-    final casualCount = _learningStats['casualResponses'] ?? 0;
-    
-    final enthusiasticPercent = conversationCount > 0 
-        ? (enthusiasticCount / conversationCount * 100).toStringAsFixed(0)
-        : '0';
-    final casualPercent = conversationCount > 0
-        ? (casualCount / conversationCount * 100).toStringAsFixed(0)
-        : '0';
-
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '🎭 Communication Pattern Analysis',
-            style: TextStyle(
-              color: Color(0xFFD4AF37),
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 16),
-          _buildPercentageBar('Enthusiastic', double.parse(enthusiasticPercent), Colors.orange),
-          SizedBox(height: 12),
-          _buildPercentageBar('Casual', double.parse(casualPercent), Colors.blue),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPercentageBar(String label, double percentage, Color color) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: TextStyle(color: Colors.white70)),
-            Text('${percentage.toStringAsFixed(0)}%', style: TextStyle(color: Colors.white)),
-          ],
-        ),
-        SizedBox(height: 4),
-        Container(
-          height: 8,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: percentage / 100,
-            child: Container(
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPersonalizationStatus() {
-    final hasEnoughData = _learningStats['hasEnoughData'] ?? false;
-    final preferredTone = _learningStats['preferredTone'] ?? 'unknown';
-    
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: hasEnoughData 
-            ? Colors.green.withOpacity(0.1)
-            : Colors.orange.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: hasEnoughData 
-              ? Colors.green.withOpacity(0.3)
-              : Colors.orange.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                hasEnoughData ? Icons.check_circle : Icons.info,
-                color: hasEnoughData ? Colors.green : Colors.orange,
-                size: 20,
-              ),
-              SizedBox(width: 8),
-              Text(
-                hasEnoughData 
-                    ? '✅ Personalization Active'
-                    : '⏳ Learning in Progress',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 8),
-          Text(
-            hasEnoughData
-                ? 'AI has learned your communication style!'
-                : 'Need ${3 - (_learningStats['conversationCount'] ?? 0)} more conversations',
-            style: TextStyle(color: Colors.white70),
-          ),
-          if (hasEnoughData) ...[
-            SizedBox(height: 8),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Color(0xFFD4AF37).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                'Preferred Tone: ${preferredTone.toUpperCase()}',
-                style: TextStyle(
-                  color: Color(0xFFD4AF37),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExamplePrompt() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '💡 Example Personalized Prompt',
-            style: TextStyle(
-              color: Color(0xFFD4AF37),
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 12),
-          FutureBuilder<String>(
-            future: SimpleLearningService.generatePersonalizedPrompt(
-              'Check in about a medical appointment',
-              'medical',
-            ),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return CircularProgressIndicator(color: Color(0xFFD4AF37));
-              }
-              return Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  snapshot.data!,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _testResponseController.dispose();
-    super.dispose();
   }
 }

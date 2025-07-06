@@ -2,8 +2,11 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// 🧠 SimpleLearningService - Phase 1 of AI Companion
-/// Detects and learns basic communication patterns from user responses
+// lib/services/simple_learning_service.dart - IMPROVED VERSION
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// 🧠 SimpleLearningService - Enhanced with Better Tone Detection
 class SimpleLearningService {
   // Storage keys
   static const String _patternPrefix = 'learning_pattern_';
@@ -15,24 +18,41 @@ class SimpleLearningService {
   static const String _preferredToneKey = 'preferred_tone';
   static const String _averageResponseLengthKey = 'avg_response_length';
   
-  // Pattern detection thresholds
+  // 🔧 IMPROVED: Better pattern detection thresholds
   static const int _minConversationsForPersonalization = 3;
-  static const int _shortResponseThreshold = 50; // characters
-  static const int _detailedResponseThreshold = 200; // characters
+  static const int _shortResponseThreshold = 50;
+  static const int _detailedResponseThreshold = 150; // Lowered from 200
   
-  // Enthusiasm indicators
+  // 🔥 ENHANCED: More comprehensive slang detection
   static const List<String> _enthusiasmMarkers = [
-    '!', '😊', '😄', '🎉', '💪', '✨', '🚀', 'awesome', 'great', 'amazing',
-    'excited', 'happy', 'love', 'fantastic', 'wonderful', 'excellent'
+    '!', '😊', '😄', '🎉', '💪', '✨', '🚀', '🔥', '💯', '👏', '🙌',
+    'awesome', 'great', 'amazing', 'excited', 'happy', 'love', 'fantastic', 
+    'wonderful', 'excellent', 'brilliant', 'epic', 'incredible', 'perfect',
+    'fire', 'lit', 'dope', 'sick', 'beast', 'legendary', 'goated'
   ];
   
-  // Casual indicators
+  // 🗣️ ENHANCED: More Gen Z and casual detection
   static const List<String> _casualMarkers = [
     'yeah', 'yep', 'nah', 'gonna', 'wanna', 'kinda', 'sorta', 
-    'lol', 'haha', 'cool', 'ok', 'okay', 'alright', 'sure'
+    'lol', 'haha', 'cool', 'ok', 'okay', 'alright', 'sure',
+    // Gen Z / Modern slang
+    'bruh', 'fr', 'ngl', 'tbh', 'lowkey', 'highkey', 'deadass', 'cap', 'no cap',
+    'slaps', 'hits different', 'vibe', 'vibes', 'mood', 'periodt', 'bet', 'say less',
+    'fire', 'lit', 'dope', 'sick', 'af', 'asf', 'fam', 'bestie', 'bestfriend',
+    'sis', 'bro', 'dude', 'homie', 'facts', 'periodt', 'slay', 'queen', 'king',
+    'stan', 'simp', 'sus', 'based', 'cringe', 'mid', 'bussin', 'sheesh',
+    'w take', 'l take', 'ratio', 'touch grass', 'main character', 'salty'
   ];
   
-  /// Learn from a user's response and update communication patterns
+  // 🎯 ENHANCED: Professional language indicators
+  static const List<String> _professionalMarkers = [
+    'meeting', 'appointment', 'scheduled', 'completed', 'productive', 
+    'successful', 'according to plan', 'as expected', 'proceeded', 
+    'discussion', 'presentation', 'conference', 'regarding', 'furthermore',
+    'therefore', 'however', 'nevertheless', 'consequently', 'accordingly'
+  ];
+  
+  /// Learn from a user's response with enhanced detection
   static Future<void> learnFromResponse(String userResponse) async {
     final prefs = await SharedPreferences.getInstance();
     
@@ -40,18 +60,23 @@ class SimpleLearningService {
     final conversationCount = (prefs.getInt(_conversationCountKey) ?? 0) + 1;
     await prefs.setInt(_conversationCountKey, conversationCount);
     
-    // Analyze response characteristics
-    final isEnthusiastic = _detectEnthusiasm(userResponse);
-    final isCasual = _detectCasualTone(userResponse);
+    // 🔥 ENHANCED: Better analysis with scoring system
+    final enthusiasmScore = _calculateEnthusiasmScore(userResponse);
+    final casualScore = _calculateCasualScore(userResponse);
+    final professionalScore = _calculateProfessionalScore(userResponse);
     final responseLength = userResponse.length;
     
-    // Update enthusiasm counter
+    // 🎯 IMPROVED: Use scoring thresholds instead of binary detection
+    final isEnthusiastic = enthusiasmScore >= 2; // Was just true/false
+    final isCasual = casualScore >= 2; // Was just true/false
+    final isProfessional = professionalScore >= 2;
+    
+    // Update counters
     if (isEnthusiastic) {
       final enthusiasticCount = (prefs.getInt(_enthusiasticCountKey) ?? 0) + 1;
       await prefs.setInt(_enthusiasticCountKey, enthusiasticCount);
     }
     
-    // Update casual counter
     if (isCasual) {
       final casualCount = (prefs.getInt(_casualCountKey) ?? 0) + 1;
       await prefs.setInt(_casualCountKey, casualCount);
@@ -71,16 +96,114 @@ class SimpleLearningService {
     final newAvg = ((currentAvg * (conversationCount - 1)) + responseLength) / conversationCount;
     await prefs.setDouble(_averageResponseLengthKey, newAvg);
     
-    // Determine preferred tone after minimum conversations
+    // 🎯 IMPROVED: Better tone determination after minimum conversations
     if (conversationCount >= _minConversationsForPersonalization) {
-      await _updatePreferredTone();
+      await _updatePreferredToneEnhanced();
     }
     
-    print('🧠 Learning update - Conversation #$conversationCount');
-    print('📊 Enthusiastic: $isEnthusiastic, Casual: $isCasual, Length: $responseLength');
+    print('🧠 Enhanced Learning - Conversation #$conversationCount');
+    print('📊 Enthusiasm: $enthusiasmScore, Casual: $casualScore, Professional: $professionalScore');
+    print('🎯 Final Detection - Enthusiastic: $isEnthusiastic, Casual: $isCasual, Length: $responseLength');
   }
   
-  /// Generate personalized text based on learned patterns
+  /// 🔥 NEW: Calculate enthusiasm score (0-5)
+  static int _calculateEnthusiasmScore(String text) {
+    final lowerText = text.toLowerCase();
+    int score = 0;
+    
+    for (String marker in _enthusiasmMarkers) {
+      if (marker.length == 1) {
+        // Count emojis and punctuation
+        score += text.split(marker).length - 1;
+      } else if (lowerText.contains(marker)) {
+        // Strong enthusiasm words get 2 points
+        if (['fire', 'lit', 'dope', 'sick', 'amazing', 'epic'].contains(marker)) {
+          score += 2;
+        } else {
+          score += 1;
+        }
+      }
+    }
+    
+    return score;
+  }
+  
+  /// 🗣️ NEW: Calculate casual score (0-5) 
+  static int _calculateCasualScore(String text) {
+    final lowerText = text.toLowerCase();
+    int score = 0;
+    
+    for (String marker in _casualMarkers) {
+      if (lowerText.contains(marker)) {
+        // Gen Z slang gets higher scores
+        if (['bruh', 'fr', 'ngl', 'deadass', 'fire', 'lit', 'dope', 'af', 'bussin', 'sheesh'].contains(marker)) {
+          score += 3; // Heavy weight for strong slang
+        } else if (['tbh', 'lowkey', 'vibe', 'mood', 'bet', 'facts'].contains(marker)) {
+          score += 2; // Medium weight
+        } else {
+          score += 1; // Light weight for basic casual words
+        }
+      }
+    }
+    
+    return score;
+  }
+  
+  /// 👔 NEW: Calculate professional score (0-5)
+  static int _calculateProfessionalScore(String text) {
+    final lowerText = text.toLowerCase();
+    int score = 0;
+    
+    for (String marker in _professionalMarkers) {
+      if (lowerText.contains(marker)) {
+        score += 1;
+      }
+    }
+    
+    // Professional indicators
+    if (text.contains('.') && text.length > 30) score += 1; // Complete sentences
+    if (lowerText.contains('thank you') || lowerText.contains('please')) score += 1; // Politeness
+    if (!_detectEnthusiasm(text) && !_detectCasualTone(text)) score += 1; // Neutral tone
+    
+    return score;
+  }
+  
+  /// 🎭 ENHANCED: Better tone determination algorithm
+  static Future<void> _updatePreferredToneEnhanced() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    final enthusiasticCount = prefs.getInt(_enthusiasticCountKey) ?? 0;
+    final casualCount = prefs.getInt(_casualCountKey) ?? 0;
+    final conversationCount = prefs.getInt(_conversationCountKey) ?? 0;
+    
+    if (conversationCount == 0) return;
+    
+    // 🔧 IMPROVED: Lower thresholds and better logic
+    final enthusiasticPercent = (enthusiasticCount / conversationCount) * 100;
+    final casualPercent = (casualCount / conversationCount) * 100;
+    
+    String preferredTone;
+    
+    // 🎯 NEW: Priority-based tone detection
+    if (casualPercent >= 40) { // Lowered from 60% to 40%
+      if (enthusiasticPercent >= 40) {
+        preferredTone = 'enthusiastic_casual'; // NEW: Combo tone
+      } else {
+        preferredTone = 'casual';
+      }
+    } else if (enthusiasticPercent >= 50) { // Lowered from 60%
+      preferredTone = 'enthusiastic';
+    } else if (enthusiasticPercent < 20 && casualPercent < 20) {
+      preferredTone = 'professional';
+    } else {
+      preferredTone = 'balanced';
+    }
+    
+    await prefs.setString(_preferredToneKey, preferredTone);
+    print('🎭 Enhanced tone updated to: $preferredTone (Casual: ${casualPercent.toStringAsFixed(1)}%, Enthusiastic: ${enthusiasticPercent.toStringAsFixed(1)}%)');
+  }
+  
+  /// Generate personalized text with enhanced tone matching
   static Future<String> generatePersonalizedPrompt(String basePrompt, String taskType) async {
     final prefs = await SharedPreferences.getInstance();
     final conversationCount = prefs.getInt(_conversationCountKey) ?? 0;
@@ -97,49 +220,62 @@ class SimpleLearningService {
     // Build personalized prompt additions
     List<String> promptModifiers = [];
     
-    // Add tone modifiers
+    // 🎯 ENHANCED: Better tone modifiers
     switch (preferredTone) {
       case 'enthusiastic':
-        promptModifiers.add('Be enthusiastic and energetic in your response.');
-        promptModifiers.add('Use exclamation points and positive language.');
+        promptModifiers.add('Be very enthusiastic and energetic in your response!');
+        promptModifiers.add('Use exclamation points and positive language like "awesome", "amazing", "fantastic"!');
         break;
       case 'casual':
-        promptModifiers.add('Keep the tone casual and conversational.');
-        promptModifiers.add('Use friendly, informal language.');
+        promptModifiers.add('Keep the tone very casual and conversational, like talking to a close friend.');
+        promptModifiers.add('Use friendly, informal language. Be relaxed and natural.');
+        break;
+      case 'enthusiastic_casual':
+        promptModifiers.add('Be enthusiastic AND casual - like an excited best friend!');
+        promptModifiers.add('Use informal language with lots of energy and positivity!');
         break;
       case 'professional':
-        promptModifiers.add('Maintain a professional but caring tone.');
-        promptModifiers.add('Be clear and supportive without being overly casual.');
+        promptModifiers.add('Maintain a professional, polite, and respectful tone.');
+        promptModifiers.add('Be clear and supportive while keeping language formal and appropriate.');
+        break;
+      case 'balanced':
+        promptModifiers.add('Use a balanced tone - supportive and encouraging but not overly casual or formal.');
         break;
     }
     
     // Add length preference
     if (avgResponseLength < _shortResponseThreshold) {
-      promptModifiers.add('The user prefers brief responses, so keep it concise.');
+      promptModifiers.add('The user prefers brief, concise responses - keep it short and to the point.');
     } else if (avgResponseLength > _detailedResponseThreshold) {
-      promptModifiers.add('The user appreciates detailed responses, so feel free to be thorough.');
+      promptModifiers.add('The user appreciates detailed responses - feel free to be thorough and explanatory.');
     }
     
     // Combine base prompt with personalization
-    final personalizedPrompt = '$basePrompt\n\nPersonalization notes:\n${promptModifiers.join('\n')}';
+    final personalizedPrompt = '$basePrompt\n\nPersonalization guidelines:\n${promptModifiers.join('\n')}';
     
-    print('🎯 Personalized prompt generated with tone: $preferredTone');
+    print('🎯 Enhanced personalized prompt generated with tone: $preferredTone');
     return personalizedPrompt;
   }
   
-  /// Get current learning statistics
+  /// Get current learning statistics with enhanced info
   static Future<Map<String, dynamic>> getLearningStats() async {
     final prefs = await SharedPreferences.getInstance();
+    final conversationCount = prefs.getInt(_conversationCountKey) ?? 0;
+    final enthusiasticCount = prefs.getInt(_enthusiasticCountKey) ?? 0;
+    final casualCount = prefs.getInt(_casualCountKey) ?? 0;
     
     return {
-      'conversationCount': prefs.getInt(_conversationCountKey) ?? 0,
-      'enthusiasticResponses': prefs.getInt(_enthusiasticCountKey) ?? 0,
-      'casualResponses': prefs.getInt(_casualCountKey) ?? 0,
+      'conversationCount': conversationCount,
+      'enthusiasticResponses': enthusiasticCount,
+      'casualResponses': casualCount,
       'shortResponses': prefs.getInt(_shortResponseCountKey) ?? 0,
       'detailedResponses': prefs.getInt(_detailedResponseCountKey) ?? 0,
       'preferredTone': prefs.getString(_preferredToneKey) ?? 'unknown',
       'averageResponseLength': prefs.getDouble(_averageResponseLengthKey) ?? 0.0,
-      'hasEnoughData': (prefs.getInt(_conversationCountKey) ?? 0) >= _minConversationsForPersonalization,
+      'hasEnoughData': conversationCount >= _minConversationsForPersonalization,
+      // NEW: Percentage breakdowns
+      'casualPercent': conversationCount > 0 ? (casualCount / conversationCount * 100) : 0.0,
+      'enthusiasticPercent': conversationCount > 0 ? (enthusiasticCount / conversationCount * 100) : 0.0,
     };
   }
   
@@ -155,46 +291,15 @@ class SimpleLearningService {
     await prefs.remove(_preferredToneKey);
     await prefs.remove(_averageResponseLengthKey);
     
-    print('🔄 Learning data reset');
+    print('🔄 Enhanced learning data reset');
   }
   
-  // Private helper methods
-  
+  // Keep original methods for backward compatibility
   static bool _detectEnthusiasm(String text) {
-    final lowerText = text.toLowerCase();
-    return _enthusiasmMarkers.any((marker) => 
-      marker.length == 1 ? text.contains(marker) : lowerText.contains(marker)
-    );
+    return _calculateEnthusiasmScore(text) >= 1;
   }
   
   static bool _detectCasualTone(String text) {
-    final lowerText = text.toLowerCase();
-    return _casualMarkers.any((marker) => lowerText.contains(marker));
-  }
-  
-  static Future<void> _updatePreferredTone() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    final enthusiasticCount = prefs.getInt(_enthusiasticCountKey) ?? 0;
-    final casualCount = prefs.getInt(_casualCountKey) ?? 0;
-    final conversationCount = prefs.getInt(_conversationCountKey) ?? 1;
-    
-    // Calculate percentages
-    final enthusiasticPercent = enthusiasticCount / conversationCount;
-    final casualPercent = casualCount / conversationCount;
-    
-    String preferredTone;
-    if (enthusiasticPercent > 0.6) {
-      preferredTone = 'enthusiastic';
-    } else if (casualPercent > 0.6) {
-      preferredTone = 'casual';
-    } else if (enthusiasticPercent < 0.2 && casualPercent < 0.2) {
-      preferredTone = 'professional';
-    } else {
-      preferredTone = 'balanced';
-    }
-    
-    await prefs.setString(_preferredToneKey, preferredTone);
-    print('🎭 Preferred tone updated to: $preferredTone');
+    return _calculateCasualScore(text) >= 1;
   }
 }

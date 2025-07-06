@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'widgets/app_bottom_navbar.dart';
 import '../services/reflection_settings_service.dart';
 import '../services/privacy_control_service.dart';
+import '../screens/learning_debug_screen.dart';
+
 
 class SettingsScreen extends StatefulWidget {
   final String? currentTaskType;
@@ -889,49 +891,88 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildAdvancedSection() {
-    return _buildSettingsCard(
-      title: 'Advanced',
-      icon: Icons.settings,
-      color: const Color(0xFFD4AF37),
-      child: Column(
-        children: [
-          _buildActionButton(
-            'Reset All Settings',
-            'Restore default configuration',
-            Icons.refresh,
-            Colors.orange,
-            () => _showResetDialog(),
-          ),
+  return _buildSettingsCard(
+    title: 'Advanced',
+    icon: Icons.settings,
+    color: Colors.grey,
+    child: Column(
+      children: [
+        _buildActionButton(
+          'Export Data',
+          'Download your settings and data',
+          Icons.download,
+          Colors.blue,
+          () => _exportData(),
+        ),
+        const SizedBox(height: 12),
+        _buildActionButton(
+          'Privacy Policy',
+          'View our privacy and data policies',
+          Icons.privacy_tip,
+          Colors.green,
+          () => _openPrivacyPolicy(),
+        ),
+        const SizedBox(height: 12),
+        // 🧠 NEW: Add debug screen access
+        _buildActionButton(
+          'AI Learning Debug',
+          'View learning patterns and test responses',
+          Icons.psychology,
+          const Color(0xFFD4AF37),
+          () => _openLearningDebug(),
+        ),
+        if (!_hasShownReflectionOnboarding) ...[
           const SizedBox(height: 12),
           _buildActionButton(
-            'Export Data',
-            'Download your settings and data',
-            Icons.download,
-            Colors.blue,
-            () => _exportData(),
+            'Smart Reflections Tour',
+            'Learn about AI check-ins',
+            Icons.tour,
+            Color(0xFFD4AF37),
+            () => _showReflectionOnboarding(),
           ),
-          const SizedBox(height: 12),
-          _buildActionButton(
-            'Privacy Policy',
-            'View our privacy and data policies',
-            Icons.privacy_tip,
-            Colors.green,
-            () => _openPrivacyPolicy(),
-          ),
-          if (!_hasShownReflectionOnboarding) ...[
-            const SizedBox(height: 12),
-            _buildActionButton(
-              'Smart Reflections Tour',
-              'Learn about AI check-ins',
-              Icons.tour,
-              Color(0xFFD4AF37),
-              () => _showReflectionOnboarding(),
-            ),
-          ],
         ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
+
+// Add this new method to handle debug screen navigation:
+void _openLearningDebug() {
+  Navigator.of(context).push(
+    PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => const LearningDebugScreen(),
+      transitionDuration: const Duration(milliseconds: 300),
+      reverseTransitionDuration: const Duration(milliseconds: 300),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: Tween<double>(
+            begin: 0.0,
+            end: 1.0,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOut,
+          )),
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF0a1428), // Deep navy
+                  Color(0xFF1a2332), // Navy blue
+                  Color(0xFF0f1419), // Dark slate
+                  Color(0xFF000000), // Black
+                ],
+                stops: [0.0, 0.3, 0.7, 1.0],
+              ),
+            ),
+            child: child,
+          ),
+        );
+      },
+    ),
+  );
+}
 
   Widget _buildSettingsCard({
     required String title,
