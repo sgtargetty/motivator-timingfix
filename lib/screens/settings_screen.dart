@@ -179,6 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     _initializeAnimations();
     _loadSettings();
     _loadUserPreferences();
+    _loadCurrentVoiceSettings(); // 🔧 NEW: Load voice settings properly
     _loadCurrentSettings();
   }
 
@@ -274,14 +275,78 @@ class _SettingsScreenState extends State<SettingsScreen>
     }
   }
 
-  void _selectVoiceCategory(String category) {
+  void _selectVoiceCategory(String category) async {
     setState(() {
       _selectedVoiceCategory = category;
       if (_voiceCatalog[category]!.isNotEmpty) {
         _selectedVoiceStyle = _voiceCatalog[category]!.first['name'];
       }
     });
+    
+    // 🎯 IMMEDIATELY save the voice selection
+    await _saveVoiceSelection();
     HapticFeedback.selectionClick();
+  }
+  void _selectVoiceStyle(String style) async {
+    setState(() {
+      _selectedVoiceStyle = style;
+    });
+    
+    // 🎯 IMMEDIATELY save the voice selection
+    await _saveVoiceSelection();
+    HapticFeedback.selectionClick();
+  }
+  Future<void> _saveVoiceSelection() async {
+    final prefs = await SharedPreferences.getInstance();
+    final combinedVoiceSetting = '$_selectedVoiceCategory:$_selectedVoiceStyle';
+    
+    // Save to the SAME key that reflection screen reads from
+    await prefs.setString('selected_voice', combinedVoiceSetting);
+    await prefs.setString('voice_category', _selectedVoiceCategory);
+    await prefs.setString('voice_style', _selectedVoiceStyle);
+    
+    print('🎤 Voice IMMEDIATELY saved: $combinedVoiceSetting');
+    print('📂 Category: $_selectedVoiceCategory, Style: $_selectedVoiceStyle');
+  }
+  Future<void> _loadCurrentVoiceSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Try to load from saved settings
+    final savedVoice = prefs.getString('selected_voice');
+    final savedCategory = prefs.getString('voice_category');
+    final savedStyle = prefs.getString('voice_style');
+    
+    print('🔍 Loading saved voice settings...');
+    print('🎵 Saved Voice: $savedVoice');
+    print('📂 Saved Category: $savedCategory');
+    print('🎭 Saved Style: $savedStyle');
+    
+    if (savedVoice != null && savedVoice.contains(':')) {
+      final parts = savedVoice.split(':');
+      setState(() {
+        _selectedVoiceCategory = parts[0];
+        _selectedVoiceStyle = parts[1];
+      });
+      print('✅ Voice settings loaded from combined: $_selectedVoiceCategory:$_selectedVoiceStyle');
+    } else if (savedCategory != null && savedStyle != null) {
+      setState(() {
+        _selectedVoiceCategory = savedCategory;
+        _selectedVoiceStyle = savedStyle;
+      });
+      print('✅ Voice settings loaded from separate keys: $_selectedVoiceCategory:$_selectedVoiceStyle');
+    } else {
+      // Fallback to widget params or defaults
+      if (widget.currentVoice != null) {
+        _parseVoiceSetting(widget.currentVoice!);
+        print('✅ Voice settings loaded from widget: ${widget.currentVoice}');
+      } else {
+        setState(() {
+          _selectedVoiceCategory = 'male';
+          _selectedVoiceStyle = 'Default Male';
+        });
+        print('✅ Voice settings defaulted to: male:Default Male');
+      }
+    }
   }
 
   @override
