@@ -1,58 +1,25 @@
-// lib/services/simple_learning_service.dart
+// lib/services/simple_learning_service.dart - HYBRID VERSION
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'authentic_tone_detection.dart';
+import 'hybrid_tone_detection.dart';
 
-// lib/services/simple_learning_service.dart - IMPROVED VERSION
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
-
-/// 🧠 SimpleLearningService - Enhanced with Better Tone Detection
+/// 🧠 SimpleLearningService - Now with HYBRID tone recognition
 class SimpleLearningService {
   // Storage keys
-  static const String _patternPrefix = 'learning_pattern_';
   static const String _conversationCountKey = 'total_conversations';
-  static const String _enthusiasticCountKey = 'enthusiastic_responses';
-  static const String _casualCountKey = 'casual_responses';
-  static const String _shortResponseCountKey = 'short_responses';
-  static const String _detailedResponseCountKey = 'detailed_responses';
-  static const String _preferredToneKey = 'preferred_tone';
+  static const String _toneHistoryKey = 'tone_history';
+  static const String _primaryToneKey = 'primary_tone';
+  static const String _secondaryToneKey = 'secondary_tone';
+  static const String _hybridBlendKey = 'hybrid_blend'; // NEW: Store hybrid pattern
+  static const String _toneConfidenceKey = 'tone_confidence';
   static const String _averageResponseLengthKey = 'avg_response_length';
   
-  // 🔧 IMPROVED: Better pattern detection thresholds
   static const int _minConversationsForPersonalization = 3;
   static const int _shortResponseThreshold = 50;
-  static const int _detailedResponseThreshold = 150; // Lowered from 200
+  static const int _detailedResponseThreshold = 150;
   
-  // 🔥 ENHANCED: More comprehensive slang detection
-  static const List<String> _enthusiasmMarkers = [
-    '!', '😊', '😄', '🎉', '💪', '✨', '🚀', '🔥', '💯', '👏', '🙌',
-    'awesome', 'great', 'amazing', 'excited', 'happy', 'love', 'fantastic', 
-    'wonderful', 'excellent', 'brilliant', 'epic', 'incredible', 'perfect',
-    'fire', 'lit', 'dope', 'sick', 'beast', 'legendary', 'goated'
-  ];
-  
-  // 🗣️ ENHANCED: More Gen Z and casual detection
-  static const List<String> _casualMarkers = [
-    'yeah', 'yep', 'nah', 'gonna', 'wanna', 'kinda', 'sorta', 
-    'lol', 'haha', 'cool', 'ok', 'okay', 'alright', 'sure',
-    // Gen Z / Modern slang
-    'bruh', 'fr', 'ngl', 'tbh', 'lowkey', 'highkey', 'deadass', 'cap', 'no cap',
-    'slaps', 'hits different', 'vibe', 'vibes', 'mood', 'periodt', 'bet', 'say less',
-    'fire', 'lit', 'dope', 'sick', 'af', 'asf', 'fam', 'bestie', 'bestfriend',
-    'sis', 'bro', 'dude', 'homie', 'facts', 'periodt', 'slay', 'queen', 'king',
-    'stan', 'simp', 'sus', 'based', 'cringe', 'mid', 'bussin', 'sheesh',
-    'w take', 'l take', 'ratio', 'touch grass', 'main character', 'salty'
-  ];
-  
-  // 🎯 ENHANCED: Professional language indicators
-  static const List<String> _professionalMarkers = [
-    'meeting', 'appointment', 'scheduled', 'completed', 'productive', 
-    'successful', 'according to plan', 'as expected', 'proceeded', 
-    'discussion', 'presentation', 'conference', 'regarding', 'furthermore',
-    'therefore', 'however', 'nevertheless', 'consequently', 'accordingly'
-  ];
-  
-  /// Learn from a user's response with enhanced detection
+  /// 🎭 Learn from user response with HYBRID tone detection
   static Future<void> learnFromResponse(String userResponse) async {
     final prefs = await SharedPreferences.getInstance();
     
@@ -60,150 +27,145 @@ class SimpleLearningService {
     final conversationCount = (prefs.getInt(_conversationCountKey) ?? 0) + 1;
     await prefs.setInt(_conversationCountKey, conversationCount);
     
-    // 🔥 ENHANCED: Better analysis with scoring system
-    final enthusiasmScore = _calculateEnthusiasmScore(userResponse);
-    final casualScore = _calculateCasualScore(userResponse);
-    final professionalScore = _calculateProfessionalScore(userResponse);
+    // 🎯 HYBRID TONE ANALYSIS
+    final hybridAnalysis = HybridToneDetection.analyzeHybridTones(userResponse);
+    
+    // Store this conversation's hybrid data
+    await _storeHybridToneHistory(hybridAnalysis, conversationCount);
+    
+    // Store in hybrid system
+    await HybridToneDetection.storeHybridAnalysis(hybridAnalysis, conversationCount);
+    
+    // Update response length tracking
     final responseLength = userResponse.length;
-    
-    // 🎯 IMPROVED: Use scoring thresholds instead of binary detection
-    final isEnthusiastic = enthusiasmScore >= 2; // Was just true/false
-    final isCasual = casualScore >= 2; // Was just true/false
-    final isProfessional = professionalScore >= 2;
-    
-    // Update counters
-    if (isEnthusiastic) {
-      final enthusiasticCount = (prefs.getInt(_enthusiasticCountKey) ?? 0) + 1;
-      await prefs.setInt(_enthusiasticCountKey, enthusiasticCount);
-    }
-    
-    if (isCasual) {
-      final casualCount = (prefs.getInt(_casualCountKey) ?? 0) + 1;
-      await prefs.setInt(_casualCountKey, casualCount);
-    }
-    
-    // Update response length patterns
-    if (responseLength < _shortResponseThreshold) {
-      final shortCount = (prefs.getInt(_shortResponseCountKey) ?? 0) + 1;
-      await prefs.setInt(_shortResponseCountKey, shortCount);
-    } else if (responseLength > _detailedResponseThreshold) {
-      final detailedCount = (prefs.getInt(_detailedResponseCountKey) ?? 0) + 1;
-      await prefs.setInt(_detailedResponseCountKey, detailedCount);
-    }
-    
-    // Update average response length
     final currentAvg = prefs.getDouble(_averageResponseLengthKey) ?? 0.0;
     final newAvg = ((currentAvg * (conversationCount - 1)) + responseLength) / conversationCount;
     await prefs.setDouble(_averageResponseLengthKey, newAvg);
     
-    // 🎯 IMPROVED: Better tone determination after minimum conversations
+    // 🎭 Update overall hybrid profile after minimum conversations
     if (conversationCount >= _minConversationsForPersonalization) {
-      await _updatePreferredToneEnhanced();
+      await _updateOverallHybridProfile();
     }
     
-    print('🧠 Enhanced Learning - Conversation #$conversationCount');
-    print('📊 Enthusiasm: $enthusiasmScore, Casual: $casualScore, Professional: $professionalScore');
-    print('🎯 Final Detection - Enthusiastic: $isEnthusiastic, Casual: $isCasual, Length: $responseLength');
-  }
-  
-  /// 🔥 NEW: Calculate enthusiasm score (0-5)
-  static int _calculateEnthusiasmScore(String text) {
-    final lowerText = text.toLowerCase();
-    int score = 0;
-    
-    for (String marker in _enthusiasmMarkers) {
-      if (marker.length == 1) {
-        // Count emojis and punctuation
-        score += text.split(marker).length - 1;
-      } else if (lowerText.contains(marker)) {
-        // Strong enthusiasm words get 2 points
-        if (['fire', 'lit', 'dope', 'sick', 'amazing', 'epic'].contains(marker)) {
-          score += 2;
-        } else {
-          score += 1;
-        }
-      }
+    print('🎭 HYBRID Learning - Conversation #$conversationCount');
+    print('🎯 Analysis: ${HybridToneDetection.getHybridAnalysisString(hybridAnalysis)}');
+    if (hybridAnalysis['type'] == 'hybrid') {
+      final significant = hybridAnalysis['significantTones'] as List<dynamic>;
+      print('📊 Detected Tones: ${significant.map((t) => '${t['tone']}: ${t['score']}').join(', ')}');
     }
-    
-    return score;
+    print('📏 Response Length: $responseLength chars');
   }
   
-  /// 🗣️ NEW: Calculate casual score (0-5) 
-  static int _calculateCasualScore(String text) {
-    final lowerText = text.toLowerCase();
-    int score = 0;
-    
-    for (String marker in _casualMarkers) {
-      if (lowerText.contains(marker)) {
-        // Gen Z slang gets higher scores
-        if (['bruh', 'fr', 'ngl', 'deadass', 'fire', 'lit', 'dope', 'af', 'bussin', 'sheesh'].contains(marker)) {
-          score += 3; // Heavy weight for strong slang
-        } else if (['tbh', 'lowkey', 'vibe', 'mood', 'bet', 'facts'].contains(marker)) {
-          score += 2; // Medium weight
-        } else {
-          score += 1; // Light weight for basic casual words
-        }
-      }
-    }
-    
-    return score;
-  }
-  
-  /// 👔 NEW: Calculate professional score (0-5)
-  static int _calculateProfessionalScore(String text) {
-    final lowerText = text.toLowerCase();
-    int score = 0;
-    
-    for (String marker in _professionalMarkers) {
-      if (lowerText.contains(marker)) {
-        score += 1;
-      }
-    }
-    
-    // Professional indicators
-    if (text.contains('.') && text.length > 30) score += 1; // Complete sentences
-    if (lowerText.contains('thank you') || lowerText.contains('please')) score += 1; // Politeness
-    if (!_detectEnthusiasm(text) && !_detectCasualTone(text)) score += 1; // Neutral tone
-    
-    return score;
-  }
-  
-  /// 🎭 ENHANCED: Better tone determination algorithm
-  static Future<void> _updatePreferredToneEnhanced() async {
+  /// 📚 Store individual conversation hybrid data
+  static Future<void> _storeHybridToneHistory(Map<String, dynamic> hybridAnalysis, int conversationCount) async {
     final prefs = await SharedPreferences.getInstance();
     
-    final enthusiasticCount = prefs.getInt(_enthusiasticCountKey) ?? 0;
-    final casualCount = prefs.getInt(_casualCountKey) ?? 0;
-    final conversationCount = prefs.getInt(_conversationCountKey) ?? 0;
+    // Get existing tone history
+    final toneHistoryJson = prefs.getString(_toneHistoryKey) ?? '[]';
+    final List<dynamic> toneHistory = jsonDecode(toneHistoryJson);
     
-    if (conversationCount == 0) return;
+    // Add new hybrid data
+    toneHistory.add({
+      'conversation': conversationCount,
+      'type': hybridAnalysis['type'],
+      'primary': hybridAnalysis['primary'],
+      'secondary': hybridAnalysis['secondary'],
+      'tertiary': hybridAnalysis['tertiary'],
+      'hybrid': hybridAnalysis['hybrid'],
+      'blendConfidence': hybridAnalysis['blendConfidence'],
+      'significantTones': hybridAnalysis['significantTones'],
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
     
-    // 🔧 IMPROVED: Lower thresholds and better logic
-    final enthusiasticPercent = (enthusiasticCount / conversationCount) * 100;
-    final casualPercent = (casualCount / conversationCount) * 100;
-    
-    String preferredTone;
-    
-    // 🎯 NEW: Priority-based tone detection
-    if (casualPercent >= 40) { // Lowered from 60% to 40%
-      if (enthusiasticPercent >= 40) {
-        preferredTone = 'enthusiastic_casual'; // NEW: Combo tone
-      } else {
-        preferredTone = 'casual';
-      }
-    } else if (enthusiasticPercent >= 50) { // Lowered from 60%
-      preferredTone = 'enthusiastic';
-    } else if (enthusiasticPercent < 20 && casualPercent < 20) {
-      preferredTone = 'professional';
-    } else {
-      preferredTone = 'balanced';
+    // Keep only last 50 conversations (storage management)
+    if (toneHistory.length > 50) {
+      toneHistory.removeAt(0);
     }
     
-    await prefs.setString(_preferredToneKey, preferredTone);
-    print('🎭 Enhanced tone updated to: $preferredTone (Casual: ${casualPercent.toStringAsFixed(1)}%, Enthusiastic: ${enthusiasticPercent.toStringAsFixed(1)}%)');
+    await prefs.setString(_toneHistoryKey, jsonEncode(toneHistory));
   }
   
-  /// Generate personalized text with enhanced tone matching
+  /// 🎯 Analyze all conversations to determine overall hybrid profile
+  static Future<void> _updateOverallHybridProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    final toneHistoryJson = prefs.getString(_toneHistoryKey) ?? '[]';
+    final List<dynamic> toneHistory = jsonDecode(toneHistoryJson);
+    
+    if (toneHistory.isEmpty) return;
+    
+    // Count primary tone frequencies and hybrid patterns
+    Map<String, int> primaryCounts = {};
+    Map<String, int> hybridCounts = {};
+    Map<String, double> hybridConfidences = {};
+    
+    for (var conversation in toneHistory) {
+      String primary = conversation['primary'] ?? 'neutral';
+      primaryCounts[primary] = (primaryCounts[primary] ?? 0) + 1;
+      
+      // Track hybrid patterns
+      if (conversation['hybrid'] != null) {
+        final hybridKey = conversation['hybrid']['key'] ?? 'unknown';
+        hybridCounts[hybridKey] = (hybridCounts[hybridKey] ?? 0) + 1;
+        hybridConfidences[hybridKey] = (hybridConfidences[hybridKey] ?? 0.0) + 
+                                       (conversation['blendConfidence'] ?? 0.0);
+      }
+    }
+    
+    // Determine if user has a consistent hybrid pattern
+    String? dominantHybrid;
+    double hybridConfidence = 0.0;
+    
+    if (hybridCounts.isNotEmpty) {
+      // Find most frequent hybrid with good confidence
+      String topHybrid = '';
+      double topScore = 0.0;
+      
+      hybridCounts.forEach((hybridKey, count) {
+        final avgConfidence = hybridConfidences[hybridKey]! / count;
+        final frequency = count / toneHistory.length;
+        final score = avgConfidence * frequency * count;
+        
+        if (score > topScore) {
+          topScore = score;
+          topHybrid = hybridKey;
+          hybridConfidence = avgConfidence;
+        }
+      });
+      
+      // Only use hybrid if it appears in 40%+ of conversations with good confidence
+      if ((hybridCounts[topHybrid]! / toneHistory.length) >= 0.4 && hybridConfidence >= 0.5) {
+        dominantHybrid = topHybrid;
+      }
+    }
+    
+    // Determine overall primary tone (fallback if no strong hybrid)
+    String overallPrimary = 'neutral';
+    if (primaryCounts.isNotEmpty) {
+      overallPrimary = primaryCounts.entries
+          .reduce((a, b) => a.value > b.value ? a : b)
+          .key;
+    }
+    
+    // Store overall profile
+    await prefs.setString(_primaryToneKey, overallPrimary);
+    if (dominantHybrid != null) {
+      await prefs.setString(_hybridBlendKey, dominantHybrid);
+    }
+    
+    final confidenceLevel = hybridConfidence >= 0.7 ? 'high' : 
+                           hybridConfidence >= 0.4 ? 'medium' : 'low';
+    await prefs.setString(_toneConfidenceKey, confidenceLevel);
+    
+    print('🎭 HYBRID PROFILE UPDATED:');
+    if (dominantHybrid != null) {
+      print('🎯 Dominant Hybrid: $dominantHybrid (${(hybridConfidence * 100).round()}% confidence)');
+    }
+    print('🎯 Primary Fallback: $overallPrimary');
+    print('📈 Hybrid Frequencies: ${hybridCounts.entries.map((e) => '${e.key}: ${e.value}').join(', ')}');
+  }
+  
+  /// 🎯 Generate personalized prompt with HYBRID tone matching
   static Future<String> generatePersonalizedPrompt(String basePrompt, String taskType) async {
     final prefs = await SharedPreferences.getInstance();
     final conversationCount = prefs.getInt(_conversationCountKey) ?? 0;
@@ -213,93 +175,161 @@ class SimpleLearningService {
       return basePrompt;
     }
     
-    // Get learned preferences
-    final preferredTone = prefs.getString(_preferredToneKey) ?? 'balanced';
+    // Get learned tone profile
+    final primaryTone = prefs.getString(_primaryToneKey) ?? 'neutral';
+    final hybridBlend = prefs.getString(_hybridBlendKey);
+    final confidence = prefs.getString(_toneConfidenceKey) ?? 'low';
     final avgResponseLength = prefs.getDouble(_averageResponseLengthKey) ?? 100.0;
     
-    // Build personalized prompt additions
-    List<String> promptModifiers = [];
+    // 🎭 Generate HYBRID modifiers if we have a strong blend
+    List<String> toneModifiers = [];
     
-    // 🎯 ENHANCED: Better tone modifiers
-    switch (preferredTone) {
-      case 'enthusiastic':
-        promptModifiers.add('Be very enthusiastic and energetic in your response!');
-        promptModifiers.add('Use exclamation points and positive language like "awesome", "amazing", "fantastic"!');
-        break;
-      case 'casual':
-        promptModifiers.add('Keep the tone very casual and conversational, like talking to a close friend.');
-        promptModifiers.add('Use friendly, informal language. Be relaxed and natural.');
-        break;
-      case 'enthusiastic_casual':
-        promptModifiers.add('Be enthusiastic AND casual - like an excited best friend!');
-        promptModifiers.add('Use informal language with lots of energy and positivity!');
-        break;
-      case 'professional':
-        promptModifiers.add('Maintain a professional, polite, and respectful tone.');
-        promptModifiers.add('Be clear and supportive while keeping language formal and appropriate.');
-        break;
-      case 'balanced':
-        promptModifiers.add('Use a balanced tone - supportive and encouraging but not overly casual or formal.');
-        break;
+    if (hybridBlend != null) {
+      // Get recent hybrid analysis to build modifiers
+      final toneHistoryJson = prefs.getString(_toneHistoryKey) ?? '[]';
+      final List<dynamic> toneHistory = jsonDecode(toneHistoryJson);
+      
+      // Find most recent hybrid analysis
+      final recentHybrid = toneHistory.reversed.firstWhere(
+        (conversation) => conversation['hybrid']?['key'] == hybridBlend,
+        orElse: () => null,
+      );
+      
+      if (recentHybrid != null) {
+        final mockHybridAnalysis = {
+          'type': 'hybrid',
+          'primary': recentHybrid['primary'],
+          'secondary': recentHybrid['secondary'],
+          'tertiary': recentHybrid['tertiary'],
+          'hybrid': recentHybrid['hybrid'],
+          'blendConfidence': recentHybrid['blendConfidence'],
+        };
+        
+        toneModifiers = HybridToneDetection.generateHybridModifiers(mockHybridAnalysis);
+      }
+    } else {
+      // Fall back to single tone modifiers
+      toneModifiers = AuthenticToneDetection.generateToneModifiers(primaryTone, null);
     }
     
     // Add length preference
+    List<String> lengthModifiers = [];
     if (avgResponseLength < _shortResponseThreshold) {
-      promptModifiers.add('The user prefers brief, concise responses - keep it short and to the point.');
+      lengthModifiers.add('Keep responses concise and to the point - user prefers brevity.');
     } else if (avgResponseLength > _detailedResponseThreshold) {
-      promptModifiers.add('The user appreciates detailed responses - feel free to be thorough and explanatory.');
+      lengthModifiers.add('Provide detailed, thorough responses - user appreciates depth.');
     }
     
-    // Combine base prompt with personalization
-    final personalizedPrompt = '$basePrompt\n\nPersonalization guidelines:\n${promptModifiers.join('\n')}';
+    // Build comprehensive personalized prompt
+    List<String> allModifiers = [
+      ...toneModifiers,
+      ...lengthModifiers,
+    ];
     
-    print('🎯 Enhanced personalized prompt generated with tone: $preferredTone');
+    final profileDescription = hybridBlend != null 
+        ? 'Hybrid Communication Style: $hybridBlend'
+        : 'Primary Communication Style: ${_getToneDisplayName(primaryTone)}';
+    
+    final personalizedPrompt = '''$basePrompt
+
+🎭 PERSONALIZATION PROFILE:
+$profileDescription
+Confidence Level: $confidence
+Average Response Length: ${avgResponseLength.round()} characters
+
+RESPONSE GUIDELINES:
+${allModifiers.map((modifier) => '• $modifier').join('\n')}
+
+IMPORTANT: Match the user's authentic communication blend naturally - let their unique personality combination shine through in your response tone and word choices.''';
+    
+    print('🎯 HYBRID personalized prompt generated:');
+    print('🎭 Profile: ${hybridBlend ?? primaryTone}, Confidence: $confidence');
+    
     return personalizedPrompt;
   }
   
-  /// Get current learning statistics with enhanced info
+  /// 📊 Get comprehensive learning statistics with hybrid data
   static Future<Map<String, dynamic>> getLearningStats() async {
     final prefs = await SharedPreferences.getInstance();
     final conversationCount = prefs.getInt(_conversationCountKey) ?? 0;
-    final enthusiasticCount = prefs.getInt(_enthusiasticCountKey) ?? 0;
-    final casualCount = prefs.getInt(_casualCountKey) ?? 0;
+    
+    // Get tone history for detailed analysis
+    final toneHistoryJson = prefs.getString(_toneHistoryKey) ?? '[]';
+    final List<dynamic> toneHistory = jsonDecode(toneHistoryJson);
+    
+    // Get hybrid profile
+    final hybridProfile = await HybridToneDetection.getHybridProfile();
+    
+    // Calculate tone frequencies (including hybrids)
+    Map<String, int> toneFrequencies = {};
+    Map<String, int> hybridFrequencies = {};
+    
+    for (var conversation in toneHistory) {
+      String primary = conversation['primary'] ?? 'neutral';
+      toneFrequencies[primary] = (toneFrequencies[primary] ?? 0) + 1;
+      
+      if (conversation['hybrid'] != null) {
+        String hybridKey = conversation['hybrid']['key'] ?? 'unknown';
+        hybridFrequencies[hybridKey] = (hybridFrequencies[hybridKey] ?? 0) + 1;
+      }
+    }
     
     return {
       'conversationCount': conversationCount,
-      'enthusiasticResponses': enthusiasticCount,
-      'casualResponses': casualCount,
-      'shortResponses': prefs.getInt(_shortResponseCountKey) ?? 0,
-      'detailedResponses': prefs.getInt(_detailedResponseCountKey) ?? 0,
-      'preferredTone': prefs.getString(_preferredToneKey) ?? 'unknown',
+      'primaryTone': prefs.getString(_primaryToneKey) ?? 'unknown',
+      'hybridBlend': prefs.getString(_hybridBlendKey),
+      'toneConfidence': prefs.getString(_toneConfidenceKey) ?? 'unknown',
       'averageResponseLength': prefs.getDouble(_averageResponseLengthKey) ?? 0.0,
       'hasEnoughData': conversationCount >= _minConversationsForPersonalization,
-      // NEW: Percentage breakdowns
-      'casualPercent': conversationCount > 0 ? (casualCount / conversationCount * 100) : 0.0,
-      'enthusiasticPercent': conversationCount > 0 ? (enthusiasticCount / conversationCount * 100) : 0.0,
+      'toneFrequencies': toneFrequencies,
+      'hybridFrequencies': hybridFrequencies,
+      'hybridProfile': hybridProfile,
+      'recentTones': toneHistory.take(10).map((c) => {
+        'conversation': c['conversation'],
+        'type': c['type'] ?? 'single',
+        'primary': c['primary'],
+        'hybrid': c['hybrid']?['name'],
+        'confidence': c['blendConfidence'] ?? c['confidence'] ?? 0.0,
+      }).toList(),
     };
   }
   
-  /// Reset all learning data (for privacy or testing)
+  /// 🗑️ Reset all learning data including hybrid data
   static Future<void> resetLearningData() async {
     final prefs = await SharedPreferences.getInstance();
     
     await prefs.remove(_conversationCountKey);
-    await prefs.remove(_enthusiasticCountKey);
-    await prefs.remove(_casualCountKey);
-    await prefs.remove(_shortResponseCountKey);
-    await prefs.remove(_detailedResponseCountKey);
-    await prefs.remove(_preferredToneKey);
+    await prefs.remove(_toneHistoryKey);
+    await prefs.remove(_primaryToneKey);
+    await prefs.remove(_secondaryToneKey);
+    await prefs.remove(_hybridBlendKey);
+    await prefs.remove(_toneConfidenceKey);
     await prefs.remove(_averageResponseLengthKey);
     
-    print('🔄 Enhanced learning data reset');
+    // Also clear hybrid detection storage
+    await prefs.remove('hybrid_tone_profile');
+    await prefs.remove('tone_combo_history');
+    await prefs.remove('dominant_blend');
+    
+    print('🔄 HYBRID learning data reset - all tone profiles cleared');
   }
   
-  // Keep original methods for backward compatibility
-  static bool _detectEnthusiasm(String text) {
-    return _calculateEnthusiasmScore(text) >= 1;
-  }
-  
-  static bool _detectCasualTone(String text) {
-    return _calculateCasualScore(text) >= 1;
+  /// 🎭 Helper: Get display name for tone
+  static String _getToneDisplayName(String toneKey) {
+    final toneCategories = {
+      'nerdy': 'Nerdy/Academic',
+      'street': 'Street/Urban',
+      'latin': 'Latin Colloquial',
+      'southern': 'Southern Eccentric',
+      'theatrical': 'Theatrical/Dramatic',
+      'finance_bro': 'Finance Bro',
+      'gamer': 'Gamer/Internet',
+      'spiritual': 'Spiritual/Wellness',
+      'gen_z': 'Gen Z Core',
+      'military': 'Trained Soldier',
+      'neutral': 'Neutral/Balanced'
+    };
+    
+    return toneCategories[toneKey] ?? toneKey;
   }
 }
