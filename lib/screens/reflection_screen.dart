@@ -104,6 +104,11 @@ class _ReflectionScreenState extends State<ReflectionScreen>
   }
   
   Future<Map<String, dynamic>> _generateAIResponse() async {
+    // Get user's current voice settings
+    final prefs = await SharedPreferences.getInstance();
+    final currentVoice = prefs.getString('selected_voice') ?? 'male:Default Male';
+    final currentTone = prefs.getString('selected_tone') ?? 'Balanced';
+    
     // Get base prompt from your backend
     final basePrompt = '''
     Generate a caring, contextual check-in question for a task: "${widget.task['description']}".
@@ -117,13 +122,89 @@ class _ReflectionScreenState extends State<ReflectionScreen>
       widget.task['taskType'] ?? 'general'
     );
     
-    // Call your backend API with the personalized prompt
-    // This is where you'd use your existing backend service
-    // For now, returning a mock response
-    return {
-      'text': _getMockReflectionQuestion(),
-      'audioUrl': null, // Your ElevenLabs audio URL would go here
-    };
+    try {
+      // 🎤 FIXED: Actually call the backend API for AI response
+      final motivatorApi = MotivatorApi();
+      
+      // Generate the text response
+      final aiText = await motivatorApi.generateLine(
+        personalizedPrompt,
+        toneStyle: currentTone,
+        voiceStyle: currentVoice,
+        taskType: widget.task['taskType'] ?? 'general',
+      );
+      
+      // 🔊 FIXED: Generate voice audio
+      print('🎵 Generating voice for: $currentVoice with tone: $currentTone');
+      final audioBytes = await motivatorApi.generateVoice(
+        aiText,
+        voiceStyle: currentVoice,
+        toneStyle: currentTone,
+      );
+      
+      // Save audio to temporary file
+      final audioFile = await _saveAudioToFile(audioBytes);
+      
+      return {
+        'text': aiText,
+        'audioUrl': audioFile.path,
+      };
+      
+    } catch (e) {
+      print('❌ Error generating AI response with voice: $e');
+      
+      // Fallback to mock response without voice
+      return {
+        'text': _getMockReflectionQuestion(),
+        'audioUrl': null,
+      };
+    }
+  }
+  
+  // 🔊 Helper method to save audio bytes to file
+  Future<File> _saveAudioToFile(Uint8List audioBytes) async {
+    final directory = await getTemporaryDirectory();
+    final fileName = 'reflection_${DateTime.now().millisecondsSinceEpoch}.mp3';
+    final file = File('${directory.path}/$fileName');
+    await file.writeAsBytes(audioBytes);
+    return file;
+  }
+  
+  // 🎵 Enhanced audio playback with proper error handling
+  Future<void> _playAudio(String audioPath) async {
+    try {
+      setState(() => _isPlaying = true);
+      
+      // Use local file path if it's a file
+      if (audioPath.startsWith('/')) {
+        await _audioPlayer.setFilePath(audioPath);
+      } else {
+        // Use URL if it's a network resource
+        await _audioPlayer.setUrl(audioPath);
+      }
+      
+      // Play the audio
+      await _audioPlayer.play();
+      
+      // Listen for completion
+      _audioPlayer.playerStateStream.listen((state) {
+        if (state.processingState == ProcessingState.completed) {
+          setState(() => _isPlaying = false);
+        }
+      });
+      
+    } catch (e) {
+      print('❌ Error playing audio: $e');
+      setState(() => _isPlaying = false);
+      
+      // Show user-friendly error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Audio playback failed'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
   }
   
   String _getMockReflectionQuestion() {

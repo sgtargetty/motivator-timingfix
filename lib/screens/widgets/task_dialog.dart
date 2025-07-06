@@ -157,6 +157,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
   int _currentPage = 0;
 
   // Voice catalog from settings_screen.dart - BACKEND-CONNECTED VOICES ONLY
+  // COMPLETE Voice catalog from settings_screen.dart - BACKEND-CONNECTED VOICES
   final Map<String, List<Map<String, dynamic>>> _voiceCatalog = {
     'male': [
       {'name': 'Default Male', 'description': 'Clear, professional male voice', 'icon': Icons.person},
@@ -175,6 +176,7 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
       {'name': 'News Anchor', 'description': 'Clear, authoritative reporting', 'icon': Icons.mic},
     ],
     'characters': [
+      // Standard Characters
       {'name': 'Robot Assistant', 'description': 'Futuristic AI companion', 'icon': Icons.smart_toy},
       {'name': 'Pirate Captain', 'description': 'Adventurous seafaring spirit', 'icon': Icons.sailing},
       {'name': 'Wizard Sage', 'description': 'Mystical, ancient wisdom', 'icon': Icons.auto_fix_high},
@@ -187,9 +189,11 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
       {'name': 'Meditation Guru', 'description': 'Peaceful, zen guidance', 'icon': Icons.self_improvement},
       {'name': 'Drill Instructor', 'description': 'Military, commanding presence', 'icon': Icons.military_tech},
       {'name': 'Cheerleader Coach', 'description': 'Peppy, encouraging spirit', 'icon': Icons.sports_gymnastics},
-      {'name': 'Lana Croft', 'description': 'Adventure hero, tomb raider spirit', 'icon': Icons.explore},
-      {'name': 'Baxter Jordan', 'description': 'Dark analyst, methodical precision', 'icon': Icons.psychology_alt},
-      {'name': 'Argent', 'description': 'Advanced AI assistant, JARVIS-like', 'icon': Icons.android},
+      
+      // 🎭 YOUR CUSTOM ELEVENLABS VOICES
+      {'name': 'Lana Croft', 'description': 'Fearless adventurer, tomb raider spirit', 'icon': Icons.explore},
+      {'name': 'Baxter Jordan', 'description': 'Dark analyst, methodical precision', 'icon': Icons.psychology},
+      {'name': 'Argent', 'description': 'Advanced AI assistant, JARVIS-like', 'icon': Icons.computer},
     ],
   };
 
