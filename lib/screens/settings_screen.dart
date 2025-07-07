@@ -308,6 +308,23 @@ class _SettingsScreenState extends State<SettingsScreen>
     print('🎤 Voice IMMEDIATELY saved: $combinedVoiceSetting');
     print('📂 Category: $_selectedVoiceCategory, Style: $_selectedVoiceStyle');
   }
+  void _selectToneStyle(String style) async {
+    setState(() {
+      _selectedToneStyle = style;
+    });
+    
+    // 🎯 IMMEDIATELY save the tone selection
+    await _saveToneSelection();
+    HapticFeedback.selectionClick();
+  }
+
+Future<void> _saveToneSelection() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('selected_tone', _selectedToneStyle);
+  await prefs.setString('tone_style', _selectedToneStyle); // Backup key
+  
+  print('🎭 Tone IMMEDIATELY saved: $_selectedToneStyle');
+}
   Future<void> _loadCurrentVoiceSettings() async {
     final prefs = await SharedPreferences.getInstance();
     
@@ -315,6 +332,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     final savedVoice = prefs.getString('selected_voice');
     final savedCategory = prefs.getString('voice_category');
     final savedStyle = prefs.getString('voice_style');
+    final savedTone = prefs.getString('selected_tone') ?? prefs.getString('tone_style');
     
     print('🔍 Loading saved voice settings...');
     print('🎵 Saved Voice: $savedVoice');
@@ -326,6 +344,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       setState(() {
         _selectedVoiceCategory = parts[0];
         _selectedVoiceStyle = parts[1];
+        if (savedTone != null) _selectedToneStyle = savedTone;
       });
       print('✅ Voice settings loaded from combined: $_selectedVoiceCategory:$_selectedVoiceStyle');
     } else if (savedCategory != null && savedStyle != null) {
@@ -722,12 +741,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 trailing: isSelected
                     ? const Icon(Icons.check_circle, color: Color(0xFFD4AF37), size: 20)
                     : null,
-                onTap: () {
-                  setState(() {
-                    _selectedVoiceStyle = voice['name'];
-                  });
-                  HapticFeedback.selectionClick();
-                },
+               onTap: () => _selectVoiceStyle(voice['name']),
               ),
             );
           }).toList(),
@@ -854,12 +868,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 trailing: isSelected
                     ? Icon(Icons.check_circle, color: tone['color'], size: 24)
                     : null,
-                onTap: () {
-                  setState(() {
-                    _selectedToneStyle = tone['name'];
-                  });
-                  HapticFeedback.selectionClick();
-                },
+                onTap: () => _selectToneStyle(tone['name']),
               ),
             );
           }).toList()),

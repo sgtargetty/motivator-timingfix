@@ -329,7 +329,10 @@ class _MotivatorHomeState extends State<MotivatorHome>
   }
 
   Future<void> _generateMotivation([String? customTask]) async {
-    setState(() => _loading = true);
+    print('🔄 Reloading preferences before voice generation...');
+  await _loadUserPreferences();
+  
+  setState(() => _loading = true);
     HapticFeedback.mediumImpact();
     
     try {
