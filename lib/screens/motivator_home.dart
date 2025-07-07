@@ -18,6 +18,7 @@ import 'widgets/motivator_dashboard.dart';
 import 'widgets/motivator_calendar.dart';
 import 'dictaphone_screen.dart';
 import 'widgets/app_bottom_navbar.dart'; // 📱 NEW IMPORT
+import '../services/complete_voice_manager.dart';
 
 // ✅ ViewMode enum
 enum ViewMode { calendar, dashboard, dictaphone }
@@ -44,6 +45,9 @@ class _MotivatorHomeState extends State<MotivatorHome>
   final MotivatorApi _api = MotivatorApi();
   final AudioPlayer _player = AudioPlayer();
   final TaskStorage _taskStorage = TaskStorage();
+
+  // 🎤 NEW: Replace the old voice sample method with complete voice manager
+  final CompleteVoiceManager _completeVoiceManager = CompleteVoiceManager();
 
   late AnimationController _motivationController;
   late AnimationController _streakController;
@@ -115,61 +119,6 @@ class _MotivatorHomeState extends State<MotivatorHome>
       _updateQuickActionsForTaskType();
     }
 
-  }
-
-  // 🎤 NEW: Voice Sample Integration Method
-  Future<Uint8List?> _tryLoadPreGeneratedSample({
-    required String voiceStyle,
-    required String toneStyle,
-    String? userName,
-  }) async {
-    try {
-      // Map to your ACTUAL files
-      String? sampleFile;
-      
-      print('🔍 Mapping voice: $voiceStyle, tone: $toneStyle');
-      
-      // Map your existing voice settings to your actual files
-      if (voiceStyle.contains('Professional Male') && toneStyle == 'Balanced') {
-        sampleFile = 'male_professional_male_Balanced_Ashley.mp3';
-        print('🎯 Using male professional sample');
-      } 
-      else if (voiceStyle.contains('Energetic Female') && toneStyle == 'Balanced') {
-        sampleFile = 'female_energetic_female_Balanced_Tyler.mp3';
-        print('🎯 Using female energetic sample');
-      }
-      else if (voiceStyle.contains('Game Show Host') || voiceStyle.contains('characters')) {
-        sampleFile = 'characters_lana_croft_Balanced_Tyler.mp3';
-        print('🎯 Using character voice sample');
-      }
-      // Fallback: try male professional for any male voice
-      else if (voiceStyle.contains('male:') || voiceStyle.contains('Male')) {
-        sampleFile = 'male_professional_male_Balanced_Ashley.mp3';
-        print('🎯 Using male fallback sample');
-      }
-      // Fallback: try female energetic for any female voice  
-      else if (voiceStyle.contains('female:') || voiceStyle.contains('Female')) {
-        sampleFile = 'female_energetic_female_Balanced_Tyler.mp3';
-        print('🎯 Using female fallback sample');
-      }
-      
-      if (sampleFile != null) {
-        print('🎯 Trying to load pre-generated sample: $sampleFile');
-        final byteData = await rootBundle.load('assets/voices/premium/$sampleFile');
-        print('✅ Loaded pre-generated sample successfully! Size: ${byteData.lengthInBytes} bytes');
-        
-        // Add a small delay to show the difference in UX
-        await Future.delayed(Duration(milliseconds: 100));
-        
-        return byteData.buffer.asUint8List();
-      }
-      
-      print('❌ No matching sample found for: $voiceStyle, $toneStyle');
-      return null;
-    } catch (e) {
-      print('⚠️ Could not load pre-generated sample: $e');
-      return null;
-    }
   }
 
   Future<void> _loadUserPreferences() async {
@@ -390,7 +339,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
     await _generateMotivation(task);
   }
 
-  // 🎤 UPDATED: _generateMotivation with Voice Sample Integration
+  // 🎤 UPDATED: Enhanced _generateMotivation with complete voice system
   Future<void> _generateMotivation([String? customTask]) async {
     print('🔄 Reloading preferences before voice generation...');
     await _loadUserPreferences();
@@ -411,9 +360,9 @@ class _MotivatorHomeState extends State<MotivatorHome>
         taskType: _currentTaskType,
       );
       
-      // 🎤 NEW: Try pre-generated sample first, fallback to API
+      // 🎤 NEW: Use complete voice manager for all samples
       print('🎵 Attempting to use pre-generated voice sample...');
-      Uint8List? audioBytes = await _tryLoadPreGeneratedSample(
+      Uint8List? audioBytes = await _completeVoiceManager.generateVoice(
         voiceStyle: _selectedVoice,
         toneStyle: _selectedToneStyle,
         userName: _userName,
@@ -433,7 +382,18 @@ class _MotivatorHomeState extends State<MotivatorHome>
         // Show user they're getting premium experience
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('🎤 Premium voice sample loaded instantly!'),
+            content: Row(
+              children: [
+                Icon(Icons.flash_on, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '🎤 Premium voice sample loaded instantly!',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
@@ -745,6 +705,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
     _cardController.dispose();
     _geometryController.dispose();
     _particleController.dispose();
+    _completeVoiceManager.dispose(); // 🎤 NEW: Cleanup
     super.dispose();
   }
 

@@ -6,6 +6,7 @@ import 'widgets/app_bottom_navbar.dart';
 import '../services/reflection_settings_service.dart';
 import '../services/privacy_control_service.dart';
 import '../screens/learning_debug_screen.dart';
+import '../services/complete_voice_manager.dart';
 
 
 class SettingsScreen extends StatefulWidget {
@@ -53,6 +54,11 @@ class _SettingsScreenState extends State<SettingsScreen>
   String _selectedVoiceCategory = 'male';
   String _selectedVoiceStyle = 'Default Male';
   String _selectedToneStyle = 'Balanced';
+
+  // 🎤 NEW: Voice preview manager
+  final CompleteVoiceManager _voiceManager = CompleteVoiceManager();
+  String? _currentlyPlayingVoice;
+  String? _currentlyPlayingTone;
 
   // 🎭 NEW: Reflection settings
   final ReflectionSettingsService _reflectionSettings = ReflectionSettingsService();
@@ -373,6 +379,7 @@ Future<void> _saveToneSelection() async {
     _slideController.dispose();
     _pulseController.dispose();
     _nameController.dispose();
+    _voiceManager.dispose(); // 🎤 NEW: Cleanup voice manager
     super.dispose();
   }
 
@@ -478,7 +485,7 @@ Future<void> _saveToneSelection() async {
 
           // 🎤 Voice section
           _buildSectionHeader('Voice & Character'),
-          _buildVoiceSection(),
+          _buildVoiceSectionWithPreview(), // 🎤 NEW: Use enhanced voice section
           const SizedBox(height: 20),
 
           // 🎭 Tone section
@@ -655,7 +662,8 @@ Future<void> _saveToneSelection() async {
     );
   }
 
-  Widget _buildVoiceSection() {
+  // 🎤 NEW: Enhanced voice section with preview
+  Widget _buildVoiceSectionWithPreview() {
     return _buildSettingsCard(
       title: 'Voice Settings',
       icon: Icons.record_voice_over,
@@ -672,6 +680,8 @@ Future<void> _saveToneSelection() async {
             ),
           ),
           const SizedBox(height: 12),
+          
+          // Voice category selection
           Row(
             children: [
               Expanded(
@@ -700,54 +710,269 @@ Future<void> _saveToneSelection() async {
           ),
           const SizedBox(height: 12),
           
+          // Enhanced voice style selection with preview buttons
           ...(_voiceCatalog[_selectedVoiceCategory] ?? []).map((voice) {
+            final voiceStyle = '$_selectedVoiceCategory:${voice['name']}';
             final isSelected = _selectedVoiceStyle == voice['name'];
+            final isPlaying = _currentlyPlayingVoice == voiceStyle && 
+                            _currentlyPlayingTone == _selectedToneStyle;
             
             return Container(
               margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFFD4AF37).withOpacity(0.1)
-                    : Colors.white.withOpacity(0.02),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFFD4AF37)
-                      : const Color(0xFF8B9DC3).withOpacity(0.2),
-                  width: isSelected ? 2 : 1,
-                ),
-              ),
-              child: ListTile(
-                leading: Icon(
-                  voice['icon'],
-                  color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF8B9DC3),
-                  size: 20,
-                ),
-                title: Text(
-                  voice['name'],
-                  style: TextStyle(
-                    color: isSelected ? const Color(0xFFD4AF37) : Colors.white,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    fontSize: 14,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _selectVoiceStyle(voice['name']),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isSelected 
+                          ? const Color(0xFFD4AF37).withOpacity(0.2)
+                          : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected 
+                            ? const Color(0xFFD4AF37)
+                            : Colors.white.withOpacity(0.2),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          voice['icon'] as IconData,
+                          color: isSelected 
+                              ? const Color(0xFFD4AF37)
+                              : const Color(0xFF8B9DC3),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                voice['name'],
+                                style: TextStyle(
+                                  color: isSelected ? Colors.white : const Color(0xFF8B9DC3),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Text(
+                                voice['description'],
+                                style: TextStyle(
+                                  color: (isSelected ? Colors.white : const Color(0xFF8B9DC3)).withOpacity(0.7),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        
+                        // 🎤 NEW: Preview button
+                        GestureDetector(
+                          onTap: () => _toggleVoicePreview(voiceStyle, _selectedToneStyle),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isPlaying 
+                                  ? Colors.red.withOpacity(0.2)
+                                  : const Color(0xFFD4AF37).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isPlaying 
+                                    ? Colors.red
+                                    : const Color(0xFFD4AF37),
+                                width: 1,
+                              ),
+                            ),
+                            child: Icon(
+                              isPlaying ? Icons.stop : Icons.play_arrow,
+                              color: isPlaying ? Colors.red : const Color(0xFFD4AF37),
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                subtitle: Text(
-                  voice['description'],
-                  style: TextStyle(
-                    color: const Color(0xFF8B9DC3).withOpacity(0.7),
-                    fontSize: 12,
-                  ),
-                ),
-                trailing: isSelected
-                    ? const Icon(Icons.check_circle, color: Color(0xFFD4AF37), size: 20)
-                    : null,
-               onTap: () => _selectVoiceStyle(voice['name']),
               ),
             );
           }).toList(),
+          
+          const SizedBox(height: 20),
+          
+          // Enhanced tone style section with preview
+          Text(
+            'Tone Style',
+            style: TextStyle(
+              color: const Color(0xFF8B9DC3).withOpacity(0.9),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const SizedBox(height: 12),
+          
+          // Tone style grid with preview buttons
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _toneStyles.map((toneStyle) {
+              final isSelected = _selectedToneStyle == toneStyle['name'];
+              final voiceStyle = '$_selectedVoiceCategory:$_selectedVoiceStyle';
+              final isPlaying = _currentlyPlayingVoice == voiceStyle && 
+                              _currentlyPlayingTone == toneStyle['name'];
+              
+              return GestureDetector(
+                onTap: () => _selectToneStyle(toneStyle['name']),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? toneStyle['color'].withOpacity(0.2)
+                        : Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected 
+                          ? toneStyle['color']
+                          : Colors.white.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        toneStyle['icon'],
+                        color: isSelected ? toneStyle['color'] : const Color(0xFF8B9DC3),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        toneStyle['name'],
+                        style: TextStyle(
+                          color: isSelected ? toneStyle['color'] : const Color(0xFF8B9DC3),
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w300,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      
+                      // 🎤 NEW: Tone preview button
+                      GestureDetector(
+                        onTap: () => _toggleVoicePreview(voiceStyle, toneStyle['name']),
+                        child: Icon(
+                          isPlaying ? Icons.stop_circle : Icons.play_circle,
+                          color: isPlaying ? Colors.red : toneStyle['color'].withOpacity(0.7),
+                          size: 18,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // 🎤 NEW: Quick preview all combinations button
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFD4AF37).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFD4AF37).withOpacity(0.3),
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.headphones,
+                  color: const Color(0xFFD4AF37),
+                  size: 28,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Preview Current Selection',
+                  style: TextStyle(
+                    color: const Color(0xFFD4AF37),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Tap the play buttons to hear voice samples instantly',
+                  style: TextStyle(
+                    color: const Color(0xFF8B9DC3).withOpacity(0.8),
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  // 🎤 NEW: Toggle voice preview playback
+  Future<void> _toggleVoicePreview(String voiceStyle, String toneStyle) async {
+    HapticFeedback.selectionClick();
+    
+    final isCurrentlyPlaying = _currentlyPlayingVoice == voiceStyle && 
+                             _currentlyPlayingTone == toneStyle;
+    
+    if (isCurrentlyPlaying) {
+      // Stop current preview
+      await _voiceManager.stopPreview();
+      setState(() {
+        _currentlyPlayingVoice = null;
+        _currentlyPlayingTone = null;
+      });
+    } else {
+      // Start new preview
+      final success = await _voiceManager.playVoicePreview(
+        voiceStyle: voiceStyle,
+        toneStyle: toneStyle,
+        userName: _userName,
+      );
+      
+      if (success) {
+        setState(() {
+          _currentlyPlayingVoice = voiceStyle;
+          _currentlyPlayingTone = toneStyle;
+        });
+        
+        // Show success feedback
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('🎤 Playing preview: ${voiceStyle.split(':').last} (${toneStyle})'),
+            backgroundColor: const Color(0xFFD4AF37),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      } else {
+        // Show fallback message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ Preview not available for this combination'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildCategoryChip(String category, String label, IconData icon, Color color) {
