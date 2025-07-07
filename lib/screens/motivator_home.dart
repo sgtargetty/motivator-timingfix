@@ -24,11 +24,13 @@ enum ViewMode { calendar, dashboard, dictaphone }
 class MotivatorHome extends StatefulWidget {
   final String? initialTaskType;
   final Map<String, dynamic>? taskTypeConfig;
+  final ViewMode? initialView;  // 🔧 ADD THIS LINE
 
   const MotivatorHome({
     Key? key,
     this.initialTaskType,
     this.taskTypeConfig,
+    this.initialView,  // 🔧 ADD THIS LINE
   }) : super(key: key);
 
   @override
@@ -103,6 +105,10 @@ class _MotivatorHomeState extends State<MotivatorHome>
     
     _currentTaskType = widget.initialTaskType;
     _currentTaskConfig = widget.taskTypeConfig;
+
+    if (widget.initialView != null) {
+      _currentView = widget.initialView!;
+    }
     
     if (_currentTaskType != null) {
       _updateQuickActionsForTaskType();

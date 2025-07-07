@@ -1,9 +1,9 @@
-// lib/screens/widgets/app_bottom_navbar.dart
+// lib/screens/widgets/app_bottom_navbar.dart - FIXED VERSION
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../motivator_home.dart';      // ✅ FIXED: Remove extra '../screens/'
-import '../dictaphone_screen.dart';   // ✅ FIXED: Remove extra '../screens/' 
-import '../settings_screen.dart';     // ✅ FIXED: Remove extra '../screens/'
+import '../motivator_home.dart';
+import '../dictaphone_screen.dart';
+import '../settings_screen.dart';
 
 enum AppScreen { dashboard, calendar, dictaphone, settings }
 
@@ -126,35 +126,28 @@ class AppBottomNavBar extends StatelessWidget {
 
     if (currentScreen == targetScreen) return;
 
+    // 🔧 THE FIX: Use callback for dashboard/calendar navigation
     if (onScreenChanged != null && 
         (targetScreen == AppScreen.dashboard || targetScreen == AppScreen.calendar)) {
+      print('🎯 Using callback navigation to ${targetScreen.toString()}');
       onScreenChanged!(targetScreen);
       return;
     }
 
-    // 🔧 CUSTOM TRANSITIONS - No more white flash!
+    // 🚀 For external screens (dictaphone, settings), use Navigator
     switch (targetScreen) {
-      case AppScreen.dashboard:
-      case AppScreen.calendar:
-        Navigator.of(context).pushAndRemoveUntil(
-          _createSmoothRoute(const MotivatorHome()),
-          (route) => false,
-        );
-        break;
-
       case AppScreen.dictaphone:
-  // 🚀 FIX: Listen for successful task creation
-  Navigator.of(context).push(
-    _createSmoothRoute(const DictaphoneScreen()),
-  ).then((result) {
-    // 🔄 If task was created successfully, refresh calendar
-    if (result == true && onScreenChanged != null) {
-      print('🔄 Dictaphone returned success - refreshing tasks');
-      // Trigger parent to refresh tasks by calling the callback
-      onScreenChanged!(AppScreen.calendar); // This will refresh
-    }
-  });
-  break;
+        Navigator.of(context).push(
+          _createSmoothRoute(const DictaphoneScreen()),
+        ).then((result) {
+          // 🔄 If task was created successfully, refresh calendar
+          if (result == true && onScreenChanged != null) {
+            print('🔄 Dictaphone returned success - refreshing tasks');
+            // Switch to calendar to show the new task
+            onScreenChanged!(AppScreen.calendar);
+          }
+        });
+        break;
 
       case AppScreen.settings:
         Navigator.of(context).push(
@@ -171,6 +164,22 @@ class AppBottomNavBar extends StatelessWidget {
           ),
         );
         break;
+
+      case AppScreen.dashboard:
+      case AppScreen.calendar:
+        // 🚨 FALLBACK: If no callback, navigate to new MotivatorHome with initial view
+        Navigator.of(context).pushAndRemoveUntil(
+          _createSmoothRoute(
+            MotivatorHome(
+              // 🎯 Pass initial view to show correct screen
+              initialView: targetScreen == AppScreen.dashboard 
+                  ? ViewMode.dashboard 
+                  : ViewMode.calendar,
+            ),
+          ),
+          (route) => false,
+        );
+        break;
     }
   }
 
@@ -181,7 +190,6 @@ class AppBottomNavBar extends StatelessWidget {
       transitionDuration: const Duration(milliseconds: 300),
       reverseTransitionDuration: const Duration(milliseconds: 300),
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        // 🔧 FADE TRANSITION - Smooth and no white flash
         return FadeTransition(
           opacity: Tween<double>(
             begin: 0.0,
@@ -191,7 +199,6 @@ class AppBottomNavBar extends StatelessWidget {
             curve: Curves.easeInOut,
           )),
           child: Container(
-            // 🎯 DARK BACKGROUND - Prevents white flash
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
@@ -201,46 +208,6 @@ class AppBottomNavBar extends StatelessWidget {
                   Color(0xFF1a2332), // Navy blue
                   Color(0xFF0f1419), // Dark slate
                   Color(0xFF000000), // Black
-                ],
-                stops: [0.0, 0.3, 0.7, 1.0],
-              ),
-            ),
-            child: child,
-          ),
-        );
-      },
-    );
-  }
-
-  // 🔧 ALTERNATIVE: Slide transition (if you prefer sliding)
-  PageRouteBuilder _createSlideRoute(Widget page) {
-    return PageRouteBuilder(
-      pageBuilder: (context, animation, secondaryAnimation) => page,
-      transitionDuration: const Duration(milliseconds: 250),
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        const begin = Offset(1.0, 0.0); // Slide from right
-        const end = Offset.zero;
-        const curve = Curves.easeInOut;
-
-        var tween = Tween(begin: begin, end: end);
-        var curvedAnimation = CurvedAnimation(
-          parent: animation,
-          curve: curve,
-        );
-
-        return SlideTransition(
-          position: tween.animate(curvedAnimation),
-          child: Container(
-            // Dark background prevents white flash
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF0a1428),
-                  Color(0xFF1a2332), 
-                  Color(0xFF0f1419),
-                  Color(0xFF000000),
                 ],
                 stops: [0.0, 0.3, 0.7, 1.0],
               ),
