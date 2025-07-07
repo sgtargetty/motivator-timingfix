@@ -46,6 +46,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  
+  assets:
+    - assets/voices/premium/
 
 dependency_overrides:
   awesome_notifications: ^0.10.1

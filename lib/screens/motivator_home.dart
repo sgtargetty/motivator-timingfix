@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui';
+import 'dart:typed_data'; // 🎤 NEW: Added for voice sample integration
 
 import '../services/motivator_api.dart';
 import '../services/notification_manager.dart';
@@ -114,6 +115,61 @@ class _MotivatorHomeState extends State<MotivatorHome>
       _updateQuickActionsForTaskType();
     }
 
+  }
+
+  // 🎤 NEW: Voice Sample Integration Method
+  Future<Uint8List?> _tryLoadPreGeneratedSample({
+    required String voiceStyle,
+    required String toneStyle,
+    String? userName,
+  }) async {
+    try {
+      // Map to your ACTUAL files
+      String? sampleFile;
+      
+      print('🔍 Mapping voice: $voiceStyle, tone: $toneStyle');
+      
+      // Map your existing voice settings to your actual files
+      if (voiceStyle.contains('Professional Male') && toneStyle == 'Balanced') {
+        sampleFile = 'male_professional_male_Balanced_Ashley.mp3';
+        print('🎯 Using male professional sample');
+      } 
+      else if (voiceStyle.contains('Energetic Female') && toneStyle == 'Balanced') {
+        sampleFile = 'female_energetic_female_Balanced_Tyler.mp3';
+        print('🎯 Using female energetic sample');
+      }
+      else if (voiceStyle.contains('Game Show Host') || voiceStyle.contains('characters')) {
+        sampleFile = 'characters_lana_croft_Balanced_Tyler.mp3';
+        print('🎯 Using character voice sample');
+      }
+      // Fallback: try male professional for any male voice
+      else if (voiceStyle.contains('male:') || voiceStyle.contains('Male')) {
+        sampleFile = 'male_professional_male_Balanced_Ashley.mp3';
+        print('🎯 Using male fallback sample');
+      }
+      // Fallback: try female energetic for any female voice  
+      else if (voiceStyle.contains('female:') || voiceStyle.contains('Female')) {
+        sampleFile = 'female_energetic_female_Balanced_Tyler.mp3';
+        print('🎯 Using female fallback sample');
+      }
+      
+      if (sampleFile != null) {
+        print('🎯 Trying to load pre-generated sample: $sampleFile');
+        final byteData = await rootBundle.load('assets/voices/premium/$sampleFile');
+        print('✅ Loaded pre-generated sample successfully! Size: ${byteData.lengthInBytes} bytes');
+        
+        // Add a small delay to show the difference in UX
+        await Future.delayed(Duration(milliseconds: 100));
+        
+        return byteData.buffer.asUint8List();
+      }
+      
+      print('❌ No matching sample found for: $voiceStyle, $toneStyle');
+      return null;
+    } catch (e) {
+      print('⚠️ Could not load pre-generated sample: $e');
+      return null;
+    }
   }
 
   Future<void> _loadUserPreferences() async {
@@ -334,11 +390,12 @@ class _MotivatorHomeState extends State<MotivatorHome>
     await _generateMotivation(task);
   }
 
+  // 🎤 UPDATED: _generateMotivation with Voice Sample Integration
   Future<void> _generateMotivation([String? customTask]) async {
     print('🔄 Reloading preferences before voice generation...');
-  await _loadUserPreferences();
-  
-  setState(() => _loading = true);
+    await _loadUserPreferences();
+    
+    setState(() => _loading = true);
     HapticFeedback.mediumImpact();
     
     try {
@@ -354,11 +411,36 @@ class _MotivatorHomeState extends State<MotivatorHome>
         taskType: _currentTaskType,
       );
       
-      final audioBytes = await _api.generateVoice(
-        line,
+      // 🎤 NEW: Try pre-generated sample first, fallback to API
+      print('🎵 Attempting to use pre-generated voice sample...');
+      Uint8List? audioBytes = await _tryLoadPreGeneratedSample(
         voiceStyle: _selectedVoice,
         toneStyle: _selectedToneStyle,
+        userName: _userName,
       );
+      
+      if (audioBytes == null) {
+        print('🔄 No pre-generated sample found, using API...');
+        audioBytes = await _api.generateVoice(
+          line,
+          voiceStyle: _selectedVoice,
+          toneStyle: _selectedToneStyle,
+        );
+        print('📡 API call completed');
+      } else {
+        print('🎉 Using pre-generated sample - instant playback!');
+        
+        // Show user they're getting premium experience
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('🎤 Premium voice sample loaded instantly!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
 
       setState(() {
         _generatedLine = line;
