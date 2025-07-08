@@ -51,8 +51,8 @@ class _SettingsScreenState extends State<SettingsScreen>
   late TextEditingController _nameController;
 
   // Enhanced voice settings
-  String _selectedVoiceCategory = 'male';
-  String _selectedVoiceStyle = 'Default Male';
+  String _selectedVoiceCategory = 'characters'; // Default to characters
+  String _selectedVoiceStyle = 'Lana Croft';
   String _selectedToneStyle = 'Balanced';
 
   // 🎤 NEW: Voice preview manager
@@ -93,7 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     },
   };
 
-  // Tone style options
+  // Tone style options - CLEANED: Only Balanced and Drill Instructor
   final List<Map<String, dynamic>> _toneStyles = [
     {
       'name': 'Balanced',
@@ -103,76 +103,18 @@ class _SettingsScreenState extends State<SettingsScreen>
       'example': '"You\'ve got this! Take it step by step."',
     },
     {
-      'name': 'Drill Sergeant',
-      'description': 'Tough, no-nonsense motivation',
+      'name': 'Drill Instructor',
+      'description': 'Tough, no-nonsense military motivation',
       'icon': Icons.military_tech,
       'color': Colors.red,
-      'example': '"Drop and give me 20! No excuses!"',
-    },
-    {
-      'name': 'Cheerleader',
-      'description': 'Enthusiastic and bubbly',
-      'icon': Icons.celebration,
-      'color': Colors.pink,
-      'example': '"You\'re amazing! Go team YOU! 🎉"',
-    },
-    {
-      'name': 'Sage',
-      'description': 'Wise and philosophical',
-      'icon': Icons.psychology,
-      'color': Colors.purple,
-      'example': '"Like water flowing over stone, persistence shapes success."',
-    },
-    {
-      'name': 'Coach',
-      'description': 'Strategic and goal-focused',
-      'icon': Icons.sports,
-      'color': Colors.green,
-      'example': '"Let\'s break this down into manageable steps."',
-    },
-    {
-      'name': 'Friend',
-      'description': 'Casual and encouraging',
-      'icon': Icons.person,
-      'color': Colors.orange,
-      'example': '"Hey, you\'ve totally got this! I believe in you."',
+      'example': '"DROP AND GIVE ME 20! NO EXCUSES!"',
     },
   ];
 
-  // Voice catalog
+  // Voice catalog - CLEANED: Only your 3 custom favorites
   final Map<String, List<Map<String, dynamic>>> _voiceCatalog = {
-    'male': [
-      {'name': 'Default Male', 'description': 'Classic, reliable voice', 'icon': Icons.man},
-      {'name': 'Energetic Male', 'description': 'High-energy, dynamic', 'icon': Icons.bolt},
-      {'name': 'Calm Male', 'description': 'Peaceful, soothing', 'icon': Icons.spa},
-      {'name': 'Professional Male', 'description': 'Authoritative, clear', 'icon': Icons.business},
-      {'name': 'Wise Mentor', 'description': 'Experienced, thoughtful guide', 'icon': Icons.school},
-      {'name': 'Sports Announcer', 'description': 'Dynamic, exciting commentary', 'icon': Icons.sports},
-    ],
-    'female': [
-      {'name': 'Default Female', 'description': 'Warm, encouraging voice', 'icon': Icons.woman},
-      {'name': 'Energetic Female', 'description': 'Vibrant, enthusiastic', 'icon': Icons.star},
-      {'name': 'Calm Female', 'description': 'Gentle, reassuring', 'icon': Icons.favorite},
-      {'name': 'Professional Female', 'description': 'Confident, polished', 'icon': Icons.work_outline},
-      {'name': 'Wise Woman', 'description': 'Maternal, nurturing wisdom', 'icon': Icons.favorite},
-      {'name': 'News Anchor', 'description': 'Clear, authoritative reporting', 'icon': Icons.mic},
-    ],
     'characters': [
-      // Standard Characters
-      {'name': 'Robot Assistant', 'description': 'Logical, efficient helper', 'icon': Icons.smart_toy},
-      {'name': 'Pirate Captain', 'description': 'Adventurous seafaring spirit', 'icon': Icons.sailing},
-      {'name': 'Wizard Sage', 'description': 'Mystical, ancient wisdom', 'icon': Icons.auto_fix_high},
-      {'name': 'Superhero', 'description': 'Heroic inspiration and power', 'icon': Icons.shield},
-      {'name': 'Surfer Dude', 'description': 'Laid-back, chill vibes', 'icon': Icons.surfing},
-      {'name': 'Southern Belle', 'description': 'Charming, warm hospitality', 'icon': Icons.favorite_border},
-      {'name': 'British Butler', 'description': 'Refined, proper etiquette', 'icon': Icons.wine_bar},
-      {'name': 'Valley Girl', 'description': 'Bubbly, enthusiastic energy', 'icon': Icons.celebration},
-      {'name': 'Game Show Host', 'description': 'Exciting, engaging presenter', 'icon': Icons.emoji_events},
-      {'name': 'Meditation Guru', 'description': 'Peaceful, zen guidance', 'icon': Icons.self_improvement},
-      {'name': 'Drill Instructor', 'description': 'Military precision motivation', 'icon': Icons.military_tech},
-      {'name': 'Cheerleader Coach', 'description': 'Peppy, encouraging spirit', 'icon': Icons.sports_gymnastics},
-      
-      // 🎭 YOUR CUSTOM ELEVENLABS VOICES
+      // 🎭 YOUR 3 CUSTOM ELEVENLABS FAVORITES ONLY
       {'name': 'Lana Croft', 'description': 'Fearless adventurer, tomb raider spirit', 'icon': Icons.explore},
       {'name': 'Baxter Jordan', 'description': 'Dark analyst, methodical precision', 'icon': Icons.psychology},
       {'name': 'Argent', 'description': 'Advanced AI assistant, JARVIS-like', 'icon': Icons.computer},

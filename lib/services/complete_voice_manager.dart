@@ -49,14 +49,10 @@ class CompleteVoiceManager {
     'characters:British Butler': 'characters_british_butler',
   };
 
-  // 🎭 TONE MAPPING
+  // 🎭 TONE MAPPING - CLEANED
   static const Map<String, String> _toneMapping = {
     'Balanced': 'Balanced',
-    'Drill Sergeant': 'Drill_Sergeant', 
-    'Cheerleader': 'Cheerleader',
-    'Sage': 'Sage',
-    'Coach': 'Coach',
-    'Friend': 'Friend',
+    'Drill Instructor': 'Drill_Sergeant', // Maps to existing file naming
   };
 
   // 👤 AVAILABLE NAMES

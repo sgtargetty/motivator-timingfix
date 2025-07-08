@@ -1204,10 +1204,10 @@ class _EmergencyAlertDialogState extends State<EmergencyAlertDialog> {
                   ),
                   style: const TextStyle(color: Colors.white),
                   items: const [
-                    DropdownMenuItem(value: 'male:Default Male', child: Text('Default Male')),
-                    DropdownMenuItem(value: 'female:Default Female', child: Text('Default Female')),
-                    DropdownMenuItem(value: 'characters:Robot Assistant', child: Text('Robot Assistant')),
-                    DropdownMenuItem(value: 'characters:Drill Instructor', child: Text('Drill Instructor')),
+                    // 🎭 YOUR 3 CUSTOM FAVORITES ONLY
+                    DropdownMenuItem(value: 'characters:Lana Croft', child: Text('🗂️ Lana Croft')),
+                    DropdownMenuItem(value: 'characters:Baxter Jordan', child: Text('🔍 Baxter Jordan')),
+                    DropdownMenuItem(value: 'characters:Argent', child: Text('🤖 Argent')),
                   ],
                   onChanged: (value) {
                     setState(() {
@@ -1244,9 +1244,7 @@ class _EmergencyAlertDialogState extends State<EmergencyAlertDialog> {
                   style: const TextStyle(color: Colors.white),
                   items: const [
                     DropdownMenuItem(value: 'Balanced', child: Text('Balanced')),
-                    DropdownMenuItem(value: 'Energetic', child: Text('Energetic')),
-                    DropdownMenuItem(value: 'Urgent', child: Text('Urgent')),
-                    DropdownMenuItem(value: 'Serious', child: Text('Serious')),
+                    DropdownMenuItem(value: 'Drill Instructor', child: Text('Drill Instructor')),
                   ],
                   onChanged: (value) {
                     setState(() {

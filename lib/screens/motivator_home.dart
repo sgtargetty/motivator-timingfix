@@ -9,6 +9,7 @@ import 'dart:ui';
 import 'dart:typed_data'; // 🎤 NEW: Added for voice sample integration
 
 import '../services/motivator_api.dart';
+import '../services/immediate_unlimited_voice_system.dart';
 import '../services/notification_manager.dart';
 import '../services/task_scheduler.dart';
 import '../services/task_storage.dart';
@@ -47,8 +48,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
   final TaskStorage _taskStorage = TaskStorage();
 
   // 🎤 NEW: Replace the old voice sample method with complete voice manager
-  final CompleteVoiceManager _completeVoiceManager = CompleteVoiceManager();
-
+  final ImmediateUnlimitedVoiceSystem _unlimitedVoice = ImmediateUnlimitedVoiceSystem();
   late AnimationController _motivationController;
   late AnimationController _streakController;
   late AnimationController _pulseController;
@@ -360,16 +360,17 @@ class _MotivatorHomeState extends State<MotivatorHome>
         taskType: _currentTaskType,
       );
       
-      // 🎤 NEW: Use complete voice manager for all samples
-      print('🎵 Attempting to use pre-generated voice sample...');
-      Uint8List? audioBytes = await _completeVoiceManager.generateVoice(
-        voiceStyle: _selectedVoice,
+      // 🎤 NEW: Unlimited voice generation with any name
+      print('🎵 Generating unlimited voice...');
+      Uint8List? audioBytes = await _unlimitedVoice.generateUnlimitedVoice(
+        originalText: line,
+        voicePersonality: _mapVoiceToPersonality(_selectedVoice),
         toneStyle: _selectedToneStyle,
-        userName: _userName,
+        userName: _userName, // ANY name now works!
       );
-      
+
       if (audioBytes == null) {
-        print('🔄 No pre-generated sample found, using API...');
+        print('🔄 Final fallback to original API...');
         audioBytes = await _api.generateVoice(
           line,
           voiceStyle: _selectedVoice,
@@ -377,24 +378,24 @@ class _MotivatorHomeState extends State<MotivatorHome>
         );
         print('📡 API call completed');
       } else {
-        print('🎉 Using pre-generated sample - instant playback!');
+        print('🎉 Using unlimited voice system - personalized for $_userName!');
         
-        // Show user they're getting premium experience
+        // Show user they're getting enhanced experience
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
-                Icon(Icons.flash_on, color: Colors.white, size: 20),
+                Icon(Icons.auto_awesome, color: Colors.white, size: 20),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '🎤 Premium voice sample loaded instantly!',
+                    '🎤 Personalized voice for $_userName!',
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: Colors.purple,
             duration: Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -434,6 +435,43 @@ class _MotivatorHomeState extends State<MotivatorHome>
       );
     } finally {
       setState(() => _loading = false);
+    }
+  }
+    // 🗺️ Helper method to map current voice selection to personalities
+  String _mapVoiceToPersonality(String currentVoice) {
+    switch (currentVoice) {
+      // ✅ EXISTING WORKING MAPPINGS (Keep unchanged)
+      case 'male:Professional Male': return 'drill_sergeant';
+      case 'male:Default Male': return 'wise_mentor';
+      case 'male:Energetic Male': return 'hype_beast';
+      case 'female:Energetic Female': return 'sassy_diva';
+      case 'female:Default Female': return 'supportive_mom';
+      case 'female:Professional Female': return 'queen_boss';
+      case 'characters:Lana Croft': return 'lana_croft';
+      case 'characters:Argent': return 'argent';
+      case 'characters:Baxter Jordan': return 'baxter_jordan';
+      case 'characters:Robot Assistant': return 'robot_assistant';
+
+      // 🆕 NEW PERSONALITY MAPPINGS
+      // New Male Personalities
+      case 'male:Calm Male': return 'chill_surfer';
+      case 'characters:British Butler': return 'british_butler';
+      case 'male:Sports Announcer': return 'sports_coach';
+      
+      // New Female Personalities  
+      case 'female:Calm Female': return 'zen_goddess';
+      case 'female:News Anchor': return 'news_anchor';
+      
+      // New Character Personalities
+      case 'characters:Superhero': return 'superhero';
+      case 'characters:Pirate Captain': return 'pirate_captain';
+      case 'characters:Game Show Host': return 'game_show_host';
+      case 'characters:Wizard Sage': return 'shakespeare';
+      case 'characters:Meditation Guru': return 'meditation_guru';
+      case 'characters:Drill Instructor': return 'drill_instructor';
+      case 'characters:Cheerleader Coach': return 'cheerleader_coach';
+
+      default: return 'drill_sergeant';
     }
   }
 
@@ -705,7 +743,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
     _cardController.dispose();
     _geometryController.dispose();
     _particleController.dispose();
-    _completeVoiceManager.dispose(); // 🎤 NEW: Cleanup
+    // Unlimited voice system doesn't need manual disposal // 
     super.dispose();
   }
 

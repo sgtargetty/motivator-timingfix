@@ -156,48 +156,17 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
   bool _isCreating = false;
   int _currentPage = 0;
 
-  // Voice catalog from settings_screen.dart - BACKEND-CONNECTED VOICES ONLY
-  // COMPLETE Voice catalog from settings_screen.dart - BACKEND-CONNECTED VOICES
+  // Voice catalog - CLEANED: Only your 3 custom favorites  
   final Map<String, List<Map<String, dynamic>>> _voiceCatalog = {
-    'male': [
-      {'name': 'Default Male', 'description': 'Clear, professional male voice', 'icon': Icons.person},
-      {'name': 'Energetic Male', 'description': 'High-energy, enthusiastic', 'icon': Icons.flash_on},
-      {'name': 'Calm Male', 'description': 'Soothing, peaceful delivery', 'icon': Icons.spa},
-      {'name': 'Professional Male', 'description': 'Business-ready, authoritative', 'icon': Icons.business},
-      {'name': 'Wise Mentor', 'description': 'Experienced, thoughtful guide', 'icon': Icons.school},
-      {'name': 'Sports Announcer', 'description': 'Dynamic, exciting commentary', 'icon': Icons.sports},
-    ],
-    'female': [
-      {'name': 'Default Female', 'description': 'Clear, professional female voice', 'icon': Icons.person_outline},
-      {'name': 'Energetic Female', 'description': 'High-energy, enthusiastic', 'icon': Icons.flash_on},
-      {'name': 'Calm Female', 'description': 'Soothing, peaceful delivery', 'icon': Icons.spa},
-      {'name': 'Professional Female', 'description': 'Business-ready, authoritative', 'icon': Icons.business},
-      {'name': 'Wise Woman', 'description': 'Maternal, nurturing wisdom', 'icon': Icons.favorite},
-      {'name': 'News Anchor', 'description': 'Clear, authoritative reporting', 'icon': Icons.mic},
-    ],
     'characters': [
-      // Standard Characters
-      {'name': 'Robot Assistant', 'description': 'Futuristic AI companion', 'icon': Icons.smart_toy},
-      {'name': 'Pirate Captain', 'description': 'Adventurous seafaring spirit', 'icon': Icons.sailing},
-      {'name': 'Wizard Sage', 'description': 'Mystical, ancient wisdom', 'icon': Icons.auto_fix_high},
-      {'name': 'Superhero', 'description': 'Heroic, inspiring strength', 'icon': Icons.shield},
-      {'name': 'Surfer Dude', 'description': 'Laid-back, chill vibes', 'icon': Icons.surfing},
-      {'name': 'Southern Belle', 'description': 'Charming, warm hospitality', 'icon': Icons.favorite_border},
-      {'name': 'British Butler', 'description': 'Refined, proper etiquette', 'icon': Icons.wine_bar},
-      {'name': 'Valley Girl', 'description': 'Bubbly, enthusiastic energy', 'icon': Icons.celebration},
-      {'name': 'Game Show Host', 'description': 'Exciting, engaging presenter', 'icon': Icons.emoji_events},
-      {'name': 'Meditation Guru', 'description': 'Peaceful, zen guidance', 'icon': Icons.self_improvement},
-      {'name': 'Drill Instructor', 'description': 'Military, commanding presence', 'icon': Icons.military_tech},
-      {'name': 'Cheerleader Coach', 'description': 'Peppy, encouraging spirit', 'icon': Icons.sports_gymnastics},
-      
-      // 🎭 YOUR CUSTOM ELEVENLABS VOICES
+      // 🎭 YOUR 3 CUSTOM ELEVENLABS FAVORITES ONLY
       {'name': 'Lana Croft', 'description': 'Fearless adventurer, tomb raider spirit', 'icon': Icons.explore},
       {'name': 'Baxter Jordan', 'description': 'Dark analyst, methodical precision', 'icon': Icons.psychology},
       {'name': 'Argent', 'description': 'Advanced AI assistant, JARVIS-like', 'icon': Icons.computer},
     ],
   };
 
-  // Tone styles
+  // Tone styles - CLEANED: Only Balanced and Drill Instructor
   final List<Map<String, dynamic>> _toneStyles = [
     {
       'name': 'Balanced',
@@ -206,28 +175,10 @@ class _UltraResponsiveTaskDialogState extends State<UltraResponsiveTaskDialog> {
       'color': Colors.blue,
     },
     {
-      'name': 'Drill Sergeant',
-      'description': 'Tough, no-nonsense motivation',
+      'name': 'Drill Instructor',
+      'description': 'Tough, no-nonsense military motivation',
       'icon': Icons.military_tech,
       'color': Colors.red,
-    },
-    {
-      'name': 'Cheerleader',
-      'description': 'Enthusiastic and energetic support',
-      'icon': Icons.celebration,
-      'color': Colors.pink,
-    },
-    {
-      'name': 'Wise Mentor',
-      'description': 'Thoughtful guidance and wisdom',
-      'icon': Icons.school,
-      'color': Colors.purple,
-    },
-    {
-      'name': 'Best Friend',
-      'description': 'Casual, supportive, and understanding',
-      'icon': Icons.favorite,
-      'color': Colors.orange,
     },
   ];
 
