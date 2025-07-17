@@ -27,6 +27,7 @@ dependencies:
   # Speech input + scheduling
   speech_to_text: ^7.0.0
   flutter_datetime_picker_plus: ^2.0.1
+  web_socket_channel: ^3.0.3 
   
   # 🔔 Notification dependencies
   awesome_notifications: ^0.10.1
