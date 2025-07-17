@@ -1,4 +1,4 @@
-// lib/screens/widgets/voice_chat_modal.dart - REAL AI CONVERSATIONS
+// lib/screens/widgets/voice_chat_modal.dart - ChatGPT Voice Style
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
@@ -7,10 +7,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
+import 'dart:math' as math;
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../services/ai_conversation_service.dart';
 
 class VoiceChatModal extends StatefulWidget {
   final String personality;
@@ -31,181 +29,207 @@ class _VoiceChatModalState extends State<VoiceChatModal>
   
   // 🎤 Audio Recording & Playback
   FlutterSoundRecorder? _audioRecord;
+  final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isRecorderInitialized = false;
   
-  // 🎭 UI Controllers
-  late AnimationController _voiceWaveController;
-  late AnimationController _listeningController;
+  // 🎭 Animation Controllers
+  late AnimationController _pulseController;
+  late AnimationController _listeningController; 
   late AnimationController _thinkingController;
-  late Animation<double> _waveAnimation;
-  late Animation<double> _listeningScale;
+  late AnimationController _speakingController;
+  
+  // 🎨 Animations
+  late Animation<double> _pulseScale;
+  late Animation<double> _listeningPulse;
   late Animation<double> _thinkingRotation;
+  late Animation<double> _speakingBounce;
+  late Animation<Color?> _bubbleColor;
 
   // 💬 Conversation State
-  List<ConversationMessage> _messages = [];
   String? _conversationId;
   bool _isRecording = false;
   bool _isProcessing = false;
   bool _aiIsSpeaking = false;
   String _recordingPath = '';
+  String _currentStatus = '';
   
-  // 🎵 Voice Visualization
-  List<double> _audioLevels = [0.2, 0.4, 0.6, 0.8, 0.6, 0.4, 0.2];
+  // 🎵 Visual State
+  List<double> _waveHeights = List.generate(12, (index) => 0.2);
   
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
-    _initializeConversation();
     _initializeRecorder();
+    _currentStatus = "Ready to chat with ${widget.personality}";
   }
 
   void _initializeAnimations() {
-    _voiceWaveController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    
-    _listeningController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    
-    _thinkingController = AnimationController(
+    // Main pulse animation (always running)
+    _pulseController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
     );
-
-    _waveAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(parent: _voiceWaveController, curve: Curves.easeInOut),
+    
+    // Listening animation
+    _listeningController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
     );
     
-    _listeningScale = Tween<double>(begin: 1.0, end: 1.2).animate(
+    // Thinking animation  
+    _thinkingController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    
+    // Speaking animation
+    _speakingController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    // Pulse scale animation
+    _pulseScale = Tween<double>(begin: 1.0, end: 1.08).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+    
+    // Listening pulse
+    _listeningPulse = Tween<double>(begin: 1.0, end: 1.15).animate(
       CurvedAnimation(parent: _listeningController, curve: Curves.easeInOut),
     );
     
+    // Thinking rotation
     _thinkingRotation = Tween<double>(begin: 0.0, end: 1.0).animate(
       _thinkingController,
     );
+    
+    // Speaking bounce
+    _speakingBounce = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(parent: _speakingController, curve: Curves.elasticOut),
+    );
+    
+    // Bubble color animation
+    _bubbleColor = ColorTween(
+      begin: Color(0xFFFFD700),
+      end: Color(0xFF64FFDA),
+    ).animate(_pulseController);
 
-    // Start wave animation
-    _voiceWaveController.repeat(reverse: true);
+    // Start continuous pulse
+    _pulseController.repeat(reverse: true);
   }
 
-  void _initializeConversation() {
-    // Add welcome message from AI personality
-    final welcomeMessage = _getWelcomeMessage();
+  Future<void> _initializeRecorder() async {
+    try {
+      _audioRecord = FlutterSoundRecorder();
+      final status = await Permission.microphone.request();
+      if (status == PermissionStatus.granted) {
+        await _audioRecord!.openRecorder();
+        setState(() {
+          _isRecorderInitialized = true;
+        });
+        print("🎤 Audio recorder initialized");
+      }
+    } catch (e) {
+      print("❌ Recorder init error: $e");
+      setState(() {
+        _currentStatus = "Microphone permission needed";
+      });
+    }
+  }
+
+  // 🎤 RECORDING FUNCTIONS
+  Future<void> _startRecording() async {
+    if (!_isRecorderInitialized || _isRecording || _isProcessing) return;
+    
+    try {
+      final directory = await getTemporaryDirectory();
+      _recordingPath = '${directory.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      
+      await _audioRecord!.startRecorder(
+        toFile: _recordingPath,
+        codec: Codec.aacMP4,
+      );
+      
+      setState(() {
+        _isRecording = true;
+        _currentStatus = "Listening...";
+      });
+      
+      _listeningController.repeat(reverse: true);
+      _startWaveAnimation();
+      HapticFeedback.mediumImpact();
+      
+    } catch (e) {
+      print("❌ Recording error: $e");
+    }
+  }
+
+  Future<void> _stopRecording() async {
+    if (!_isRecording) return;
+    
+    try {
+      await _audioRecord!.stopRecorder();
+      _listeningController.stop();
+      _stopWaveAnimation();
+      
+      setState(() {
+        _isRecording = false;
+        _isProcessing = true;
+        _currentStatus = "${widget.personality} is thinking...";
+      });
+
+      _thinkingController.repeat();
+      HapticFeedback.lightImpact();
+      
+      if (_recordingPath.isNotEmpty) {
+        await _sendVoiceMessage(_recordingPath);
+      }
+      
+    } catch (e) {
+      print("❌ Stop recording error: $e");
+      _resetState();
+    }
+  }
+
+  void _startWaveAnimation() {
+    // Animate wave heights for visual feedback
+    for (int i = 0; i < _waveHeights.length; i++) {
+      Future.delayed(Duration(milliseconds: i * 50), () {
+        if (_isRecording && mounted) {
+          setState(() {
+            _waveHeights[i] = 0.3 + (math.Random().nextDouble() * 0.7);
+          });
+        }
+      });
+    }
+    
+    if (_isRecording) {
+      Future.delayed(Duration(milliseconds: 200), _startWaveAnimation);
+    }
+  }
+
+  void _stopWaveAnimation() {
     setState(() {
-      _messages.add(ConversationMessage(
-        id: '${DateTime.now().millisecondsSinceEpoch}',
-        text: welcomeMessage,
-        isUser: false,
-        timestamp: DateTime.now(),
-        personality: widget.personality,
-      ));
+      _waveHeights = List.generate(12, (index) => 0.2);
     });
   }
 
-  String _getWelcomeMessage() {
-    switch (widget.personality) {
-      case 'Lana Croft':
-        return "Hey adventurer! Ready to tackle whatever's on your mind today? I'm here to help you conquer any challenge! 🗻";
-      case 'Baxter Jordan':
-        return "Hello! I'm here to help you optimize your approach and find strategic solutions. What would you like to work on?";
-      default:
-        return "Hi there! How can I motivate and support you today?";
-    }
-  }
-    
-  // 🎤 VOICE RECORDING FUNCTIONS
-    Future<void> _initializeRecorder() async {
-    try {
-        _audioRecord = FlutterSoundRecorder();
-        final status = await Permission.microphone.request();
-        if (status == PermissionStatus.granted) {
-        await _audioRecord!.openRecorder();
-        setState(() {
-            _isRecorderInitialized = true;
-        });
-        print("🎤 Audio recorder initialized successfully");
-        }
-    } catch (e) {
-        print("❌ Recorder init error: $e");
-    }
-    }
-
-    Future<void> _startRecording() async {
-    try {
-        if (_isRecorderInitialized && !_isRecording) {
-        final directory = await getTemporaryDirectory();
-        _recordingPath = '${directory.path}/voice_message_${DateTime.now().millisecondsSinceEpoch}.m4a';
-        
-        await _audioRecord!.startRecorder(
-            toFile: _recordingPath,
-            codec: Codec.aacMP4,
-        );
-        
-        setState(() {
-            _isRecording = true;
-        });
-        
-        _listeningController.repeat(reverse: true);
-        HapticFeedback.mediumImpact();
-        
-        print("🎤 Recording started: $_recordingPath");
-        }
-    } catch (e) {
-        print("❌ Recording error: $e");
-    }
-    }
-
-    Future<void> _stopRecording() async {
-        try {
-            await _audioRecord!.stopRecorder();
-            _listeningController.stop();
-            
-            setState(() {
-            _isRecording = false;
-            _isProcessing = true;
-            });
-
-            _thinkingController.repeat();
-            
-            if (_recordingPath.isNotEmpty) {
-            await _sendVoiceMessage(_recordingPath);
-            }
-            
-        } catch (e) {
-            print("❌ Stop recording error: $e");
-            setState(() {
-            _isRecording = false;
-            _isProcessing = false;
-            });
-        }
-    }
-
-  // 🧠 REAL AI CONVERSATION
+  // 🧠 AI CONVERSATION
   Future<void> _sendVoiceMessage(String audioPath) async {
     try {
-      print("🚀 Sending voice message to AI...");
-      
-      // Create multipart request
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('https://motivator-ai-backend.onrender.com/voice-conversation/voice-message'),
       );
       
-      // Add audio file
       request.files.add(await http.MultipartFile.fromPath('audio', audioPath));
-      
-      // Add conversation data
       request.fields['userId'] = widget.userId;
       request.fields['personality'] = widget.personality;
       if (_conversationId != null) {
         request.fields['conversationId'] = _conversationId!;
       }
       
-      // Send request
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
       
@@ -218,115 +242,62 @@ class _VoiceChatModalState extends State<VoiceChatModal>
       
     } catch (e) {
       print("❌ Voice message error: $e");
-      _showErrorMessage("Sorry, I couldn't process that. Please try again.");
-    } finally {
-      _thinkingController.stop();
       setState(() {
-        _isProcessing = false;
+        _currentStatus = "Sorry, connection failed. Try again.";
       });
+      _resetState();
     }
   }
 
   Future<void> _handleAIResponse(Map<String, dynamic> data) async {
     try {
-      final userMessage = data['userMessage'];
-      final aiResponse = data['aiResponse'];
-      final audioUrl = data['audioUrl'];
+      _thinkingController.stop();
       
-      // Update conversation ID
+      final aiResponse = data['aiResponse'];
       if (data['conversationId'] != null) {
         _conversationId = data['conversationId'];
       }
       
-      // Add user message to conversation
       setState(() {
-        _messages.add(ConversationMessage(
-          id: '${DateTime.now().millisecondsSinceEpoch}_user',
-          text: userMessage,
-          isUser: true,
-          timestamp: DateTime.now(),
-        ));
-        
-        // Add AI response
-        _messages.add(ConversationMessage(
-          id: '${DateTime.now().millisecondsSinceEpoch}_ai',
-          text: aiResponse,
-          isUser: false,
-          timestamp: DateTime.now(),
-          personality: widget.personality,
-          audioUrl: audioUrl,
-        ));
+        _isProcessing = false;
+        _aiIsSpeaking = true;
+        _currentStatus = "${widget.personality} is speaking...";
       });
       
-      // Play AI voice response
-      if (audioUrl != null && audioUrl.isNotEmpty) {
-        await _playAIVoiceResponse(audioUrl);
-      }
+      _speakingController.repeat(reverse: true);
       
-      // Scroll to bottom
-      Future.delayed(Duration(milliseconds: 100), () {
-        _scrollToBottom();
-      });
+      // For now, simulate AI speaking (since audio serving isn't implemented yet)
+      await _simulateAISpeaking(aiResponse);
       
     } catch (e) {
       print("❌ Handle AI response error: $e");
+      _resetState();
     }
   }
 
-  Future<void> _playAIVoiceResponse(String audioUrl) async {
-    try {
-      setState(() {
-        _aiIsSpeaking = true;
-      });
-      
-      if (audioUrl.startsWith('data:audio')) {
-        // Handle base64 audio data
-        final base64Data = audioUrl.split(',')[1];
-        final audioBytes = base64Decode(base64Data);
-        
-        // Save to temp file and play
-        final tempDir = await getTemporaryDirectory();
-        final tempFile = File('${tempDir.path}/ai_response_${DateTime.now().millisecondsSinceEpoch}.mp3');
-        await tempFile.writeAsBytes(audioBytes);
-        
-        await _audioPlayer.setFilePath(tempFile.path);
-      } else {
-        // Handle URL
-        await _audioPlayer.setUrl(audioUrl);
-      }
-      
-      await _audioPlayer.play();
-      
-      // Listen for completion
-      _audioPlayer.playerStateStream.listen((state) {
-        if (state.processingState == ProcessingState.completed) {
-          setState(() {
-            _aiIsSpeaking = false;
-          });
-        }
-      });
-      
-    } catch (e) {
-      print("❌ Play AI voice error: $e");
-      setState(() {
-        _aiIsSpeaking = false;
-      });
-    }
-  }
-
-  void _scrollToBottom() {
-    // Implementation for scrolling to bottom of conversation
-  }
-
-  void _showErrorMessage(String message) {
+  Future<void> _simulateAISpeaking(String text) async {
+    // Simulate speaking duration based on text length
+    final speakingDuration = Duration(milliseconds: (text.length * 80).clamp(2000, 8000));
+    
+    await Future.delayed(speakingDuration);
+    
+    _speakingController.stop();
     setState(() {
-      _messages.add(ConversationMessage(
-        id: '${DateTime.now().millisecondsSinceEpoch}_error',
-        text: message,
-        isUser: false,
-        timestamp: DateTime.now(),
-        isError: true,
-      ));
+      _aiIsSpeaking = false;
+      _currentStatus = "Ready to chat with ${widget.personality}";
+    });
+  }
+
+  void _resetState() {
+    _thinkingController.stop();
+    _listeningController.stop();
+    _speakingController.stop();
+    
+    setState(() {
+      _isRecording = false;
+      _isProcessing = false;
+      _aiIsSpeaking = false;
+      _currentStatus = "Ready to chat with ${widget.personality}";
     });
   }
 
@@ -342,9 +313,9 @@ class _VoiceChatModalState extends State<VoiceChatModal>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF1A1A2E),
-              Color(0xFF16213E),
-              Color(0xFF0F3460),
+              Color(0xFF0F1419),
+              Color(0xFF1A1F2E),
+              Color(0xFF0F1419),
             ],
           ),
         ),
@@ -352,7 +323,7 @@ class _VoiceChatModalState extends State<VoiceChatModal>
           child: Column(
             children: [
               _buildHeader(),
-              Expanded(child: _buildConversation()),
+              Expanded(child: _buildChatGPTVoiceInterface()),
               _buildVoiceControls(),
             ],
           ),
@@ -363,19 +334,22 @@ class _VoiceChatModalState extends State<VoiceChatModal>
 
   Widget _buildHeader() {
     return Container(
-      padding: EdgeInsets.all(20),
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundColor: Color(0xFFFFD700),
-            child: Text(
-              widget.personality[0],
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [Color(0xFFFFD700), Color(0xFFFF8C00)],
               ),
+            ),
+            child: Icon(
+              Icons.psychology_rounded,
+              color: Colors.black,
+              size: 24,
             ),
           ),
           SizedBox(width: 15),
@@ -387,14 +361,14 @@ class _VoiceChatModalState extends State<VoiceChatModal>
                   widget.personality,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  _getStatusText(),
+                  "AI Voice Assistant",
                   style: TextStyle(
-                    color: Color(0xFF64FFDA),
+                    color: Colors.white70,
                     fontSize: 14,
                   ),
                 ),
@@ -403,248 +377,228 @@ class _VoiceChatModalState extends State<VoiceChatModal>
           ),
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: Icon(Icons.close, color: Colors.white),
+            icon: Icon(
+              Icons.close_rounded,
+              color: Colors.white70,
+              size: 28,
+            ),
           ),
         ],
       ),
     );
   }
 
-  String _getStatusText() {
-    if (_aiIsSpeaking) return "Speaking...";
-    if (_isProcessing) return "Thinking...";
-    if (_isRecording) return "Listening...";
-    return "Ready to chat";
-  }
-
-  Widget _buildConversation() {
+  Widget _buildChatGPTVoiceInterface() {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 20),
-      child: ListView.builder(
-        itemCount: _messages.length,
-        itemBuilder: (context, index) {
-          final message = _messages[index];
-          return _buildMessageBubble(message);
-        },
-      ),
-    );
-  }
-
-  Widget _buildMessageBubble(ConversationMessage message) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 15),
-      child: Row(
-        mainAxisAlignment: message.isUser 
-          ? MainAxisAlignment.end 
-          : MainAxisAlignment.start,
-        children: [
-          if (!message.isUser) ...[
-            CircleAvatar(
-              radius: 15,
-              backgroundColor: message.isError 
-                ? Colors.red 
-                : Color(0xFFFFD700),
-              child: Icon(
-                message.isError ? Icons.error : Icons.psychology,
-                size: 16,
-                color: Colors.black,
-              ),
-            ),
-            SizedBox(width: 10),
-          ],
-          Flexible(
-            child: Container(
-              padding: EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: message.isUser 
-                  ? Color(0xFF64FFDA) 
-                  : message.isError
-                    ? Colors.red.withOpacity(0.3)
-                    : Color(0xFF2A2A3E),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    message.text,
-                    style: TextStyle(
-                      color: message.isUser ? Colors.black : Colors.white,
-                      fontSize: 16,
-                    ),
-                  ),
-                  if (!message.isUser && message.audioUrl != null)
-                    Container(
-                      margin: EdgeInsets.only(top: 8),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.volume_up,
-                            color: Color(0xFF64FFDA),
-                            size: 16,
-                          ),
-                          SizedBox(width: 5),
-                          Text(
-                            "Voice response played",
-                            style: TextStyle(
-                              color: Color(0xFF64FFDA),
-                              fontSize: 12,
-                            ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Main AI Bubble (ChatGPT Style)
+            AnimatedBuilder(
+              animation: Listenable.merge([
+                _pulseScale,
+                _listeningPulse,
+                _speakingBounce,
+                _thinkingRotation,
+                _bubbleColor,
+              ]),
+              builder: (context, child) {
+                double scale = _pulseScale.value;
+                if (_isRecording) scale *= _listeningPulse.value;
+                if (_aiIsSpeaking) scale *= _speakingBounce.value;
+                
+                return Transform.scale(
+                  scale: scale,
+                  child: Transform.rotate(
+                    angle: _isProcessing ? _thinkingRotation.value * 2 * math.pi : 0,
+                    child: Container(
+                      width: 160,
+                      height: 160,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
+                          colors: [
+                            _getBubbleColor().withOpacity(0.9),
+                            _getBubbleColor().withOpacity(0.4),
+                            _getBubbleColor().withOpacity(0.1),
+                          ],
+                          stops: [0.3, 0.7, 1.0],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _getBubbleColor().withOpacity(0.3),
+                            blurRadius: 30,
+                            spreadRadius: 10,
                           ),
                         ],
                       ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          if (message.isUser) ...[
-            SizedBox(width: 10),
-            CircleAvatar(
-              radius: 15,
-              backgroundColor: Color(0xFF64FFDA),
-              child: Icon(
-                Icons.person,
-                size: 16,
-                color: Colors.black,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVoiceControls() {
-    return Container(
-      padding: EdgeInsets.all(30),
-      child: Column(
-        children: [
-          // Voice visualization
-          if (_isRecording || _aiIsSpeaking) _buildVoiceVisualization(),
-          
-          SizedBox(height: 20),
-          
-          // Main voice button
-          GestureDetector(
-            onTapDown: (_) => _startRecording(),
-            onTapUp: (_) => _stopRecording(),
-            onTapCancel: () => _stopRecording(),
-            child: AnimatedBuilder(
-              animation: _listeningScale,
-              builder: (context, child) {
-                return Transform.scale(
-                  scale: _isRecording ? _listeningScale.value : 1.0,
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _getButtonColor(),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _getButtonColor().withOpacity(0.3),
-                          blurRadius: 20,
-                          spreadRadius: _isRecording ? 10 : 5,
+                      child: Container(
+                        margin: EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _getBubbleColor(),
                         ),
-                      ],
-                    ),
-                    child: Icon(
-                      _getButtonIcon(),
-                      color: Colors.white,
-                      size: 35,
+                        child: Icon(
+                          _getBubbleIcon(),
+                          color: Colors.black,
+                          size: 60,
+                        ),
+                      ),
                     ),
                   ),
                 );
               },
             ),
-          ),
-          
-          SizedBox(height: 15),
-          
-          Text(
-            _getButtonText(),
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 16,
+            
+            SizedBox(height: 50),
+            
+            // Wave Visualization
+            if (_isRecording || _aiIsSpeaking) _buildWaveVisualization(),
+            
+            SizedBox(height: 30),
+            
+            // Status Text
+            Text(
+              _currentStatus,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
             ),
-          ),
-        ],
+            
+            SizedBox(height: 10),
+            
+            // Subtitle
+            Text(
+              _getSubtitle(),
+              style: TextStyle(
+                color: Colors.white60,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildVoiceVisualization() {
+  Widget _buildWaveVisualization() {
     return Container(
-      height: 50,
+      height: 60,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(_audioLevels.length, (index) {
-          return AnimatedBuilder(
-            animation: _waveAnimation,
-            builder: (context, child) {
-              return Container(
-                width: 4,
-                height: 50 * _audioLevels[index] * _waveAnimation.value,
-                margin: EdgeInsets.symmetric(horizontal: 2),
-                decoration: BoxDecoration(
-                  color: Color(0xFF64FFDA),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              );
-            },
+        children: List.generate(_waveHeights.length, (index) {
+          return AnimatedContainer(
+            duration: Duration(milliseconds: 200),
+            width: 3,
+            height: 60 * _waveHeights[index],
+            margin: EdgeInsets.symmetric(horizontal: 2),
+            decoration: BoxDecoration(
+              color: _isRecording 
+                ? Color(0xFF64FFDA) 
+                : Color(0xFFFFD700),
+              borderRadius: BorderRadius.circular(2),
+            ),
           );
         }),
       ),
     );
   }
 
-  Color _getButtonColor() {
+  Widget _buildVoiceControls() {
+    return Container(
+      padding: EdgeInsets.all(40),
+      child: Column(
+        children: [
+          // Main Voice Button
+          GestureDetector(
+            onTapDown: (_) => _startRecording(),
+            onTapUp: (_) => _stopRecording(),
+            onTapCancel: () => _stopRecording(),
+            child: AnimatedContainer(
+              duration: Duration(milliseconds: 200),
+              width: _isRecording ? 100 : 80,
+              height: _isRecording ? 100 : 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _getControlButtonColor(),
+                boxShadow: [
+                  BoxShadow(
+                    color: _getControlButtonColor().withOpacity(0.4),
+                    blurRadius: 20,
+                    spreadRadius: _isRecording ? 15 : 8,
+                  ),
+                ],
+              ),
+              child: Icon(
+                _isRecording ? Icons.mic : Icons.mic_none_rounded,
+                color: Colors.white,
+                size: _isRecording ? 45 : 35,
+              ),
+            ),
+          ),
+          
+          SizedBox(height: 20),
+          
+          Text(
+            _getControlText(),
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🎨 HELPER METHODS
+  Color _getBubbleColor() {
     if (_isProcessing) return Color(0xFFFF6B6B);
     if (_isRecording) return Color(0xFF64FFDA);
+    if (_aiIsSpeaking) return Color(0xFF9C27B0);
     return Color(0xFFFFD700);
   }
 
-  IconData _getButtonIcon() {
-    if (_isProcessing) return Icons.psychology;
-    if (_isRecording) return Icons.mic;
-    return Icons.mic_none;
+  IconData _getBubbleIcon() {
+    if (_isProcessing) return Icons.psychology_rounded;
+    if (_isRecording) return Icons.hearing_rounded;
+    if (_aiIsSpeaking) return Icons.volume_up_rounded;
+    return Icons.chat_bubble_rounded;
   }
 
-  String _getButtonText() {
-    if (_isProcessing) return "AI is thinking...";
+  Color _getControlButtonColor() {
+    if (_isProcessing) return Color(0xFF666666);
+    if (_isRecording) return Color(0xFFFF4444);
+    return Color(0xFF64FFDA);
+  }
+
+  String _getControlText() {
+    if (_isProcessing) return "Processing...";
     if (_isRecording) return "Release to send";
     return "Hold to speak";
   }
 
+  String _getSubtitle() {
+    if (_isProcessing) return "Analyzing your message...";
+    if (_isRecording) return "Speak now";
+    if (_aiIsSpeaking) return "Listen carefully";
+    return "Tap and hold the button to start";
+  }
+
   @override
   void dispose() {
-    _voiceWaveController.dispose();
+    _pulseController.dispose();
     _listeningController.dispose();
     _thinkingController.dispose();
-    _audioRecord.dispose();
+    _speakingController.dispose();
+    _audioRecord?.closeRecorder();
     _audioPlayer.dispose();
     super.dispose();
   }
-}
-
-// 💬 CONVERSATION MESSAGE MODEL
-class ConversationMessage {
-  final String id;
-  final String text;
-  final bool isUser;
-  final DateTime timestamp;
-  final String? personality;
-  final String? audioUrl;
-  final bool isError;
-
-  ConversationMessage({
-    required this.id,
-    required this.text,
-    required this.isUser,
-    required this.timestamp,
-    this.personality,
-    this.audioUrl,
-    this.isError = false,
-  });
 }

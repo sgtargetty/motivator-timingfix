@@ -317,7 +317,7 @@ class AIConversationService {
         'triggers': _motivationTriggers,
         'strategies': _effectiveStrategies,
         'keywords': _personalKeywords,
-        'updatedAt': DateTime.now().toISOString(),
+        'updatedAt': DateTime.now().toIso8601String(),
       };
       await prefs.setString('patterns_$_currentUserId', json.encode(patterns));
       
@@ -520,7 +520,7 @@ class ConversationInsight {
     'description': description,
     'actionable': actionable,
     'confidence': confidence,
-    'discoveredAt': discoveredAt.toISOString(),
+    'discoveredAt': discoveredAt.toIso8601String(),
   };
 
   factory ConversationInsight.fromJson(Map<String, dynamic> json) {
@@ -572,7 +572,7 @@ class UserMemoryCache {
     'currentGoals': currentGoals,
     'lastKnownMood': lastKnownMood,
     'engagementScore': engagementScore,
-    'createdAt': createdAt.toISOString(),
+    'createdAt': createdAt.toIso8601String(),
   };
 
   factory UserMemoryCache.fromJson(Map<String, dynamic> json) {
@@ -614,7 +614,7 @@ class ConversationSummary {
     'duration': duration,
     'topics': topics,
     'satisfaction': satisfaction,
-    'timestamp': timestamp.toISOString(),
+    'timestamp': timestamp.toIso8601String(),
   };
 
   factory ConversationSummary.fromJson(Map<String, dynamic> json) {

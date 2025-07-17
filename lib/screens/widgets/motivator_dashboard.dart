@@ -507,12 +507,21 @@ class _AIConversationCard extends StatelessWidget {
                     child: Container(
                       height: 54,
                       child: ElevatedButton.icon(
-                        onPressed: loading ? null : _startVoiceConversation,
-                        icon: Icon(
-                          Icons.mic,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                        onPressed: loading ? null : () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => VoiceChatModal(
+                                personality: 'Lana Croft',
+                                userId: 'user_${DateTime.now().millisecondsSinceEpoch}',
+                              ),
+                            ),
+                          );
+                        },
+                        icon: Icon(                    // ← ADD THIS BACK
+                          Icons.mic,                   // ← ADD THIS BACK  
+                          color: Colors.white,         // ← ADD THIS BACK
+                          size: 20,                    // ← ADD THIS BACK
+                        ),                             // ← ADD THIS BACK
                         label: Text(
                           'Voice Chat',
                           style: TextStyle(
@@ -532,7 +541,7 @@ class _AIConversationCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+                                    
                   const SizedBox(width: 12),
                   
                   // Text Chat Button
@@ -636,8 +645,8 @@ class _AIConversationCard extends StatelessWidget {
       transitionDuration: Duration(milliseconds: 400),
       pageBuilder: (context, animation, secondaryAnimation) {
         return VoiceChatModal(
-          aiPersonalityName: _getAIPersonalityName(),
-          userName: 'Bob', // Get from your user settings
+          personality: 'Lana Croft',
+          userId: 'user_${DateTime.now().millisecondsSinceEpoch}',
         );
       },
       transitionBuilder: (context, animation, secondaryAnimation, child) {
