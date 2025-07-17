@@ -11,6 +11,15 @@ import 'dart:typed_data';
 import 'dart:async';
 import 'dart:math' as math;
 
+// 🚥 Pipeline State - MUST be outside class
+enum VoiceState {
+  idle,
+  listening,
+  processing,
+  speaking,
+  error
+}
+
 class RealTimeVoiceChat extends StatefulWidget {
   final String personality;
   final String userId;
@@ -57,14 +66,6 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
   String _lastAiResponse = "";
   List<Map<String, String>> _conversationHistory = [];
   
-  // 🚥 Pipeline State
-  enum VoiceState {
-    idle,
-    listening,
-    processing,
-    speaking,
-    error
-  }
   VoiceState _currentState = VoiceState.idle;
 
   // 🎭 Personality Configurations
@@ -339,11 +340,20 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
 
   // 🤖 OpenAI API Call
   Future<String?> _callOpenAI(List<Map<String, String>> messages) async {
-    const apiKey = String.fromEnvironment('OPENAI_API_KEY', 
-        defaultValue: 'your-openai-api-key-here'); // Replace with your key
+    // TODO: Replace with your actual OpenAI API key
+    const apiKey = 'sk-your-openai-key-here'; // Replace this with your key
     
-    if (apiKey == 'your-openai-api-key-here') {
-      throw Exception('OpenAI API key not configured');
+    if (apiKey == 'sk-your-openai-key-here') {
+      // Return mock response for testing without API key
+      await Future.delayed(Duration(seconds: 1));
+      final mockResponses = [
+        "Ready for this adventure!",
+        "Let's conquer this challenge!",
+        "You've got the explorer's spirit!",
+        "Time to push beyond limits!",
+        "Adventure awaits, let's go!"
+      ];
+      return mockResponses[math.Random().nextInt(mockResponses.length)];
     }
 
     try {
@@ -380,16 +390,26 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
 
   // 🔊 PHASE 4: Generate and Play Voice (ElevenLabs)
   Future<void> _generateAndPlayVoice(String text, String voiceId) async {
-    const elevenLabsApiKey = String.fromEnvironment('ELEVENLABS_API_KEY',
-        defaultValue: 'your-elevenlabs-api-key-here'); // Replace with your key
+    // TODO: Replace with your actual ElevenLabs API key
+    const elevenLabsApiKey = 'your-elevenlabs-api-key-here'; // Replace this
         
     if (elevenLabsApiKey == 'your-elevenlabs-api-key-here') {
-      // Fallback to text display if no ElevenLabs key
+      // Fallback to text display with audio simulation
       setState(() {
-        _currentStatus = _lastAiResponse;
-        _currentState = VoiceState.idle;
+        _currentState = VoiceState.speaking;
+        _currentStatus = "${widget.personality}: $_lastAiResponse";
       });
+
       _thinkingController.stop();
+      _speakingController.repeat(reverse: true);
+      HapticFeedback.selectionClick();
+
+      // Simulate voice duration based on text length
+      final durationSeconds = math.max(2, (_lastAiResponse.length / 10).round());
+      
+      await Future.delayed(Duration(seconds: durationSeconds));
+      
+      _speakingController.stop();
       _resetToIdle();
       return;
     }

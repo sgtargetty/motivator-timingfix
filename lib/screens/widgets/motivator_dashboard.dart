@@ -6,6 +6,7 @@ import '../../services/amber_alert_service.dart';
 import '../amber_alert_screen.dart';
 import 'voice_chat_modal.dart';
 import '../widgets/voice_chat_modal.dart';
+import 'realtime_voice_chat.dart';
 
 
 class MotivatorDashboard extends StatefulWidget {
@@ -510,7 +511,7 @@ class _AIConversationCard extends StatelessWidget {
                         onPressed: loading ? null : () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => VoiceChatModal(
+                              builder: (context) => RealTimeVoiceChat(
                                 personality: 'Lana Croft',
                                 userId: 'user_${DateTime.now().millisecondsSinceEpoch}',
                               ),
