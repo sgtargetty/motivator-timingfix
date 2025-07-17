@@ -5,6 +5,8 @@ import 'dart:ui';
 import '../../services/amber_alert_service.dart';
 import '../amber_alert_screen.dart';
 import 'voice_chat_modal.dart';
+import '../widgets/voice_chat_modal.dart';
+
 
 class MotivatorDashboard extends StatefulWidget {
   final String userName;
@@ -558,7 +560,7 @@ class _AIConversationCard extends StatelessWidget {
                               label: Text(
                                 loading 
                                     ? 'Connecting...'
-                                    : 'Start Chat',
+                                    : 'Talk to Lana',
                                 style: TextStyle(
                                   color: Colors.black,
                                   fontWeight: FontWeight.w600,
@@ -981,4 +983,4 @@ class _DebugButton extends StatelessWidget {
       ),
     );
   }
-}
+}  

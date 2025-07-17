@@ -2,7 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:record/record.dart';
+import 'package:flutter_sound/flutter_sound.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
@@ -29,8 +30,8 @@ class _VoiceChatModalState extends State<VoiceChatModal>
     with TickerProviderStateMixin {
   
   // 🎤 Audio Recording & Playback
-  final Record _audioRecord = Record();
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  FlutterSoundRecorder? _audioRecord;
+  bool _isRecorderInitialized = false;
   
   // 🎭 UI Controllers
   late AnimationController _voiceWaveController;
@@ -56,6 +57,7 @@ class _VoiceChatModalState extends State<VoiceChatModal>
     super.initState();
     _initializeAnimations();
     _initializeConversation();
+    _initializeRecorder();
   }
 
   void _initializeAnimations() {
@@ -114,59 +116,73 @@ class _VoiceChatModalState extends State<VoiceChatModal>
         return "Hi there! How can I motivate and support you today?";
     }
   }
-
+    
   // 🎤 VOICE RECORDING FUNCTIONS
-  Future<void> _startRecording() async {
+    Future<void> _initializeRecorder() async {
     try {
-      if (await _audioRecord.hasPermission()) {
+        _audioRecord = FlutterSoundRecorder();
+        final status = await Permission.microphone.request();
+        if (status == PermissionStatus.granted) {
+        await _audioRecord!.openRecorder();
+        setState(() {
+            _isRecorderInitialized = true;
+        });
+        print("🎤 Audio recorder initialized successfully");
+        }
+    } catch (e) {
+        print("❌ Recorder init error: $e");
+    }
+    }
+
+    Future<void> _startRecording() async {
+    try {
+        if (_isRecorderInitialized && !_isRecording) {
         final directory = await getTemporaryDirectory();
         _recordingPath = '${directory.path}/voice_message_${DateTime.now().millisecondsSinceEpoch}.m4a';
         
-        await _audioRecord.start(
-          path: _recordingPath,
-          encoder: AudioEncoder.aacLc,
-          bitRate: 128000,
-          samplingRate: 44100,
+        await _audioRecord!.startRecorder(
+            toFile: _recordingPath,
+            codec: Codec.aacMP4,
         );
         
         setState(() {
-          _isRecording = true;
+            _isRecording = true;
         });
         
         _listeningController.repeat(reverse: true);
         HapticFeedback.mediumImpact();
         
         print("🎤 Recording started: $_recordingPath");
-      }
+        }
     } catch (e) {
-      print("❌ Recording error: $e");
+        print("❌ Recording error: $e");
     }
-  }
-
-  Future<void> _stopRecording() async {
-    try {
-      String? path = await _audioRecord.stop();
-      _listeningController.stop();
-      
-      setState(() {
-        _isRecording = false;
-        _isProcessing = true;
-      });
-
-      _thinkingController.repeat();
-      
-      if (path != null && path.isNotEmpty) {
-        await _sendVoiceMessage(path);
-      }
-      
-    } catch (e) {
-      print("❌ Stop recording error: $e");
-      setState(() {
-        _isRecording = false;
-        _isProcessing = false;
-      });
     }
-  }
+
+    Future<void> _stopRecording() async {
+        try {
+            await _audioRecord!.stopRecorder();
+            _listeningController.stop();
+            
+            setState(() {
+            _isRecording = false;
+            _isProcessing = true;
+            });
+
+            _thinkingController.repeat();
+            
+            if (_recordingPath.isNotEmpty) {
+            await _sendVoiceMessage(_recordingPath);
+            }
+            
+        } catch (e) {
+            print("❌ Stop recording error: $e");
+            setState(() {
+            _isRecording = false;
+            _isProcessing = false;
+            });
+        }
+    }
 
   // 🧠 REAL AI CONVERSATION
   Future<void> _sendVoiceMessage(String audioPath) async {
