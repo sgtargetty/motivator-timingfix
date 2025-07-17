@@ -16,13 +16,13 @@ class ImmediateUnlimitedVoiceSystem {
 
   final MotivatorApi _api = MotivatorApi();
   
-  // 🎭 COMPLETE VOICE PERSONALITY CATALOG (All your EccentricVoiceSystem voices)
+  // 🎭 COMPLETE VOICE PERSONALITY CATALOG - FIXED TYPE STRUCTURE
   static const Map<String, Map<String, dynamic>> _allVoicePersonalities = {
     // 💪 ALPHA SQUAD (All Male Personalities)
     'drill_sergeant': {
       'name': 'Drill Sergeant',
       'category': 'male',
-      'elevenlabs_voice': 'male:Professional Male', // Map to your working EL voice
+      'elevenlabs_voice': 'male:Professional Male',
       'personality_enhancer': 'LISTEN UP RECRUIT! {name}! ',
       'name_style': 'SOLDIER {name}',
       'sample_fallback': 'male_professional_male',
@@ -43,13 +43,13 @@ class ImmediateUnlimitedVoiceSystem {
       'name_style': '{name}, my dude',
       'sample_fallback': 'male_energetic_male',
     },
-    'chill_surfer': {
-      'name': 'Chill Surfer',
+    'sports_coach': {
+      'name': 'Sports Coach',
       'category': 'male',
-      'elevenlabs_voice': 'male:Calm Male',
-      'personality_enhancer': 'Dude {name}, totally gnarly vibes ahead. ',
-      'name_style': '{name}, bro',
-      'sample_fallback': 'male_default_male',
+      'elevenlabs_voice': 'male:Energetic Male',
+      'personality_enhancer': 'Alright {name}! Game time, champion! ',
+      'name_style': 'Champion {name}',
+      'sample_fallback': 'male_energetic_male',
     },
     'british_butler': {
       'name': 'British Butler',
@@ -59,14 +59,6 @@ class ImmediateUnlimitedVoiceSystem {
       'name_style': 'Master {name}',
       'sample_fallback': 'male_professional_male',
     },
-    'sports_coach': {
-      'name': 'Sports Coach',
-      'category': 'male',
-      'elevenlabs_voice': 'male:Energetic Male',
-      'personality_enhancer': 'Alright {name}! Game time, champion! ',
-      'name_style': 'Champion {name}',
-      'sample_fallback': 'male_energetic_male',
-    },
 
     // 👑 QUEEN SQUAD (All Female Personalities)
     'sassy_diva': {
@@ -74,91 +66,27 @@ class ImmediateUnlimitedVoiceSystem {
       'category': 'female',
       'elevenlabs_voice': 'female:Energetic Female',
       'personality_enhancer': 'Honey {name}, you\'re about to SPARKLE! ',
-      'name_style': '{name}, gorgeous',
+      'name_style': 'gorgeous {name}',
       'sample_fallback': 'female_energetic_female',
     },
-    'supportive_mom': {
-      'name': 'Supportive Mom',
+    'supportive_friend': {
+      'name': 'Supportive Friend',
       'category': 'female',
       'elevenlabs_voice': 'female:Default Female',
-      'personality_enhancer': 'Sweetie {name}, mama believes in you! ',
-      'name_style': '{name}, sweetie',
+      'personality_enhancer': 'Hey {name}! I believe in you completely. ',
+      'name_style': 'friend {name}',
       'sample_fallback': 'female_default_female',
     },
-    'queen_boss': {
-      'name': 'Queen Boss',
+    'professional_female': {
+      'name': 'Professional Female',
       'category': 'female',
       'elevenlabs_voice': 'female:Professional Female',
-      'personality_enhancer': 'Your Majesty {name}, the kingdom awaits your command! ',
-      'name_style': 'Your Majesty {name}',
-      'sample_fallback': 'female_professional_female',
-    },
-    'valley_girl': {
-      'name': 'Valley Girl',
-      'category': 'female',
-      'elevenlabs_voice': 'female:Energetic Female',
-      'personality_enhancer': 'OMG {name}! This is gonna be like, totally amazing! ',
-      'name_style': '{name}, babe',
-      'sample_fallback': 'female_energetic_female',
-    },
-    'zen_goddess': {
-      'name': 'Zen Goddess',
-      'category': 'female',
-      'elevenlabs_voice': 'female:Calm Female',
-      'personality_enhancer': 'Breathe in peace, {name}, breathe out possibility. ',
-      'name_style': 'beautiful soul {name}',
-      'sample_fallback': 'female_default_female',
-    },
-    'news_anchor': {
-      'name': 'News Anchor',
-      'category': 'female',
-      'elevenlabs_voice': 'female:Professional Female',
-      'personality_enhancer': 'This just in: {name} is about to achieve greatness! ',
+      'personality_enhancer': 'Good morning {name}, let\'s achieve excellence today. ',
       'name_style': '{name}',
       'sample_fallback': 'female_professional_female',
     },
 
-    // 🎭 WILD CARDS (All Character Personalities)
-    'superhero': {
-      'name': 'Superhero',
-      'category': 'character',
-      'elevenlabs_voice': 'characters:Argent',
-      'personality_enhancer': 'The city needs you, Hero {name}! With great power... ',
-      'name_style': 'Hero {name}',
-      'sample_fallback': 'characters_argent',
-    },
-    'robot_assistant': {
-      'name': 'Robot Assistant',
-      'category': 'character',
-      'elevenlabs_voice': 'characters:Robot Assistant',
-      'personality_enhancer': 'Initiating motivation protocol for User {name}. ',
-      'name_style': 'User {name}',
-      'sample_fallback': 'characters_robot_assistant',
-    },
-    'pirate_captain': {
-      'name': 'Pirate Captain',
-      'category': 'character',
-      'elevenlabs_voice': 'characters:Baxter Jordan',
-      'personality_enhancer': 'Ahoy {name}! Ready to sail the seven seas of success? ',
-      'name_style': '{name}, me hearty',
-      'sample_fallback': 'characters_baxter_jordan',
-    },
-    'wizard_sage': {
-      'name': 'Wizard Sage',
-      'category': 'character',
-      'elevenlabs_voice': 'characters:Lana Croft',
-      'personality_enhancer': 'Ancient magic flows through you, {name}. ',
-      'name_style': 'Young wizard {name}',
-      'sample_fallback': 'characters_lana_croft',
-    },
-    'game_show_host': {
-      'name': 'Game Show Host',
-      'category': 'character',
-      'elevenlabs_voice': 'characters:Lana Croft',
-      'personality_enhancer': 'Ladies and gentlemen, {name} is our next contestant! ',
-      'name_style': 'contestant {name}',
-      'sample_fallback': 'characters_lana_croft',
-    },
+    // 🎭 CHARACTER SQUAD - Your signature differentiator
     'lana_croft': {
       'name': 'Lana Croft',
       'category': 'character',
@@ -183,7 +111,32 @@ class ImmediateUnlimitedVoiceSystem {
       'name_style': 'Agent {name}',
       'sample_fallback': 'characters_argent',
     },
+    'robot_assistant': {
+      'name': 'Robot Assistant',
+      'category': 'character',
+      'elevenlabs_voice': 'characters:Robot Assistant',
+      'personality_enhancer': 'Systems online, {name}. Task parameters analyzed. ',
+      'name_style': 'User {name}',
+      'sample_fallback': 'characters_robot_assistant',
+    },
+    'drill_instructor': {
+      'name': 'Drill Instructor',
+      'category': 'character',
+      'elevenlabs_voice': 'characters:Drill Instructor',
+      'personality_enhancer': 'ATTENTION {name}! No excuses, only results! ',
+      'name_style': 'RECRUIT {name}',
+      'sample_fallback': 'characters_drill_instructor',
+    },
+    'british_butler_char': {
+      'name': 'British Butler',
+      'category': 'character',
+      'elevenlabs_voice': 'characters:British Butler',
+      'personality_enhancer': 'At your service, Master {name}. Excellence is our tradition. ',
+      'name_style': 'Master {name}',
+      'sample_fallback': 'characters_british_butler',
+    },
   };
+
 
   // 🎭 ALL TONE STYLES WITH ENHANCED PROMPTS
   static const Map<String, Map<String, dynamic>> _enhancedToneStyles = {

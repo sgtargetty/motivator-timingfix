@@ -1,4 +1,4 @@
-// lib/services/motivator_api.dart - COMPLETE FILE WITH GLOBAL TIMEZONE SUPPORT
+// lib/services/motivator_api.dart - COMPLETE FILE WITH GLOBAL TIMEZONE SUPPORT + ASYNC QUEUE
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
@@ -7,6 +7,49 @@ import 'package:http/http.dart' as http;
 class MotivatorApi {
   final String baseUrl = 'https://motivator-ai-backend.onrender.com';
   
+  // 🚀 NEW: ASYNC TASK CREATION (LIGHTNING FAST!)
+  Future<Map<String, dynamic>> createTaskAsync({
+    required String taskText,
+    required String userId,
+    String? voiceStyle,
+    String? toneStyle,
+    String? userName,
+  }) async {
+    try {
+      print('🚀 Creating task with ASYNC QUEUE system...');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/create-task'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'taskText': taskText,
+          'userId': userId,
+          'voiceStyle': voiceStyle ?? 'Argent',
+          'toneStyle': toneStyle ?? 'Balanced',
+          'userName': userName ?? 'there',
+        }),
+      );
+
+      print('🌐 Status: ${response.statusCode}');
+      print('📦 Response: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'taskId': data['taskId'],
+          'message': data['message'],
+          'motivationalText': data['motivationalText'],
+        };
+      } else {
+        return {'success': false, 'error': 'Failed to create task'};
+      }
+    } catch (e) {
+      print('❌ Error: $e');
+      return {'success': false, 'error': 'Network error: $e'};
+    }
+  }
+
   Future<String> generateLine(
     String task, {
     String? toneStyle,

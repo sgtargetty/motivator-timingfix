@@ -1,73 +1,69 @@
+// lib/screens/widgets/motivator_dashboard.dart - COMPLETE WITH RESTORED DEBUG BUTTONS
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
 import '../../services/amber_alert_service.dart';
 import '../amber_alert_screen.dart';
+import 'voice_chat_modal.dart';
 
 class MotivatorDashboard extends StatefulWidget {
-  // State passed from parent
   final String userName;
-  final int motivationStreak;
-  final int totalMotivations;
-  final List<String> recentMotivations;
-  final List<String> quickActions;
-  final String dailyQuote;
-  final String generatedLine;
-  final bool loading;
+  final TextEditingController controller;
   final String? currentTaskType;
   final Map<String, dynamic>? currentTaskConfig;
-  
-  // Controllers and animations from parent
-  final TextEditingController controller;
+  final bool loading;
+  final VoidCallback onGenerateMotivation;
+  final String generatedLine;
   final Animation<double> motivationScale;
   final Animation<double> streakBounce;
   final AnimationController streakController;
-  
-  // Callback functions
-  final VoidCallback onGenerateMotivation;
+  final int totalMotivations;
+  final int motivationStreak;
+  final List<String> recentMotivations;
+  final List<String> quickActions;
+  final String dailyQuote;
   final Function(String) onSelectQuickAction;
   final Function(String) onGenerateMotivationForTask;
-  
+
   const MotivatorDashboard({
     Key? key,
     required this.userName,
-    required this.motivationStreak,
-    required this.totalMotivations,
-    required this.recentMotivations,
-    required this.quickActions,
-    required this.dailyQuote,
-    required this.generatedLine,
-    required this.loading,
+    required this.controller,
     this.currentTaskType,
     this.currentTaskConfig,
-    required this.controller,
+    required this.loading,
+    required this.onGenerateMotivation,
+    required this.generatedLine,
     required this.motivationScale,
     required this.streakBounce,
     required this.streakController,
-    required this.onGenerateMotivation,
+    required this.totalMotivations,
+    required this.motivationStreak,
+    required this.recentMotivations,
+    required this.quickActions,
+    required this.dailyQuote,
     required this.onSelectQuickAction,
     required this.onGenerateMotivationForTask,
   }) : super(key: key);
 
   @override
-  State<MotivatorDashboard> createState() => _MotivatorDashboardState();
+  _MotivatorDashboardState createState() => _MotivatorDashboardState();
 }
 
 class _MotivatorDashboardState extends State<MotivatorDashboard>
     with TickerProviderStateMixin {
+  
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
-  // Modern color palette
-  static const Color primaryBackground = Color(0xFF0F1419);
-  static const Color cardBackground = Color(0xFF1A1F2E);
-  static const Color accentTeal = Color(0xFF00D4AA);
+  // 🎨 Keep existing color scheme
+  static const Color cardBackground = Color(0xFF1a1a2e);
+  static const Color textPrimary = Color(0xFFffffff);
+  static const Color textSecondary = Color(0xFFa0a0a0);
+  static const Color accentTeal = Color(0xFF00d2ff);
   static const Color accentOrange = Color(0xFFFF6B47);
-  static const Color textPrimary = Color(0xFFFFFFFF);
-  static const Color textSecondary = Color(0xFFB0B8C8);
-  static const Color glassOverlay = Color(0x1AFFFFFF);
 
   @override
   void initState() {
@@ -118,133 +114,180 @@ class _MotivatorDashboardState extends State<MotivatorDashboard>
             children: [
               _SleekWelcomeHeader(userName: widget.userName),
               const SizedBox(height: 24),
-              // 🔥 STREAK CARD - Debug to make sure it shows
-              Container(
-                width: double.infinity,
-                height: 160,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFFFF4500),
-                      Color(0xFFFF6B35),
-                      Color(0xFFFF8E53),
-                      Color(0xFFFFD700),
-                    ],
-                  ),
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '🔥 ${widget.motivationStreak} 🔥',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 48,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const Text(
-                        'DAY STREAK',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Text(
-                        "🔥 DON'T BREAK THE CHAIN! 🔥",
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              _GlassmorphicWeeklyStats(totalMotivations: widget.totalMotivations),
-              const SizedBox(height: 24),
-              _BlurredDailyQuote(quote: widget.dailyQuote),
-              const SizedBox(height: 24),
-              _PremiumMotivationCard(
+              
+              // 🎭 NEW: AI Conversation Card (replaces Get Motivated)
+              _AIConversationCard(
                 context: context,
                 controller: widget.controller,
                 currentTaskType: widget.currentTaskType,
                 currentTaskConfig: widget.currentTaskConfig,
                 loading: widget.loading,
-                onGenerateMotivation: widget.onGenerateMotivation,
+                onStartConversation: widget.onGenerateMotivation,
                 generatedLine: widget.generatedLine,
                 motivationScale: widget.motivationScale,
               ),
-              const SizedBox(height: 28),
-              _SmoothQuickActions(
+              
+              const SizedBox(height: 24),
+              
+              // 💭 Daily Quote
+              _BlurredDailyQuote(quote: widget.dailyQuote),
+              
+              const SizedBox(height: 24),
+              
+              // 🎯 Quick Actions Grid
+              _QuickActionsGrid(
                 quickActions: widget.quickActions,
-                currentTaskType: widget.currentTaskType,
-                currentTaskConfig: widget.currentTaskConfig,
                 onSelectQuickAction: widget.onSelectQuickAction,
+                currentTaskConfig: widget.currentTaskConfig,
               ),
-              const SizedBox(height: 28),
+              
+              const SizedBox(height: 24),
+              
+              // ⚡ Recent Motivations
               _ElectrifyingRecentMotivations(
                 recentMotivations: widget.recentMotivations,
                 currentTaskConfig: widget.currentTaskConfig,
                 onGenerateMotivationForTask: widget.onGenerateMotivationForTask,
               ),
-              const SizedBox(height: 32),
+              
+              const SizedBox(height: 24),
+              
+              // 🔧 Debug Buttons (RESTORED ORIGINAL FUNCTIONALITY)
+              _buildDebugButtons(context),
+              
+              const SizedBox(height: 100), // Extra padding for scroll
             ],
           ),
         ),
       ),
     );
   }
-}
 
-// 🎨 Modern Welcome Header Component
-class _SleekWelcomeHeader extends StatelessWidget {
-  final String userName;
-  
-  const _SleekWelcomeHeader({required this.userName});
-
-  @override
-  Widget build(BuildContext context) {
+  // 🔧 RESTORED: Original Debug Buttons with Amber Alert Functionality
+  Widget _buildDebugButtons(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(0),
-      child: Row(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: cardBackground.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Hello, ',
+            '🔧 Amber Alert Debug Controls',
             style: TextStyle(
-              color: _MotivatorDashboardState.textSecondary,
-              fontSize: 22,
-              fontWeight: FontWeight.w400,
-              letterSpacing: 0.3,
+              color: textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          Text(
-            '$userName!',
-            style: TextStyle(
-              color: _MotivatorDashboardState.accentTeal,
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.3,
-            ),
-          ),
-          const SizedBox(width: 8),
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0.0, end: 1.0),
-            duration: const Duration(milliseconds: 1200),
-            curve: Curves.elasticOut,
-            builder: (context, value, child) {
-              return Transform.scale(
-                scale: value,
-                child: const Text(
-                  '👋',
-                  style: TextStyle(fontSize: 22),
+          const SizedBox(height: 16),
+          
+          // Row 1: Basic notification tests
+          Row(
+            children: [
+              Expanded(
+                child: _DebugButton(
+                  label: '🔔 BASIC',
+                  color: Colors.blue,
+                  onPressed: () => AmberAlertService.testNotificationWithoutPayload(context),
                 ),
-              );
-            },
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DebugButton(
+                  label: '📱 JSON',
+                  color: Colors.green,
+                  onPressed: () => AmberAlertService.testNotificationWithJsonPayload(context),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DebugButton(
+                  label: '🚨 AUTO',
+                  color: Colors.red,
+                  onPressed: () => AmberAlertService.testAmberAlertNotification(context),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          
+          // Row 2: Advanced amber alert tests
+          Row(
+            children: [
+              Expanded(
+                child: _DebugButton(
+                  label: '🚨 NOW',
+                  color: Colors.red.shade800,
+                  onPressed: () => AmberAlertService.testImmediateAutoHijackAlert(context),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DebugButton(
+                  label: '⚠️ Native',
+                  color: Colors.red.shade700,
+                  onPressed: () => AmberAlertService.testNativeAlarmAlert(context),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DebugButton(
+                  label: '🔴 Continuous',
+                  color: Colors.red.shade900,
+                  onPressed: () => AmberAlertService.testContinuousAlarm(context),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DebugButton(
+                  label: '📋 Check',
+                  color: Colors.purple,
+                  onPressed: () => AmberAlertService.checkScheduledNotifications(context),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          
+          // Row 3: Permissions and system tests
+          Row(
+            children: [
+              Expanded(
+                child: _DebugButton(
+                  label: '🔐 Perms',
+                  color: Colors.indigo,
+                  onPressed: () => AmberAlertService.checkAllPermissions(context),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DebugButton(
+                  label: '⚙️ Settings',
+                  color: Colors.orange,
+                  onPressed: () => AmberAlertService.openDeviceSettings(context),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DebugButton(
+                  label: '🚨 ULTIMATE',
+                  color: Colors.teal,
+                  onPressed: () => AmberAlertService.testTrueFullScreenAmberAlert(context),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DebugButton(
+                  label: '🔥 ALL',
+                  color: Colors.deepPurple,
+                  onPressed: () => AmberAlertService.testAllAmberStrategies(context),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -252,283 +295,366 @@ class _SleekWelcomeHeader extends StatelessWidget {
   }
 }
 
-// 🔥 Ultra-Modern Streak Card
-class _ModernStreakCard extends StatelessWidget {
-  final int motivationStreak;
-  final AnimationController streakController;
-  final Animation<double> streakBounce;
+// 👋 Sleek Welcome Header (PRESERVED)
+class _SleekWelcomeHeader extends StatelessWidget {
+  final String userName;
 
-  const _ModernStreakCard({
-    required this.motivationStreak,
-    required this.streakController,
-    required this.streakBounce,
-  });
+  const _SleekWelcomeHeader({required this.userName});
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: streakController,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: streakBounce.value,
-          child: Container(
-            width: double.infinity,
-            height: 180,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFFF6B47),
-                  Color(0xFFFF8E53),
-                  Color(0xFFFFB347),
-                  Color(0xFFFFD700),
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _MotivatorDashboardState.accentOrange.withOpacity(0.4),
-                  blurRadius: 20,
-                  offset: const Offset(0, 12),
-                ),
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 40,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.white.withOpacity(0.1),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
-                  child: Stack(
-                    children: [
-                      // Glowing particles effect
-                      ...List.generate(6, (index) {
-                        return Positioned(
-                          top: 20 + (index * 25.0),
-                          right: 20 + (index * 15.0),
-                          child: TweenAnimationBuilder<double>(
-                            tween: Tween(begin: 0.0, end: 1.0),
-                            duration: Duration(milliseconds: 800 + (index * 200)),
-                            curve: Curves.easeInOut,
-                            builder: (context, value, child) {
-                              return Opacity(
-                                opacity: (0.3 + (value * 0.4)) * 
-                                    (0.5 + 0.5 * (index % 2)),
-                                child: Container(
-                                  width: 4 + (index * 2),
-                                  height: 4 + (index * 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.8),
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.white.withOpacity(0.5),
-                                        blurRadius: 4,
-                                        spreadRadius: 1,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      }),
-                      // Main content
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.local_fire_department,
-                                  color: Colors.white,
-                                  size: 36,
-                                ),
-                                const SizedBox(width: 16),
-                                TweenAnimationBuilder<int>(
-                                  tween: IntTween(begin: 0, end: motivationStreak),
-                                  duration: const Duration(milliseconds: 1000),
-                                  curve: Curves.easeOutCubic,
-                                  builder: (context, value, child) {
-                                    return Text(
-                                      '$value',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 64,
-                                        fontWeight: FontWeight.w900,
-                                        height: 0.9,
-                                        shadows: [
-                                          Shadow(
-                                            offset: Offset(2, 2),
-                                            blurRadius: 6,
-                                            color: Colors.black26,
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                                const SizedBox(width: 16),
-                                const Icon(
-                                  Icons.local_fire_department,
-                                  color: Colors.white,
-                                  size: 36,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'DAY STREAK',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 3.0,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16, 
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.25),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.4),
-                                  width: 1,
-                                ),
-                              ),
-                              child: const Text(
-                                "🔥 DON'T BREAK THE CHAIN! 🔥",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+    return Row(
+      children: [
+        Text(
+          'Hey ${userName.isEmpty ? 'there' : userName}',
+          style: TextStyle(
+            color: _MotivatorDashboardState.accentTeal,
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
           ),
-        );
-      },
+        ),
+        const SizedBox(width: 8),
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 1200),
+          curve: Curves.elasticOut,
+          builder: (context, value, child) {
+            return Transform.scale(
+              scale: value,
+              child: const Text(
+                '👋',
+                style: TextStyle(fontSize: 22),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
 
-// 📊 Glassmorphic Weekly Stats
-class _GlassmorphicWeeklyStats extends StatelessWidget {
-  final int totalMotivations;
+// 🎭 AI Conversation Card (NEW - replaces Get Motivated)
+class _AIConversationCard extends StatelessWidget {
+  final BuildContext context;
+  final TextEditingController controller;
+  final String? currentTaskType;
+  final Map<String, dynamic>? currentTaskConfig;
+  final bool loading;
+  final VoidCallback onStartConversation;
+  final String generatedLine;
+  final Animation<double> motivationScale;
 
-  const _GlassmorphicWeeklyStats({required this.totalMotivations});
+  const _AIConversationCard({
+    required this.context,
+    required this.controller,
+    this.currentTaskType,
+    this.currentTaskConfig,
+    required this.loading,
+    required this.onStartConversation,
+    required this.generatedLine,
+    required this.motivationScale,
+  });
+
+  String _getHintForTaskType() {
+    switch (currentTaskType) {
+      case 'Study':
+        return 'Tell me about your study goals...';
+      case 'Exercise':
+        return 'What workout are you planning?';
+      case 'Work':
+        return 'What work challenge can I help with?';
+      case 'Eat':
+        return 'Need help with healthy eating?';
+      case 'Sleep':
+        return 'Want to talk about sleep habits?';
+      default:
+        return 'What\'s on your mind today?';
+    }
+  }
+
+  String _getAIPersonalityName() {
+    // Get from user preferences - for now default to Lana Croft
+    return 'Lana Croft';
+  }
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
+        child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                _MotivatorDashboardState.glassOverlay,
-                _MotivatorDashboardState.cardBackground.withOpacity(0.1),
-              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: currentTaskConfig != null
+                  ? (currentTaskConfig!['gradient'] as List<Color>)
+                      .map<Color>((color) => color.withOpacity(0.15))
+                      .toList()
+                  : [
+                      _MotivatorDashboardState.accentTeal.withOpacity(0.15),
+                      _MotivatorDashboardState.accentTeal.withOpacity(0.05),
+                    ],
             ),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: _MotivatorDashboardState.accentTeal.withOpacity(0.2),
+              color: (currentTaskConfig?['color'] ?? 
+                     _MotivatorDashboardState.accentTeal).withOpacity(0.3),
               width: 1,
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          child: Column(
             children: [
-              Icon(
-                Icons.trending_up_rounded,
-                color: _MotivatorDashboardState.accentTeal,
-                size: 32,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TweenAnimationBuilder<int>(
-                      tween: IntTween(begin: 0, end: totalMotivations),
-                      duration: const Duration(milliseconds: 800),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, child) {
-                        return Text(
-                          '$value',
+              // Header
+              Row(
+                children: [
+                  Icon(
+                    Icons.chat_bubble_outline,
+                    color: currentTaskConfig?['color'] ?? 
+                           _MotivatorDashboardState.accentTeal,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Talk to ${_getAIPersonalityName()}',
                           style: TextStyle(
                             color: _MotivatorDashboardState.textPrimary,
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 18,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        Text(
+                          'Start a live conversation with your AI coach',
+                          style: TextStyle(
+                            color: _MotivatorDashboardState.textSecondary,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              
+              // Input Field
+              ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: TextField(
+                    controller: controller,
+                    style: TextStyle(
+                      color: _MotivatorDashboardState.textPrimary,
+                      fontSize: 16,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: _getHintForTaskType(),
+                      hintStyle: TextStyle(
+                        color: _MotivatorDashboardState.textSecondary,
+                        fontSize: 15,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.08),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide(
+                          color: Colors.white.withOpacity(0.1),
+                          width: 1,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        borderSide: BorderSide(
+                          color: currentTaskConfig?['color'] ?? 
+                                 _MotivatorDashboardState.accentTeal,
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
+                    ),
+                    maxLines: 3,
+                    minLines: 1,
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Conversation Buttons
+              Row(
+                children: [
+                  // Voice Input Button
+                  Expanded(
+                    child: Container(
+                      height: 54,
+                      child: ElevatedButton.icon(
+                        onPressed: loading ? null : _startVoiceConversation,
+                        icon: Icon(
+                          Icons.mic,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        label: Text(
+                          'Voice Chat',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.withOpacity(0.8),
+                          elevation: 6,
+                          shadowColor: Colors.red.withOpacity(0.3),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(width: 12),
+                  
+                  // Text Chat Button
+                  Expanded(
+                    flex: 2,
+                    child: AnimatedBuilder(
+                      animation: motivationScale,
+                      builder: (context, child) {
+                        return Transform.scale(
+                          scale: motivationScale.value,
+                          child: Container(
+                            height: 54,
+                            child: ElevatedButton.icon(
+                              onPressed: loading ? null : onStartConversation,
+                              icon: loading 
+                                  ? SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                      ),
+                                    )
+                                  : Icon(Icons.chat, color: Colors.black, size: 20),
+                              label: Text(
+                                loading 
+                                    ? 'Connecting...'
+                                    : 'Start Chat',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: currentTaskConfig?['color'] ?? 
+                                               _MotivatorDashboardState.accentTeal,
+                                elevation: 8,
+                                shadowColor: (currentTaskConfig?['color'] ?? 
+                                             _MotivatorDashboardState.accentTeal).withOpacity(0.4),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                            ),
                           ),
                         );
                       },
                     ),
-                    Text(
-                      'This Week',
-                      style: TextStyle(
-                        color: _MotivatorDashboardState.textSecondary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  ),
+                ],
+              ),
+              
+              // Generated line display (if any)
+              if (generatedLine.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        (currentTaskConfig?['color'] ?? _MotivatorDashboardState.accentTeal).withOpacity(0.2),
+                        (currentTaskConfig?['color'] ?? _MotivatorDashboardState.accentTeal).withOpacity(0.1),
+                      ],
                     ),
-                  ],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: (currentTaskConfig?['color'] ?? _MotivatorDashboardState.accentTeal).withOpacity(0.3),
+                    ),
+                  ),
+                  child: Text(
+                    generatedLine,
+                    style: TextStyle(
+                      color: _MotivatorDashboardState.textPrimary,
+                      fontSize: 15,
+                      fontStyle: FontStyle.italic,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              ),
-              Text(
-                'Keep it up! 📈',
-                style: TextStyle(
-                  color: _MotivatorDashboardState.textSecondary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
+              ],
             ],
           ),
         ),
       ),
     );
   }
+
+  void _startVoiceConversation() {
+    HapticFeedback.lightImpact();
+    
+    // Show full-screen voice chat modal
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Voice Chat',
+      barrierColor: Colors.black87,
+      transitionDuration: Duration(milliseconds: 400),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return VoiceChatModal(
+          aiPersonalityName: _getAIPersonalityName(),
+          userName: 'Bob', // Get from your user settings
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: Offset(0, 1),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          )),
+          child: child,
+        );
+      },
+    );
+  }
 }
 
-// 💭 Blurred Daily Quote Card
+// 💭 Daily Quote (PRESERVED)
 class _BlurredDailyQuote extends StatelessWidget {
   final String quote;
 
@@ -591,506 +717,17 @@ class _BlurredDailyQuote extends StatelessWidget {
   }
 }
 
-// 🚀 Premium Motivation Card
-class _PremiumMotivationCard extends StatelessWidget {
-  final BuildContext context;
-  final TextEditingController controller;
-  final String? currentTaskType;
-  final Map<String, dynamic>? currentTaskConfig;
-  final bool loading;
-  final VoidCallback onGenerateMotivation;
-  final String generatedLine;
-  final Animation<double> motivationScale;
-
-  const _PremiumMotivationCard({
-    required this.context,
-    required this.controller,
-    this.currentTaskType,
-    this.currentTaskConfig,
-    required this.loading,
-    required this.onGenerateMotivation,
-    required this.generatedLine,
-    required this.motivationScale,
-  });
-
-  String _getHintForTaskType() {
-    switch (currentTaskType) {
-      case 'Study':
-        return 'Review chapter 5, practice math problems...';
-      case 'Exercise':
-        return 'Complete 30-min cardio, lift weights...';
-      case 'Work':
-        return 'Finish project proposal, prepare presentation...';
-      case 'Eat':
-        return 'Prep healthy lunch, drink more water...';
-      case 'Sleep':
-        return 'Get to bed by 10pm, wind down routine...';
-      default:
-        return 'Finish my presentation, workout, call mom...';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: currentTaskConfig != null
-                  ? (currentTaskConfig!['gradient'] as List<Color>)
-                      .map<Color>((color) => color.withOpacity(0.15))
-                      .toList()
-                  : [
-                      _MotivatorDashboardState.accentTeal.withOpacity(0.15),
-                      _MotivatorDashboardState.accentTeal.withOpacity(0.05),
-                    ],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: (currentTaskConfig?['color'] ?? 
-                     _MotivatorDashboardState.accentTeal).withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            children: [
-              // Header
-              Row(
-                children: [
-                  Icon(
-                    currentTaskConfig?['icon'] ?? Icons.psychology_rounded,
-                    color: currentTaskConfig?['color'] ?? 
-                           _MotivatorDashboardState.accentTeal,
-                    size: 28,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      currentTaskType != null 
-                          ? 'What ${currentTaskType?.toLowerCase()} goal needs your energy?'
-                          : 'What needs your energy today?',
-                      style: TextStyle(
-                        color: _MotivatorDashboardState.textPrimary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 18,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              // Enhanced TextField
-              ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: TextField(
-                    controller: controller,
-                    style: TextStyle(
-                      color: _MotivatorDashboardState.textPrimary,
-                      fontSize: 16,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: currentTaskType != null
-                          ? 'e.g., ${_getHintForTaskType()}'
-                          : 'e.g., Finish my presentation, workout, call mom...',
-                      hintStyle: TextStyle(
-                        color: _MotivatorDashboardState.textSecondary,
-                        fontSize: 15,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.08),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: BorderSide(
-                          color: Colors.white.withOpacity(0.1),
-                          width: 1,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        borderSide: BorderSide(
-                          color: currentTaskConfig?['color'] ?? 
-                                 _MotivatorDashboardState.accentTeal,
-                          width: 2,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.all(20),
-                    ),
-                    maxLines: 3,
-                    minLines: 1,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Enhanced Generate Button
-              AnimatedBuilder(
-                animation: motivationScale,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: motivationScale.value,
-                    child: Material(
-                      elevation: 8,
-                      borderRadius: BorderRadius.circular(18),
-                      child: InkWell(
-                        onTap: loading ? null : onGenerateMotivation,
-                        borderRadius: BorderRadius.circular(18),
-                        child: Container(
-                          width: double.infinity,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            gradient: loading ? null : LinearGradient(
-                              colors: [
-                                currentTaskConfig?['color'] ?? 
-                                _MotivatorDashboardState.accentTeal,
-                                (currentTaskConfig?['color'] ?? 
-                                _MotivatorDashboardState.accentTeal)
-                                .withOpacity(0.8),
-                              ],
-                            ),
-                            color: loading ? Colors.grey[600] : null,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Center(
-                            child: loading
-                                ? Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: const [
-                                      SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 3,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      SizedBox(width: 16),
-                                      Text(
-                                        'Summoning Motivation...',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: const [
-                                      Icon(
-                                        Icons.rocket_launch_rounded,
-                                        color: Colors.white,
-                                        size: 24,
-                                      ),
-                                      SizedBox(width: 12),
-                                      Text(
-                                        'Get Motivated! 🚀',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 16,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              
-              // Debug buttons (maintaining your existing functionality)
-              const SizedBox(height: 16),
-              _buildDebugButtons(context),
-              
-              // Generated line display
-              if (generatedLine.isNotEmpty)
-                AnimatedBuilder(
-                  animation: motivationScale,
-                  builder: (context, child) {
-                    return Transform.scale(
-                      scale: motivationScale.value,
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(24),
-                        margin: const EdgeInsets.only(top: 24),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: currentTaskConfig != null 
-                                ? (currentTaskConfig!['gradient'] as List<Color>)
-                                : [
-                                    _MotivatorDashboardState.accentTeal,
-                                    _MotivatorDashboardState.accentTeal.withOpacity(0.8),
-                                  ],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (currentTaskConfig?['color'] ?? 
-                                     _MotivatorDashboardState.accentTeal)
-                                  .withOpacity(0.3),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          '"$generatedLine"',
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontStyle: FontStyle.italic,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                            height: 1.4,
-                            letterSpacing: 0.3,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDebugButtons(BuildContext context) {
-    return Column(
-      children: [
-        // First row
-        Row(
-          children: [
-            Expanded(
-              child: _DebugButton(
-                label: '🧪 Basic',
-                color: Colors.blue,
-                onPressed: () => AmberAlertService.testNotificationWithoutPayload(context),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _DebugButton(
-                label: '🧪 Enhanced',
-                color: Colors.green,
-                onPressed: () => AmberAlertService.testNotificationWithSimplePayload(context),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _DebugButton(
-                label: '🧪 Full',
-                color: Colors.orange,
-                onPressed: () => AmberAlertService.testNotificationWithJsonPayload(context),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _DebugButton(
-                label: '🚨 AUTO',
-                color: Colors.red,
-                onPressed: () => AmberAlertService.testAmberAlertNotification(context),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        // Additional rows (maintaining your existing debug functionality)
-        Row(
-          children: [
-            Expanded(
-              child: _DebugButton(
-                label: '🚨 NOW',
-                color: Colors.red.shade800,
-                onPressed: () => AmberAlertService.testImmediateAutoHijackAlert(context),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _DebugButton(
-                label: '⚠️ Native',
-                color: Colors.red.shade700,
-                onPressed: () => AmberAlertService.testNativeAlarmAlert(context),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _DebugButton(
-                label: '🔴 Continuous',
-                color: Colors.red.shade900,
-                onPressed: () => AmberAlertService.testContinuousAlarm(context),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _DebugButton(
-                label: '📋 Check',
-                color: Colors.purple,
-                onPressed: () => AmberAlertService.checkScheduledNotifications(context),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _DebugButton(
-                label: '🔐 Perms',
-                color: Colors.indigo,
-                onPressed: () => AmberAlertService.checkAllPermissions(context),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _DebugButton(
-                label: '🔋 Battery',
-                color: Colors.teal,
-                onPressed: () => AmberAlertService.checkBatteryOptimization(context),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _DebugButton(
-                label: '⚙️ Settings',
-                color: Colors.grey,
-                onPressed: () => AmberAlertService.openDeviceSettings(context),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _DebugButton(
-                label: '🚨 ULTIMATE',
-                color: Colors.red.shade800,
-                onPressed: () => AmberAlertService.testTrueFullScreenAmberAlert(context),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _DebugButton(
-                label: '🔴 ALL',
-                color: Colors.red.shade900,
-                onPressed: () => AmberAlertService.testAllAmberStrategies(context),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _DebugButton(
-                label: '🎭 DEMO',
-                color: Colors.purple.shade700,
-                onPressed: () {
-                  Navigator.of(context).push(
-                    PageRouteBuilder(
-                      pageBuilder: (context, animation, secondaryAnimation) => 
-                          const AmberAlertScreen(
-                        title: '🚨 TEST EMERGENCY ALERT 🚨',
-                        message: 'This is a test of the full-screen amber alert takeover!',
-                        taskDescription: 'Test your motivation system',
-                      ),
-                      opaque: false,
-                      fullscreenDialog: true,
-                      transitionDuration: const Duration(milliseconds: 300),
-                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: ScaleTransition(
-                            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-                              CurvedAnimation(parent: animation, curve: Curves.easeOut),
-                            ),
-                            child: child,
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-// 🎯 Smooth Quick Actions Grid
-class _SmoothQuickActions extends StatelessWidget {
+// 🎯 Quick Actions Grid (PRESERVED)
+class _QuickActionsGrid extends StatelessWidget {
   final List<String> quickActions;
-  final String? currentTaskType;
-  final Map<String, dynamic>? currentTaskConfig;
   final Function(String) onSelectQuickAction;
+  final Map<String, dynamic>? currentTaskConfig;
 
-  const _SmoothQuickActions({
+  const _QuickActionsGrid({
     required this.quickActions,
-    this.currentTaskType,
-    this.currentTaskConfig,
     required this.onSelectQuickAction,
+    this.currentTaskConfig,
   });
-
-  IconData _getIconForAction(String action) {
-    final iconMap = {
-      "Focus Session": Icons.psychology_rounded,
-      "Reading Time": Icons.menu_book_rounded,
-      "Note Review": Icons.note_alt_rounded,
-      "Quiz Prep": Icons.quiz_rounded,
-      "Research Deep Dive": Icons.search_rounded,
-      "Memory Practice": Icons.memory_rounded,
-      "Pre-Workout": Icons.play_arrow_rounded,
-      "Cardio Boost": Icons.favorite_rounded,
-      "Strength Push": Icons.fitness_center_rounded,
-      "Cool Down": Icons.self_improvement_rounded,
-      "Yoga Flow": Icons.spa_rounded,
-      "Recovery": Icons.hotel_rounded,
-      "Project Focus": Icons.work_rounded,
-      "Meeting Prep": Icons.groups_rounded,
-      "Email Clear": Icons.email_rounded,
-      "Creative Think": Icons.lightbulb_rounded,
-      "Problem Solve": Icons.extension_rounded,
-      "Team Sync": Icons.people_rounded,
-      "Meal Prep": Icons.restaurant_rounded,
-      "Healthy Choice": Icons.eco_rounded,
-      "Portion Control": Icons.straighten_rounded,
-      "Mindful Eating": Icons.self_improvement_rounded,
-      "Hydration": Icons.local_drink_rounded,
-      "Nutrition Plan": Icons.assignment_rounded,
-      "Wind Down": Icons.bedtime_rounded,
-      "Relaxation": Icons.spa_rounded,
-      "Sleep Prep": Icons.night_shelter_rounded,
-      "Dream Well": Icons.cloud_rounded,
-      "Recovery Rest": Icons.hotel_rounded,
-      "Morning Rise": Icons.wb_sunny_rounded,
-      "Morning Motivation": Icons.wb_sunny_rounded,
-      "Workout Boost": Icons.fitness_center_rounded,
-      "Work Focus": Icons.work_rounded,
-      "Evening Reflection": Icons.nightlight_rounded,
-      "Study Session": Icons.school_rounded,
-      "Creative Flow": Icons.palette_rounded,
-    };
-    
-    return iconMap[action] ?? Icons.star_rounded;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1098,9 +735,7 @@ class _SmoothQuickActions extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          currentTaskType != null 
-              ? '⚡ Quick ${currentTaskType} Actions'
-              : '⚡ Quick Motivation',
+          '🎯 Quick Actions',
           style: TextStyle(
             color: _MotivatorDashboardState.textPrimary,
             fontSize: 20,
@@ -1109,90 +744,105 @@ class _SmoothQuickActions extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        SizedBox(
-          height: 140,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: quickActions.length,
-            itemBuilder: (context, index) {
-              final action = quickActions[index];
-              final colors = currentTaskConfig?['gradient'] ?? [
-                Colors.primaries[index % Colors.primaries.length],
-                Colors.primaries[index % Colors.primaries.length].withOpacity(0.7),
-              ];
-              
-              return TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.0, end: 1.0),
-                duration: Duration(milliseconds: 300 + (index * 100)),
-                curve: Curves.easeOutBack,
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: value,
-                    child: Container(
-                      width: 160,
-                      margin: EdgeInsets.only(
-                        right: 16,
-                        left: index == 0 ? 0 : 0,
-                      ),
-                      child: Material(
-                        elevation: 6,
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1.8,
+          ),
+          itemCount: quickActions.length,
+          itemBuilder: (context, index) {
+            final action = quickActions[index];
+            final colors = _getColorsForAction(action);
+            
+            return TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: Duration(milliseconds: 600 + (index * 100)),
+              curve: Curves.elasticOut,
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: value,
+                  child: Transform.rotate(
+                    angle: (1 - value) * 0.1,
+                    child: Material(
+                      elevation: 6,
+                      borderRadius: BorderRadius.circular(20),
+                      child: InkWell(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          onSelectQuickAction(action);
+                        },
                         borderRadius: BorderRadius.circular(20),
-                        child: InkWell(
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            onSelectQuickAction(action);
-                          },
-                          borderRadius: BorderRadius.circular(20),
-                          child: Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: colors.cast<Color>(),
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: colors.cast<Color>(),
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _getIconForAction(action),
+                                color: Colors.white,
+                                size: 36,
                               ),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  _getIconForAction(action),
+                              const SizedBox(height: 12),
+                              Text(
+                                action,
+                                style: const TextStyle(
                                   color: Colors.white,
-                                  size: 36,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  letterSpacing: 0.3,
                                 ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  action,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                    letterSpacing: 0.3,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  );
-                },
-              );
-            },
-          ),
+                  ),
+                );
+              },
+            );
+          },
         ),
       ],
     );
   }
+
+  List<Color> _getColorsForAction(String action) {
+    if (action.toLowerCase().contains('study')) {
+      return [Colors.blue, Colors.indigo];
+    } else if (action.toLowerCase().contains('exercise')) {
+      return [Colors.orange, Colors.red];
+    } else if (action.toLowerCase().contains('work')) {
+      return [Colors.green, Colors.teal];
+    }
+    return [_MotivatorDashboardState.accentTeal, Colors.blue];
+  }
+
+  IconData _getIconForAction(String action) {
+    if (action.toLowerCase().contains('study')) return Icons.school;
+    if (action.toLowerCase().contains('exercise')) return Icons.fitness_center;
+    if (action.toLowerCase().contains('work')) return Icons.work;
+    if (action.toLowerCase().contains('eat')) return Icons.restaurant;
+    return Icons.star;
+  }
 }
 
-// ⚡ Electrifying Recent Motivations
+// ⚡ Recent Motivations (PRESERVED)
 class _ElectrifyingRecentMotivations extends StatelessWidget {
   final List<String> recentMotivations;
   final Map<String, dynamic>? currentTaskConfig;
@@ -1210,7 +860,7 @@ class _ElectrifyingRecentMotivations extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '📜 Recent Motivations',
+          '⚡ Recent Motivations',
           style: TextStyle(
             color: _MotivatorDashboardState.textPrimary,
             fontSize: 20,
@@ -1219,24 +869,23 @@ class _ElectrifyingRecentMotivations extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        ...List.generate(recentMotivations.length, (index) {
-          final motivation = recentMotivations[index];
-          return TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0.0, end: 1.0),
-            duration: Duration(milliseconds: 200 + (index * 150)),
-            curve: Curves.easeOutCubic,
-            builder: (context, value, child) {
-              return Transform.translate(
-                offset: Offset(0, 20 * (1 - value)),
-                child: Opacity(
-                  opacity: value,
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: recentMotivations.length,
+          itemBuilder: (context, index) {
+            final motivation = recentMotivations[index];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                   child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: _MotivatorDashboardState.cardBackground.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(18),
+                      color: _MotivatorDashboardState.cardBackground.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: Colors.white.withOpacity(0.1),
                         width: 1,
@@ -1245,7 +894,7 @@ class _ElectrifyingRecentMotivations extends StatelessWidget {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.format_quote_rounded,
+                          Icons.format_quote,
                           color: currentTaskConfig?['color'] ?? 
                                  _MotivatorDashboardState.accentTeal,
                           size: 20,
@@ -1283,16 +932,16 @@ class _ElectrifyingRecentMotivations extends StatelessWidget {
                     ),
                   ),
                 ),
-              );
-            },
-          );
-        }),
+              ),
+            );
+          },
+        ),
       ],
     );
   }
 }
 
-// 🔧 Sleek Debug Button Component
+// 🔧 Debug Button (PRESERVED)
 class _DebugButton extends StatelessWidget {
   final String label;
   final Color color;

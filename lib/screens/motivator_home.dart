@@ -339,104 +339,69 @@ class _MotivatorHomeState extends State<MotivatorHome>
     await _generateMotivation(task);
   }
 
-  // 🎤 UPDATED: Enhanced _generateMotivation with complete voice system
-  Future<void> _generateMotivation([String? customTask]) async {
-    print('🔄 Reloading preferences before voice generation...');
-    await _loadUserPreferences();
+  // 🚀 REPLACE your existing _generateMotivation method with this:
+Future<void> _generateMotivation([String? customTask]) async {
+  print('🚀 Using ASYNC system - instant response!');
+  await _loadUserPreferences();
+  
+  setState(() => _loading = true);
+  HapticFeedback.mediumImpact();
+  
+  try {
+    final task = customTask ?? _controller.text.trim();
+    if (task.isEmpty && customTask == null) return;
     
-    setState(() => _loading = true);
-    HapticFeedback.mediumImpact();
+    print('🎯 Creating async task - Voice: $_selectedVoice, Tone: $_selectedToneStyle');
     
-    try {
-      final task = customTask ?? _controller.text.trim();
-      if (task.isEmpty && customTask == null) return;
-      
-      print('🎯 Using settings - Voice: $_selectedVoice, Tone: $_selectedToneStyle, Task Type: $_currentTaskType');
-      
-      final line = await _api.generateLine(
-        task,
-        toneStyle: _selectedToneStyle,
-        voiceStyle: _selectedVoice, 
-        taskType: _currentTaskType,
-      );
-      
-      // 🎤 NEW: Unlimited voice generation with any name
-      print('🎵 Generating unlimited voice...');
-      Uint8List? audioBytes = await _unlimitedVoice.generateUnlimitedVoice(
-        originalText: line,
-        voicePersonality: _mapVoiceToPersonality(_selectedVoice),
-        toneStyle: _selectedToneStyle,
-        userName: _userName, // ANY name now works!
-      );
-
-      if (audioBytes == null) {
-        print('🔄 Final fallback to original API...');
-        audioBytes = await _api.generateVoice(
-          line,
-          voiceStyle: _selectedVoice,
-          toneStyle: _selectedToneStyle,
-        );
-        print('📡 API call completed');
-      } else {
-        print('🎉 Using unlimited voice system - personalized for $_userName!');
-        
-        // Show user they're getting enhanced experience
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.auto_awesome, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '🎤 Personalized voice for $_userName!',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.purple,
-            duration: Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      }
-
+    // 🚀 NEW: Use async system instead of old slow method
+    final result = await _api.createTaskAsync(
+      taskText: task,
+      userId: 'user_${DateTime.now().millisecondsSinceEpoch}',
+      voiceStyle: _selectedVoice,
+      toneStyle: _selectedToneStyle,
+      userName: _userName,
+    );
+    
+    if (result['success'] == true) {
+      // ⚡ INSTANT SUCCESS!
       setState(() {
-        _generatedLine = line;
+        _generatedLine = result['motivationalText'] ?? 'Task created!';
         _totalMotivations++;
         _motivationStreak++;
         if (_recentMotivations.length >= 5) {
           _recentMotivations.removeAt(0);
         }
-        _recentMotivations.add(line);
+        _recentMotivations.add(_generatedLine);
       });
 
       _motivationController.forward();
       _streakController.forward();
-
-      await _player.setAudioSource(
-        AudioSource.uri(
-          Uri.parse('data:audio/mpeg;base64,${base64Encode(audioBytes)}'),
-        ),
-      );
-      _player.play();
-
       HapticFeedback.heavyImpact();
-    } catch (e) {
+
+      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ Error: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          content: Text('⚡ Task created instantly! Audio generating in background...'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
         ),
       );
-    } finally {
-      setState(() => _loading = false);
+      
+    } else {
+      throw Exception(result['error'] ?? 'Failed to create task');
     }
+    
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('❌ Error: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } finally {
+    setState(() => _loading = false);
   }
+}
     // 🗺️ Helper method to map current voice selection to personalities
   String _mapVoiceToPersonality(String currentVoice) {
     switch (currentVoice) {
