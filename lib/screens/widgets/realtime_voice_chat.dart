@@ -1,19 +1,17 @@
-// lib/screens/widgets/realtime_voice_chat.dart
-// FIXED: Simple mic button version with API and audio fixes
+// lib/screens/widgets/realtime_voice_chat.dart - FIXED with Persistent Memory
+
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:just_audio/just_audio.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'dart:typed_data';
-import 'dart:async';
-import 'dart:math' as math;
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
-// 🚥 Pipeline State
+// 🎭 Voice states for UI
 enum VoiceState {
   idle,
   listening,
@@ -22,34 +20,31 @@ enum VoiceState {
   error
 }
 
-class RealTimeVoiceChat extends StatefulWidget {
+class RealtimeVoiceChat extends StatefulWidget {
   final String personality;
-  final String userId;
-  
-  const RealTimeVoiceChat({
+  final String baseUrl;
+
+  const RealtimeVoiceChat({
     Key? key,
     required this.personality,
-    required this.userId,
+    required this.baseUrl,
   }) : super(key: key);
 
   @override
-  _RealTimeVoiceChatState createState() => _RealTimeVoiceChatState();
+  State<RealtimeVoiceChat> createState() => _RealtimeVoiceChatState();
 }
 
-class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
+class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     with TickerProviderStateMixin {
   
-  // 🎤 Speech Recognition
+  // 🎤 Voice Recognition
   late stt.SpeechToText _speechToText;
+  late AudioPlayer _audioPlayer;
+  late FlutterTts _flutterTts;
   bool _speechEnabled = false;
   bool _isListening = false;
   String _wordsSpoken = "";
-  double _confidence = 0.0;
-  
-  // 🔊 Audio
-  late AudioPlayer _audioPlayer;
-  late FlutterTts _flutterTts;
-  StreamSubscription? _audioSubscription; // Track audio completion
+  double _confidenceLevel = 0;
   
   // 🎭 UI Animation Controllers
   late AnimationController _pulseController;
@@ -57,27 +52,31 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
   late AnimationController _speakingController;
   late AnimationController _thinkingController;
   
-  // 🎨 Animations
   late Animation<double> _pulseScale;
   late Animation<double> _listeningPulse;
   late Animation<double> _speakingBounce;
   late Animation<double> _thinkingRotation;
   
-  // 🧠 Conversation State
+  // 🧠 PERSISTENT MEMORY & CONVERSATION STATE
   String _currentStatus = "Ready to chat!";
   String _lastAiResponse = "";
   List<Map<String, String>> _conversationHistory = [];
   VoiceState _currentState = VoiceState.idle;
+  String? _persistentUserId;
+  int _totalConversations = 0;
+  bool _hasLoadedMemory = false;
 
   // 🎭 Personality Configurations
   Map<String, Map<String, dynamic>> get _personalityConfig => {
     'Lana Croft': {
       'voiceId': 'QXEkTn58Ik1IKjIMk8QA',
       'color': Colors.amber,
+      'greeting': 'Ready for an adventure?'
     },
     'Baxter Jordan': {
       'voiceId': 'pNInz6obpgDQGcFmaJgB',
       'color': Colors.blue,
+      'greeting': 'Let\'s analyze this situation...'
     },
   };
 
@@ -86,6 +85,133 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     super.initState();
     _initializeVoiceChat();
     _setupAnimations();
+    _loadPersistentMemory(); // Load memory on startup
+  }
+
+  // 🧠 PERSISTENT MEMORY MANAGEMENT
+  Future<void> _loadPersistentMemory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Get or create persistent user ID
+      _persistentUserId = prefs.getString('persistent_user_id');
+      if (_persistentUserId == null) {
+        _persistentUserId = const Uuid().v4();
+        await prefs.setString('persistent_user_id', _persistentUserId!);
+        print("🆔 Created new persistent user ID: $_persistentUserId");
+      } else {
+        print("🆔 Loaded existing user ID: $_persistentUserId");
+      }
+      
+      // Load conversation history
+      final historyJson = prefs.getString('conversation_history_${widget.personality}');
+      if (historyJson != null) {
+        final historyList = json.decode(historyJson) as List;
+        _conversationHistory = historyList.map((item) => 
+          Map<String, String>.from(item)).toList();
+        
+        // Keep only last 20 conversations to prevent memory bloat
+        if (_conversationHistory.length > 20) {
+          _conversationHistory = _conversationHistory.takeLast(20).toList();
+          await _savePersistentMemory();
+        }
+        
+        print("📚 Loaded ${_conversationHistory.length} previous conversations");
+      }
+      
+      // Load total conversation count
+      _totalConversations = prefs.getInt('total_conversations_${widget.personality}') ?? 0;
+      
+      // Load backend memory stats
+      await _loadBackendMemory();
+      
+      setState(() {
+        _hasLoadedMemory = true;
+        if (_conversationHistory.isNotEmpty) {
+          _currentStatus = "${widget.personality} remembers your ${_conversationHistory.length} previous conversations!";
+        } else {
+          _currentStatus = "${widget.personality} is ready to start building memories with you!";
+        }
+      });
+      
+    } catch (e) {
+      print("❌ Error loading persistent memory: $e");
+      _persistentUserId = const Uuid().v4();
+      setState(() {
+        _hasLoadedMemory = true;
+        _currentStatus = "Ready to chat!";
+      });
+    }
+  }
+
+  Future<void> _savePersistentMemory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Save conversation history
+      await prefs.setString(
+        'conversation_history_${widget.personality}',
+        json.encode(_conversationHistory)
+      );
+      
+      // Save total conversation count
+      await prefs.setInt('total_conversations_${widget.personality}', _totalConversations);
+      
+      print("💾 Saved conversation history: ${_conversationHistory.length} conversations");
+      
+    } catch (e) {
+      print("❌ Error saving persistent memory: $e");
+    }
+  }
+
+  Future<void> _loadBackendMemory() async {
+    try {
+      if (_persistentUserId == null) return;
+      
+      final response = await http.get(
+        Uri.parse('${widget.baseUrl}/voice-conversation/memory/$_persistentUserId'),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          final memory = data['memory'];
+          final stats = data['stats'];
+          
+          print("☁️ Backend memory loaded:");
+          print("   - Total conversations: ${memory['totalConversations']}");
+          print("   - Recent patterns: ${memory['recentPatterns']}");
+          print("   - Favorite topics: ${stats['favoriteTopics']}");
+          
+          // Update local state with backend data
+          _totalConversations = memory['totalConversations'] ?? 0;
+        }
+      }
+    } catch (e) {
+      print("❌ Error loading backend memory: $e");
+    }
+  }
+
+  void _addToConversationHistory(String userMessage, String aiResponse) {
+    final conversationEntry = {
+      'user': userMessage,
+      'assistant': aiResponse,
+      'timestamp': DateTime.now().toIso8601String(),
+      'personality': widget.personality,
+    };
+    
+    setState(() {
+      _conversationHistory.add(conversationEntry);
+      _totalConversations++;
+      
+      // Keep only last 20 conversations in memory
+      if (_conversationHistory.length > 20) {
+        _conversationHistory = _conversationHistory.takeLast(20).toList();
+      }
+    });
+    
+    // Save to persistent storage
+    _savePersistentMemory();
   }
 
   void _setupAnimations() {
@@ -122,19 +248,16 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     );
   }
 
-  // 🎤 Initialize Speech Recognition
   Future<void> _initializeVoiceChat() async {
     _speechToText = stt.SpeechToText();
     _audioPlayer = AudioPlayer();
     _flutterTts = FlutterTts();
     
-    // Configure TTS
     await _flutterTts.setLanguage("en-US");
     await _flutterTts.setSpeechRate(0.5);
     await _flutterTts.setVolume(0.8);
     await _flutterTts.setPitch(1.0);
     
-    // 🔧 FIX: Better TTS completion handling
     _flutterTts.setCompletionHandler(() {
       print("🎵 TTS completed");
       if (mounted) {
@@ -149,30 +272,30 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
       );
       
       if (_speechEnabled) {
-        setState(() {
-          _currentStatus = "Tap to start talking with ${widget.personality}!";
-        });
-        _pulseController.repeat(reverse: true);
-      } else {
-        throw Exception('Speech recognition not available');
+        print("🎤 Speech recognition initialized successfully");
       }
+      
     } catch (e) {
-      print("❌ Speech initialization error: $e");
+      print("❌ Failed to initialize speech recognition: $e");
       setState(() {
-        _currentStatus = "Voice setup failed. Check permissions.";
-        _currentState = VoiceState.error;
+        _currentStatus = "Voice recognition not available. Using text mode.";
       });
     }
   }
 
   void _onSpeechStatus(String status) {
     print("🎤 Speech status: $status");
-    if (status == "done" && _currentState == VoiceState.listening) {
-      _processUserInput(_wordsSpoken);
-    } else if (status == "listening") {
+    
+    if (status == "listening") {
       setState(() {
-        _currentStatus = "Listening... Say something!";
+        _currentState = VoiceState.listening;
+        _currentStatus = "Listening... speak now!";
       });
+      _listeningController.repeat(reverse: true);
+    } else if (status == "done" || status == "notListening") {
+      if (_currentState == VoiceState.listening) {
+        _processUserInput(_wordsSpoken);
+      }
     }
   }
 
@@ -180,80 +303,60 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     print("❌ Speech error: $error");
     setState(() {
       _currentState = VoiceState.error;
-      _currentStatus = "Speech error. Try again.";
+      _currentStatus = "Didn't catch that. Tap to try again!";
     });
     _resetToIdle();
   }
 
-  // 🎙️ FIXED: Voice Input Handling
-  Future<void> _toggleListening() async {
-    if (!_speechEnabled) return;
-
-    // 🔧 FIX: Prevent multiple taps during processing
-    if (_currentState == VoiceState.processing || _currentState == VoiceState.speaking) {
-      print("⚠️ Already processing, ignoring tap");
-      return;
-    }
-
-    if (_isListening) {
-      await _stopListening();
-    } else {
-      await _startListening();
-    }
-  }
-
+  // 🎤 Start Listening
   Future<void> _startListening() async {
+    if (!_speechEnabled || _currentState != VoiceState.idle) return;
+
     try {
-      HapticFeedback.lightImpact();
-      
       setState(() {
-        _isListening = true;
         _currentState = VoiceState.listening;
-        _currentStatus = "Listening...";
+        _currentStatus = "Listening... speak now!";
         _wordsSpoken = "";
-        _confidence = 0.0;
       });
 
+      HapticFeedback.lightImpact();
       _pulseController.stop();
       _listeningController.repeat(reverse: true);
-      
+
       await _speechToText.listen(
         onResult: (result) {
           setState(() {
             _wordsSpoken = result.recognizedWords;
-            _confidence = result.confidence;
-            _currentStatus = _wordsSpoken.isEmpty 
-                ? "Listening..." 
-                : '"$_wordsSpoken"';
+            _confidenceLevel = result.confidence;
           });
+          
+          if (result.finalResult) {
+            _processUserInput(_wordsSpoken);
+          }
         },
         listenFor: Duration(seconds: 12),
-        pauseFor: Duration(seconds: 2),
+        pauseFor: Duration(seconds: 4),
         partialResults: true,
         localeId: "en_US",
         cancelOnError: true,
-        listenMode: stt.ListenMode.confirmation,
       );
+
     } catch (e) {
       print("❌ Error starting listening: $e");
+      setState(() {
+        _currentState = VoiceState.error;
+        _currentStatus = "Error starting voice recognition. Try again!";
+      });
       _resetToIdle();
     }
   }
 
   Future<void> _stopListening() async {
     try {
-      await _speechToText.stop();
-      _listeningController.stop();
-      
-      setState(() {
-        _isListening = false;
-      });
-      
-      if (_wordsSpoken.isNotEmpty && _confidence > 0.3) {
-        _processUserInput(_wordsSpoken);
-      } else {
+      if (_speechToText.isListening) {
+        await _speechToText.stop();
         setState(() {
-          _currentStatus = "Didn't catch that. Try again!";
+          _currentStatus = "Processing what you said...";
         });
         _resetToIdle();
       }
@@ -263,7 +366,7 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     }
   }
 
-  // 🧠 Process User Input
+  // 🧠 Process User Input WITH MEMORY
   Future<void> _processUserInput(String userText) async {
     if (userText.trim().isEmpty) {
       _resetToIdle();
@@ -282,18 +385,23 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     try {
       print("🧠 Processing: '$userText' with ${widget.personality}");
       
-      // Get AI response from backend
-      final backendResponse = await _callBackendAPI(userText);
+      // Call backend with conversation history and persistent user ID
+      final backendResponse = await _callBackendAPIWithMemory(userText);
       
       if (backendResponse != null && backendResponse['success'] == true) {
         final aiResponse = backendResponse['aiResponse'];
         final audioUrl = backendResponse['audioUrl'];
+        final memoryStats = backendResponse['memoryStats'];
         
         setState(() {
           _lastAiResponse = aiResponse;
         });
         
+        // Add to conversation history
+        _addToConversationHistory(userText, aiResponse);
+        
         print("🎯 AI Response: '$aiResponse'");
+        print("🧠 Memory Stats: $memoryStats");
         print("🔊 Audio URL received: ${audioUrl != null ? 'Yes' : 'No'}");
         
         // Play real ElevenLabs voice or fallback to TTS
@@ -303,6 +411,14 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
           print("🎵 No audio URL, using fallback TTS");
           await _simulateVoice(aiResponse);
         }
+        
+        // Update status with memory info
+        if (memoryStats != null && memoryStats['totalConversations'] > 0) {
+          setState(() {
+            _currentStatus = "💭 ${memoryStats['totalConversations']} conversations remembered";
+          });
+        }
+        
       } else {
         // Fallback to mock response
         print("🎯 Backend failed, using smart mock response");
@@ -321,315 +437,320 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
         _currentState = VoiceState.error;
         _currentStatus = "Oops! Something went wrong. Try again.";
       });
-      
-      _thinkingController.stop();
-      Future.delayed(Duration(seconds: 2), _resetToIdle);
+      _resetToIdle();
     }
   }
 
-  // 🤖 FIXED: Call Backend API
-  Future<Map<String, dynamic>?> _callBackendAPI(String userText) async {
+  // 🌐 Backend API Call WITH MEMORY SUPPORT
+  Future<Map<String, dynamic>?> _callBackendAPIWithMemory(String userText) async {
     try {
-      // 🔧 FIX: Backend expects 'userMessage' parameter
+      if (_persistentUserId == null) {
+        print("❌ No persistent user ID available");
+        return null;
+      }
+
+      // Prepare conversation history for backend (last 10 messages)
+      final recentHistory = _conversationHistory.takeLast(10).map((entry) => {
+        'role': entry['user'] != null ? 'user' : 'assistant',
+        'content': entry['user'] ?? entry['assistant'],
+      }).toList();
+      
+      // Flatten conversation history properly
+      final flatHistory = <Map<String, String>>[];
+      for (final entry in _conversationHistory.takeLast(5)) {
+        if (entry['user'] != null) {
+          flatHistory.add({'role': 'user', 'content': entry['user']!});
+        }
+        if (entry['assistant'] != null) {
+          flatHistory.add({'role': 'assistant', 'content': entry['assistant']!});
+        }
+      }
+
       final requestBody = {
-        'userId': widget.userId,
+        'userId': _persistentUserId,
         'personality': widget.personality,
-        'userMessage': userText, // ✅ CORRECT: Backend expects userMessage
+        'userMessage': userText,
+        'conversationHistory': flatHistory,  // Send conversation history
+        'hasMemory': _conversationHistory.isNotEmpty,
+        'totalConversations': _totalConversations,
       };
 
-      print("📡 Request: ${json.encode(requestBody)}");
+      print("🌐 Sending request with memory:");
+      print("   - User ID: $_persistentUserId");
+      print("   - Conversation history: ${flatHistory.length} messages");
+      print("   - Total conversations: $_totalConversations");
 
       final response = await http.post(
-        Uri.parse('https://motivator-ai-backend.onrender.com/voice-conversation/text-only'),
+        Uri.parse('${widget.baseUrl}/voice-conversation/text-only'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(requestBody),
-      );
-
-      print("📡 Response status: ${response.statusCode}");
-      print("📡 Response body: ${response.body}");
+      ).timeout(Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        print("✅ Backend response received with memory support");
         return data;
       } else {
-        throw Exception('Backend API error: ${response.statusCode} - ${response.body}');
+        print("❌ Backend error: ${response.statusCode}");
+        print("❌ Response: ${response.body}");
+        return null;
       }
+
     } catch (e) {
-      print("❌ Backend API error: $e");
+      print("❌ Network error: $e");
       return null;
     }
   }
 
-  // 🧠 Smart Mock Responses (unchanged - working fine)
-  String _getSmartMockResponse(String userText) {
-    final text = userText.toLowerCase();
-    
-    if (text.contains('how') && (text.contains('going') || text.contains('doing'))) {
-      return "Going great! Ready to tackle some epic challenges together!";
-    } else if (text.contains('hello') || text.contains('hi')) {
-      return "Hey there, adventurer! What's our next mission?";
-    } else if (text.contains('help') || text.contains('stuck')) {
-      return "No mountain too high! Let's break this down step by step.";
-    } else if (text.contains('tired') || text.contains('exhausted')) {
-      return "Rest is part of the journey, but you've got more strength than you know!";
-    } else if (text.contains('thanks') || text.contains('thank')) {
-      return "That's what adventure partners are for! What's next?";
-    } else {
-      final responses = [
-        "Love that energy! Tell me more about what you're working on.",
-        "You're speaking my language! Let's dive deeper into this challenge.",
-        "Now we're talking! What's the biggest obstacle you're facing?",
-        "I can hear the determination in your voice! What's your next move?",
-        "That's the explorer spirit I love! How can we push this further?"
-      ];
-      return responses[math.Random().nextInt(responses.length)];
-    }
-  }
-
-  // 🔊 FIXED: Play Real ElevenLabs Audio
+  // 🎵 Play ElevenLabs Audio
   Future<void> _playElevenLabsAudio(String audioUrl) async {
-    print("🎵 Playing ElevenLabs audio...");
-    
-    setState(() {
-      _currentState = VoiceState.speaking;
-      _currentStatus = "${widget.personality}: $_lastAiResponse";
-    });
-
-    _thinkingController.stop();
-    _speakingController.repeat(reverse: true);
-    HapticFeedback.selectionClick();
-
     try {
-      // 🔧 FIX: Properly handle base64 audio data
-      if (audioUrl.startsWith('data:audio/mpeg;base64,')) {
-        final base64Audio = audioUrl.split(',')[1];
-        final audioBytes = base64Decode(base64Audio);
-        await _playAudioFromBytes(audioBytes);
-      } else {
-        throw Exception('Invalid audio format');
-      }
+      setState(() {
+        _currentState = VoiceState.speaking;
+        _currentStatus = "${widget.personality} is speaking...";
+      });
+      
+      _thinkingController.stop();
+      _speakingController.repeat(reverse: true);
+      
+      // Decode base64 audio
+      final base64Audio = audioUrl.split(',')[1];
+      final audioBytes = base64Decode(base64Audio);
+      
+      print("🎵 ElevenLabs audio starting playback...");
+      
+      // Create a temporary file for audio playback
+      final player = AudioPlayer();
+      await player.playBytes(audioBytes);
+      
+      // Wait for playback to complete
+      await player.onPlayerComplete.first;
+      
+      print("✅ ElevenLabs audio playback completed");
+      
+      setState(() {
+        _currentStatus = "Memory updated! Tap to continue...";
+      });
+      
+      _resetToIdle();
       
     } catch (e) {
-      print("❌ ElevenLabs audio playback error: $e");
+      print("❌ Error playing ElevenLabs audio: $e");
       // Fallback to TTS
       await _simulateVoice(_lastAiResponse);
     }
   }
 
-  // 🔊 FIXED: Play Audio from Bytes
-  Future<void> _playAudioFromBytes(Uint8List audioBytes) async {
-    try {
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/temp_audio_${DateTime.now().millisecondsSinceEpoch}.mp3');
-      
-      await tempFile.writeAsBytes(audioBytes);
-      await _audioPlayer.setFilePath(tempFile.path);
-      
-      print("🎵 ElevenLabs audio started playing");
-      
-      // 🔧 FIX: Better audio completion handling
-      _audioSubscription?.cancel();
-      _audioSubscription = _audioPlayer.playerStateStream.listen((state) {
-        if (state.processingState == ProcessingState.completed) {
-          print("✅ ElevenLabs audio playback completed");
-          _speakingController.stop();
-          tempFile.delete().catchError((_) {}); // Clean up
-          _resetToIdle();
-        }
-      });
-      
-      await _audioPlayer.play();
-      
-    } catch (e) {
-      print("❌ Audio playback error: $e");
-      _speakingController.stop();
-      _resetToIdle();
-    }
-  }
-
-  // 🔊 Fallback: Device TTS when ElevenLabs fails
+  // 🎵 Fallback TTS
   Future<void> _simulateVoice(String text) async {
-    print("🎵 Using fallback TTS for: '$text'");
-    
     setState(() {
       _currentState = VoiceState.speaking;
-      _currentStatus = "${widget.personality}: $text";
+      _currentStatus = "${widget.personality} is speaking...";
     });
-
+    
     _thinkingController.stop();
     _speakingController.repeat(reverse: true);
-    HapticFeedback.selectionClick();
-
+    
     try {
       await _flutterTts.speak(text);
-      print("🎵 Fallback TTS started speaking");
-      
     } catch (e) {
-      print("❌ TTS fallback error: $e");
-      // Final fallback - timed simulation
-      final durationSeconds = math.max(2, (text.length / 10).round());
-      await Future.delayed(Duration(seconds: durationSeconds));
-      _speakingController.stop();
+      print("❌ TTS error: $e");
       _resetToIdle();
     }
   }
 
-  // 🔧 FIXED: Reset to Idle
-  void _resetToIdle() {
-    if (!mounted) return;
+  // 🤖 Smart Mock Response
+  String _getSmartMockResponse(String userInput) {
+    final input = userInput.toLowerCase();
     
+    // Use memory-aware responses
+    if (_conversationHistory.isNotEmpty) {
+      final lastConversation = _conversationHistory.last;
+      if (lastConversation['user']?.toLowerCase().contains('hello') == true ||
+          lastConversation['user']?.toLowerCase().contains('hi') == true) {
+        return "Good to see you again! What's on your mind today?";
+      }
+    }
+    
+    if (input.contains('hello') || input.contains('hi')) {
+      return _conversationHistory.isEmpty 
+        ? "Hello! I'm ${widget.personality}. Great to meet you!"
+        : "Welcome back! I remember our previous conversations.";
+    }
+    
+    if (input.contains('how are you')) {
+      return _conversationHistory.isEmpty
+        ? "I'm doing well and excited to get to know you!"
+        : "I'm great! I've been thinking about our last conversation.";
+    }
+    
+    if (input.contains('remember') || input.contains('recall')) {
+      return _conversationHistory.isEmpty
+        ? "This is our first conversation, but I'll remember everything we discuss!"
+        : "Absolutely! I remember our ${_conversationHistory.length} previous conversations.";
+    }
+    
+    return _conversationHistory.isEmpty
+      ? "That's interesting! Tell me more - I'm building my memory of our conversations."
+      : "Based on what we've discussed before, that's a fascinating point.";
+  }
+
+  void _resetToIdle() {
     setState(() {
       _currentState = VoiceState.idle;
-      _currentStatus = "Tap to continue conversation";
-      _isListening = false;
+      if (!_hasLoadedMemory) {
+        _currentStatus = "Loading your memory...";
+      } else if (_conversationHistory.isNotEmpty) {
+        _currentStatus = "💭 ${_conversationHistory.length} conversations remembered. Tap to continue!";
+      } else {
+        _currentStatus = "Tap to start your first conversation!";
+      }
     });
     
-    // Clean up animations
+    _pulseController.repeat(reverse: true);
     _listeningController.stop();
     _speakingController.stop();
     _thinkingController.stop();
-    _audioSubscription?.cancel();
-    
-    Future.delayed(Duration(milliseconds: 500), () {
-      if (mounted && _currentState == VoiceState.idle) {
-        _pulseController.repeat(reverse: true);
-      }
-    });
   }
 
-  @override
-  void dispose() {
-    _speechToText.cancel();
-    _audioPlayer.dispose();
-    _flutterTts.stop();
-    _audioSubscription?.cancel();
-    
-    _pulseController.dispose();
-    _listeningController.dispose();
-    _speakingController.dispose();
-    _thinkingController.dispose();
-    
-    super.dispose();
-  }
-
-  // 🎨 UI Build Method (unchanged - working fine)
   @override
   Widget build(BuildContext context) {
-    final config = _personalityConfig[widget.personality] ?? _personalityConfig['Lana Croft']!;
-    final primaryColor = config['color'] as Color;
+    final config = _personalityConfig[widget.personality]!;
+    final color = config['color'] as Color;
     
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: Text('${widget.personality} Voice Chat'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Column(
+    return Container(
+      padding: EdgeInsets.all(24),
+      child: Column(
         children: [
-          // Status Display
-          Expanded(
-            flex: 2,
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+          // 🧠 Memory Status Display
+          if (_hasLoadedMemory && _conversationHistory.isNotEmpty)
+            Container(
+              margin: EdgeInsets.only(bottom: 16),
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color.withOpacity(0.3)),
+              ),
+              child: Row(
                 children: [
-                  Text(
-                    _currentStatus,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w300,
-                      height: 1.3,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: 12),
-                  if (_confidence > 0)
-                    Text(
-                      'Confidence: ${(_confidence * 100).toStringAsFixed(0)}%',
+                  Icon(Icons.memory, color: color, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "💭 ${_conversationHistory.length} conversations remembered",
                       style: TextStyle(
-                        color: Colors.grey[400],
+                        color: color,
+                        fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
                     ),
+                  ),
                 ],
               ),
             ),
-          ),
           
-          // Main Voice Button
+          // Voice Interface
           Expanded(
-            flex: 3,
-            child: Center(
-              child: GestureDetector(
-                onTap: _toggleListening,
-                child: AnimatedBuilder(
-                  animation: _getActiveAnimation(),
-                  builder: (context, child) {
-                    return Container(
-                      width: 140 + (_getActiveAnimation().value * 30),
-                      height: 140 + (_getActiveAnimation().value * 30),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            _getColorForState().withOpacity(0.8),
-                            _getColorForState().withOpacity(0.4),
-                          ],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _getColorForState().withOpacity(0.6),
-                            blurRadius: 30 + (_getActiveAnimation().value * 20),
-                            spreadRadius: 5,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Animated Voice Button
+                GestureDetector(
+                  onTap: _currentState == VoiceState.idle ? _startListening : _stopListening,
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge([
+                      _pulseScale,
+                      _listeningPulse,
+                      _speakingBounce,
+                      _thinkingRotation,
+                    ]),
+                    builder: (context, child) {
+                      double scale = 1.0;
+                      Widget icon = Icon(Icons.mic, size: 48, color: Colors.white);
+                      
+                      switch (_currentState) {
+                        case VoiceState.idle:
+                          scale = _pulseScale.value;
+                          break;
+                        case VoiceState.listening:
+                          scale = _listeningPulse.value;
+                          icon = Icon(Icons.mic, size: 48, color: Colors.white);
+                          break;
+                        case VoiceState.processing:
+                          scale = 1.0;
+                          icon = Transform.rotate(
+                            angle: _thinkingRotation.value * 2 * 3.14159,
+                            child: Icon(Icons.psychology, size: 48, color: Colors.white),
+                          );
+                          break;
+                        case VoiceState.speaking:
+                          scale = _speakingBounce.value;
+                          icon = Icon(Icons.volume_up, size: 48, color: Colors.white);
+                          break;
+                        case VoiceState.error:
+                          scale = 1.0;
+                          icon = Icon(Icons.error_outline, size: 48, color: Colors.white);
+                          break;
+                      }
+                      
+                      return Transform.scale(
+                        scale: scale,
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: color.withOpacity(0.3),
+                                blurRadius: 20,
+                                spreadRadius: 5,
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: Icon(
-                        _getIconForState(),
-                        color: Colors.white,
-                        size: 60,
-                      ),
-                    );
-                  },
+                          child: icon,
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ),
-          ),
-          
-          // Conversation Stats
-          Expanded(
-            flex: 1,
-            child: Container(
-              padding: EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Text(
-                    "Exchanges: ${_conversationHistory.length ~/ 2}",
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 14,
+                
+                SizedBox(height: 32),
+                
+                // Status Text
+                Text(
+                  _currentStatus,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[800],
+                  ),
+                ),
+                
+                SizedBox(height: 16),
+                
+                // Last Response
+                if (_lastAiResponse.isNotEmpty)
+                  Container(
+                    margin: EdgeInsets.only(top: 16),
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      _lastAiResponse,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[700],
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   ),
-                  if (_lastAiResponse.isNotEmpty) ...[
-                    SizedBox(height: 8),
-                    Text(
-                      "Last: ${_lastAiResponse.length > 40 ? _lastAiResponse.substring(0, 40) + '...' : _lastAiResponse}",
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 12,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ],
-              ),
+              ],
             ),
           ),
         ],
@@ -637,50 +758,13 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     );
   }
 
-  // Helper Methods for UI (unchanged - working fine)
-  Animation<double> _getActiveAnimation() {
-    switch (_currentState) {
-      case VoiceState.listening:
-        return _listeningPulse;
-      case VoiceState.speaking:
-        return _speakingBounce;
-      case VoiceState.processing:
-        return _thinkingRotation;
-      default:
-        return _pulseScale;
-    }
-  }
-
-  Color _getColorForState() {
-    final config = _personalityConfig[widget.personality] ?? _personalityConfig['Lana Croft']!;
-    final baseColor = config['color'] as Color;
-    
-    switch (_currentState) {
-      case VoiceState.listening:
-        return Colors.blue;
-      case VoiceState.processing:
-        return Colors.orange;
-      case VoiceState.speaking:
-        return Colors.green;
-      case VoiceState.error:
-        return Colors.red;
-      default:
-        return baseColor;
-    }
-  }
-
-  IconData _getIconForState() {
-    switch (_currentState) {
-      case VoiceState.listening:
-        return Icons.mic;
-      case VoiceState.processing:
-        return Icons.psychology;
-      case VoiceState.speaking:
-        return Icons.volume_up;
-      case VoiceState.error:
-        return Icons.error_outline;
-      default:
-        return Icons.mic_none;
-    }
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _listeningController.dispose();
+    _speakingController.dispose();
+    _thinkingController.dispose();
+    _audioPlayer.dispose();
+    super.dispose();
   }
 }
