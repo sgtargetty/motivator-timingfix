@@ -1,17 +1,19 @@
 // lib/screens/widgets/realtime_voice_chat.dart
-// Real-time Voice Chat - ChatGPT Voice Mode Implementation
+// FIXED: Simple mic button version with API and audio fixes
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
-// 🚥 Pipeline State - MUST be outside class
+// 🚥 Pipeline State
 enum VoiceState {
   idle,
   listening,
@@ -44,10 +46,10 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
   String _wordsSpoken = "";
   double _confidence = 0.0;
   
-  // 🔊 Audio Streaming
+  // 🔊 Audio
   late AudioPlayer _audioPlayer;
-  WebSocketChannel? _elevenLabsChannel;
-  StreamController<List<int>>? _audioStreamController;
+  late FlutterTts _flutterTts;
+  StreamSubscription? _audioSubscription; // Track audio completion
   
   // 🎭 UI Animation Controllers
   late AnimationController _pulseController;
@@ -65,33 +67,16 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
   String _currentStatus = "Ready to chat!";
   String _lastAiResponse = "";
   List<Map<String, String>> _conversationHistory = [];
-  
   VoiceState _currentState = VoiceState.idle;
 
   // 🎭 Personality Configurations
   Map<String, Map<String, dynamic>> get _personalityConfig => {
     'Lana Croft': {
       'voiceId': 'QXEkTn58Ik1IKjIMk8QA',
-      'systemPrompt': '''You are Lana Croft, an adventurous, confident AI motivation coach. 
-      
-      PERSONALITY: Adventurous explorer with fearless, encouraging spirit
-      STYLE: Use adventure/exploration metaphors, be bold but supportive
-      VOICE: Keep responses SHORT (10-25 words) for natural conversation
-      PHRASES: "Ready for this adventure?", "Let's conquer this!", "You've got explorer spirit!"
-      
-      CRITICAL: This is VOICE conversation - be conversational, brief, and energetic!''',
       'color': Colors.amber,
     },
     'Baxter Jordan': {
-      'voiceId': 'pNInz6obpgDQGcFmaJgB', // Replace with actual Baxter voice ID
-      'systemPrompt': '''You are Baxter Jordan, an analytical, data-driven coach.
-      
-      PERSONALITY: Strategic, insightful, performance-focused
-      STYLE: Use metrics and optimization language, be precise but encouraging
-      VOICE: Keep responses SHORT (10-25 words) for natural conversation
-      PHRASES: "Let's optimize this", "Data shows...", "Strategic approach here"
-      
-      CRITICAL: This is VOICE conversation - be conversational, brief, and analytical!''',
+      'voiceId': 'pNInz6obpgDQGcFmaJgB',
       'color': Colors.blue,
     },
   };
@@ -104,7 +89,6 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
   }
 
   void _setupAnimations() {
-    // Pulse for idle state
     _pulseController = AnimationController(
       duration: Duration(milliseconds: 2000),
       vsync: this,
@@ -113,7 +97,6 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
     
-    // Listening animation
     _listeningController = AnimationController(
       duration: Duration(milliseconds: 800),
       vsync: this,
@@ -122,7 +105,6 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
       CurvedAnimation(parent: _listeningController, curve: Curves.easeInOut),
     );
     
-    // Speaking animation
     _speakingController = AnimationController(
       duration: Duration(milliseconds: 400),
       vsync: this,
@@ -131,7 +113,6 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
       CurvedAnimation(parent: _speakingController, curve: Curves.elasticOut),
     );
     
-    // Thinking animation
     _thinkingController = AnimationController(
       duration: Duration(milliseconds: 1500),
       vsync: this,
@@ -141,16 +122,30 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     );
   }
 
-  // 🎤 PHASE 1: Initialize Speech Recognition
+  // 🎤 Initialize Speech Recognition
   Future<void> _initializeVoiceChat() async {
     _speechToText = stt.SpeechToText();
     _audioPlayer = AudioPlayer();
+    _flutterTts = FlutterTts();
+    
+    // Configure TTS
+    await _flutterTts.setLanguage("en-US");
+    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setVolume(0.8);
+    await _flutterTts.setPitch(1.0);
+    
+    // 🔧 FIX: Better TTS completion handling
+    _flutterTts.setCompletionHandler(() {
+      print("🎵 TTS completed");
+      if (mounted) {
+        _resetToIdle();
+      }
+    });
     
     try {
       _speechEnabled = await _speechToText.initialize(
-        onStatus: (val) => _onSpeechStatus(val),
-        onError: (val) => _onSpeechError(val),
-        debugLogging: true,
+        onStatus: _onSpeechStatus,
+        onError: _onSpeechError,
       );
       
       if (_speechEnabled) {
@@ -185,15 +180,18 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     print("❌ Speech error: $error");
     setState(() {
       _currentState = VoiceState.error;
-      _currentStatus = "Speech error: ${error.errorMsg ?? 'Unknown error'}";
+      _currentStatus = "Speech error. Try again.";
     });
     _resetToIdle();
   }
 
-  // 🎙️ PHASE 2: Voice Input Handling
+  // 🎙️ FIXED: Voice Input Handling
   Future<void> _toggleListening() async {
-    if (!_speechEnabled) {
-      print("❌ Speech not enabled");
+    if (!_speechEnabled) return;
+
+    // 🔧 FIX: Prevent multiple taps during processing
+    if (_currentState == VoiceState.processing || _currentState == VoiceState.speaking) {
+      print("⚠️ Already processing, ignoring tap");
       return;
     }
 
@@ -229,9 +227,9 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
                 : '"$_wordsSpoken"';
           });
         },
-        listenFor: Duration(seconds: 8),   // Stop after 8 seconds
-        pauseFor: Duration(seconds: 2),    // Process after 2 seconds of silence
-        partialResults: true,              // Show real-time transcription
+        listenFor: Duration(seconds: 12),
+        pauseFor: Duration(seconds: 2),
+        partialResults: true,
         localeId: "en_US",
         cancelOnError: true,
         listenMode: stt.ListenMode.confirmation,
@@ -265,7 +263,7 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     }
   }
 
-  // 🧠 PHASE 3: Process User Input with OpenAI
+  // 🧠 Process User Input
   Future<void> _processUserInput(String userText) async {
     if (userText.trim().isEmpty) {
       _resetToIdle();
@@ -284,46 +282,37 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     try {
       print("🧠 Processing: '$userText' with ${widget.personality}");
       
-      // Add user message to history
-      _conversationHistory.add({
-        "role": "user", 
-        "content": userText
-      });
-
-      // Keep conversation manageable (last 8 messages)
-      if (_conversationHistory.length > 8) {
-        _conversationHistory = _conversationHistory.sublist(_conversationHistory.length - 8);
-      }
-
-      // Get personality config
-      final config = _personalityConfig[widget.personality] ?? _personalityConfig['Lana Croft']!;
+      // Get AI response from backend
+      final backendResponse = await _callBackendAPI(userText);
       
-      // Prepare messages for OpenAI
-      List<Map<String, String>> messages = [
-        {
-          "role": "system",
-          "content": config['systemPrompt'] as String
-        },
-        ..._conversationHistory,
-      ];
-
-      // Call OpenAI API
-      final aiResponse = await _callOpenAI(messages);
-      
-      if (aiResponse != null && aiResponse.isNotEmpty) {
-        _conversationHistory.add({
-          "role": "assistant",
-          "content": aiResponse
-        });
+      if (backendResponse != null && backendResponse['success'] == true) {
+        final aiResponse = backendResponse['aiResponse'];
+        final audioUrl = backendResponse['audioUrl'];
         
         setState(() {
           _lastAiResponse = aiResponse;
         });
         
-        // Start voice generation and playback
-        await _generateAndPlayVoice(aiResponse, config['voiceId'] as String);
+        print("🎯 AI Response: '$aiResponse'");
+        print("🔊 Audio URL received: ${audioUrl != null ? 'Yes' : 'No'}");
+        
+        // Play real ElevenLabs voice or fallback to TTS
+        if (audioUrl != null) {
+          await _playElevenLabsAudio(audioUrl);
+        } else {
+          print("🎵 No audio URL, using fallback TTS");
+          await _simulateVoice(aiResponse);
+        }
       } else {
-        throw Exception("Empty response from OpenAI");
+        // Fallback to mock response
+        print("🎯 Backend failed, using smart mock response");
+        final mockResponse = _getSmartMockResponse(userText);
+        
+        setState(() {
+          _lastAiResponse = mockResponse;
+        });
+        
+        await _simulateVoice(mockResponse);
       }
 
     } catch (e) {
@@ -338,150 +327,119 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     }
   }
 
-  // 🤖 OpenAI API Call
-  Future<String?> _callOpenAI(List<Map<String, String>> messages) async {
-    // TODO: Replace with your actual OpenAI API key
-    const apiKey = 'sk-your-openai-key-here'; // Replace this with your key
-    
-    if (apiKey == 'sk-your-openai-key-here') {
-      // Return mock response for testing without API key
-      await Future.delayed(Duration(seconds: 1));
-      final mockResponses = [
-        "Ready for this adventure!",
-        "Let's conquer this challenge!",
-        "You've got the explorer's spirit!",
-        "Time to push beyond limits!",
-        "Adventure awaits, let's go!"
-      ];
-      return mockResponses[math.Random().nextInt(mockResponses.length)];
-    }
-
+  // 🤖 FIXED: Call Backend API
+  Future<Map<String, dynamic>?> _callBackendAPI(String userText) async {
     try {
+      // 🔧 FIX: Backend expects 'userMessage' parameter
+      final requestBody = {
+        'userId': widget.userId,
+        'personality': widget.personality,
+        'userMessage': userText, // ✅ CORRECT: Backend expects userMessage
+      };
+
+      print("📡 Request: ${json.encode(requestBody)}");
+
       final response = await http.post(
-        Uri.parse('https://api.openai.com/v1/chat/completions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
-        },
-        body: json.encode({
-          'model': 'gpt-4-turbo',
-          'messages': messages,
-          'max_tokens': 50, // Short responses for voice
-          'temperature': 0.8,
-          'presence_penalty': 0.2,
-          'frequency_penalty': 0.2,
-        }),
+        Uri.parse('https://motivator-ai-backend.onrender.com/voice-conversation/text-only'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(requestBody),
       );
+
+      print("📡 Response status: ${response.statusCode}");
+      print("📡 Response body: ${response.body}");
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final content = data['choices'][0]['message']['content']?.trim();
-        print("🤖 OpenAI Response: '$content'");
-        return content;
+        return data;
       } else {
-        print("❌ OpenAI API error: ${response.statusCode} - ${response.body}");
-        throw Exception('OpenAI API error: ${response.statusCode}');
+        throw Exception('Backend API error: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      print("❌ OpenAI call failed: $e");
+      print("❌ Backend API error: $e");
       return null;
     }
   }
 
-  // 🔊 PHASE 4: Generate and Play Voice (ElevenLabs)
-  Future<void> _generateAndPlayVoice(String text, String voiceId) async {
-    // TODO: Replace with your actual ElevenLabs API key
-    const elevenLabsApiKey = 'your-elevenlabs-api-key-here'; // Replace this
-        
-    if (elevenLabsApiKey == 'your-elevenlabs-api-key-here') {
-      // Fallback to text display with audio simulation
-      setState(() {
-        _currentState = VoiceState.speaking;
-        _currentStatus = "${widget.personality}: $_lastAiResponse";
-      });
-
-      _thinkingController.stop();
-      _speakingController.repeat(reverse: true);
-      HapticFeedback.selectionClick();
-
-      // Simulate voice duration based on text length
-      final durationSeconds = math.max(2, (_lastAiResponse.length / 10).round());
-      
-      await Future.delayed(Duration(seconds: durationSeconds));
-      
-      _speakingController.stop();
-      _resetToIdle();
-      return;
-    }
-
-    try {
-      setState(() {
-        _currentState = VoiceState.speaking;
-        _currentStatus = "${widget.personality}: $_lastAiResponse";
-      });
-
-      _thinkingController.stop();
-      _speakingController.repeat(reverse: true);
-      HapticFeedback.selectionClick();
-
-      // Use HTTP API for simplicity (WebSocket can be added later for streaming)
-      final response = await http.post(
-        Uri.parse('https://api.elevenlabs.io/v1/text-to-speech/$voiceId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'xi-api-key': elevenLabsApiKey,
-        },
-        body: json.encode({
-          'text': text,
-          'model_id': 'eleven_monolingual_v1',
-          'voice_settings': {
-            'stability': 0.75,
-            'similarity_boost': 0.85,
-            'style': 0.3,
-            'use_speaker_boost': true,
-          },
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        // Play audio directly from bytes
-        final audioBytes = response.bodyBytes;
-        await _playAudioFromBytes(audioBytes);
-      } else {
-        throw Exception('ElevenLabs API error: ${response.statusCode}');
-      }
-
-    } catch (e) {
-      print("❌ Voice generation error: $e");
-      // Show text response if voice fails
-      setState(() {
-        _currentStatus = "${widget.personality}: $_lastAiResponse";
-      });
-      _speakingController.stop();
-      Future.delayed(Duration(seconds: 3), _resetToIdle);
+  // 🧠 Smart Mock Responses (unchanged - working fine)
+  String _getSmartMockResponse(String userText) {
+    final text = userText.toLowerCase();
+    
+    if (text.contains('how') && (text.contains('going') || text.contains('doing'))) {
+      return "Going great! Ready to tackle some epic challenges together!";
+    } else if (text.contains('hello') || text.contains('hi')) {
+      return "Hey there, adventurer! What's our next mission?";
+    } else if (text.contains('help') || text.contains('stuck')) {
+      return "No mountain too high! Let's break this down step by step.";
+    } else if (text.contains('tired') || text.contains('exhausted')) {
+      return "Rest is part of the journey, but you've got more strength than you know!";
+    } else if (text.contains('thanks') || text.contains('thank')) {
+      return "That's what adventure partners are for! What's next?";
+    } else {
+      final responses = [
+        "Love that energy! Tell me more about what you're working on.",
+        "You're speaking my language! Let's dive deeper into this challenge.",
+        "Now we're talking! What's the biggest obstacle you're facing?",
+        "I can hear the determination in your voice! What's your next move?",
+        "That's the explorer spirit I love! How can we push this further?"
+      ];
+      return responses[math.Random().nextInt(responses.length)];
     }
   }
 
-  // 🎧 Play Audio from Bytes
+  // 🔊 FIXED: Play Real ElevenLabs Audio
+  Future<void> _playElevenLabsAudio(String audioUrl) async {
+    print("🎵 Playing ElevenLabs audio...");
+    
+    setState(() {
+      _currentState = VoiceState.speaking;
+      _currentStatus = "${widget.personality}: $_lastAiResponse";
+    });
+
+    _thinkingController.stop();
+    _speakingController.repeat(reverse: true);
+    HapticFeedback.selectionClick();
+
+    try {
+      // 🔧 FIX: Properly handle base64 audio data
+      if (audioUrl.startsWith('data:audio/mpeg;base64,')) {
+        final base64Audio = audioUrl.split(',')[1];
+        final audioBytes = base64Decode(base64Audio);
+        await _playAudioFromBytes(audioBytes);
+      } else {
+        throw Exception('Invalid audio format');
+      }
+      
+    } catch (e) {
+      print("❌ ElevenLabs audio playback error: $e");
+      // Fallback to TTS
+      await _simulateVoice(_lastAiResponse);
+    }
+  }
+
+  // 🔊 FIXED: Play Audio from Bytes
   Future<void> _playAudioFromBytes(Uint8List audioBytes) async {
     try {
-      // Create a temporary stream from bytes
-      final audioSource = AudioSource.uri(
-        Uri.dataFromBytes(audioBytes, mimeType: 'audio/mpeg'),
-      );
+      final tempDir = await getTemporaryDirectory();
+      final tempFile = File('${tempDir.path}/temp_audio_${DateTime.now().millisecondsSinceEpoch}.mp3');
       
-      await _audioPlayer.setAudioSource(audioSource);
-      await _audioPlayer.play();
+      await tempFile.writeAsBytes(audioBytes);
+      await _audioPlayer.setFilePath(tempFile.path);
       
-      // Listen for completion
-      _audioPlayer.playerStateStream.listen((state) {
+      print("🎵 ElevenLabs audio started playing");
+      
+      // 🔧 FIX: Better audio completion handling
+      _audioSubscription?.cancel();
+      _audioSubscription = _audioPlayer.playerStateStream.listen((state) {
         if (state.processingState == ProcessingState.completed) {
-          print("✅ Audio playback completed");
+          print("✅ ElevenLabs audio playback completed");
           _speakingController.stop();
+          tempFile.delete().catchError((_) {}); // Clean up
           _resetToIdle();
         }
       });
-
+      
+      await _audioPlayer.play();
+      
     } catch (e) {
       print("❌ Audio playback error: $e");
       _speakingController.stop();
@@ -489,16 +447,48 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     }
   }
 
+  // 🔊 Fallback: Device TTS when ElevenLabs fails
+  Future<void> _simulateVoice(String text) async {
+    print("🎵 Using fallback TTS for: '$text'");
+    
+    setState(() {
+      _currentState = VoiceState.speaking;
+      _currentStatus = "${widget.personality}: $text";
+    });
+
+    _thinkingController.stop();
+    _speakingController.repeat(reverse: true);
+    HapticFeedback.selectionClick();
+
+    try {
+      await _flutterTts.speak(text);
+      print("🎵 Fallback TTS started speaking");
+      
+    } catch (e) {
+      print("❌ TTS fallback error: $e");
+      // Final fallback - timed simulation
+      final durationSeconds = math.max(2, (text.length / 10).round());
+      await Future.delayed(Duration(seconds: durationSeconds));
+      _speakingController.stop();
+      _resetToIdle();
+    }
+  }
+
+  // 🔧 FIXED: Reset to Idle
   void _resetToIdle() {
+    if (!mounted) return;
+    
     setState(() {
       _currentState = VoiceState.idle;
       _currentStatus = "Tap to continue conversation";
       _isListening = false;
     });
     
+    // Clean up animations
     _listeningController.stop();
     _speakingController.stop();
     _thinkingController.stop();
+    _audioSubscription?.cancel();
     
     Future.delayed(Duration(milliseconds: 500), () {
       if (mounted && _currentState == VoiceState.idle) {
@@ -511,8 +501,8 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
   void dispose() {
     _speechToText.cancel();
     _audioPlayer.dispose();
-    _elevenLabsChannel?.sink.close();
-    _audioStreamController?.close();
+    _flutterTts.stop();
+    _audioSubscription?.cancel();
     
     _pulseController.dispose();
     _listeningController.dispose();
@@ -522,7 +512,7 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     super.dispose();
   }
 
-  // 🎨 UI Build Method
+  // 🎨 UI Build Method (unchanged - working fine)
   @override
   Widget build(BuildContext context) {
     final config = _personalityConfig[widget.personality] ?? _personalityConfig['Lana Croft']!;
@@ -621,7 +611,7 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
               child: Column(
                 children: [
                   Text(
-                    "Conversation: ${_conversationHistory.length ~/ 2} exchanges",
+                    "Exchanges: ${_conversationHistory.length ~/ 2}",
                     style: TextStyle(
                       color: Colors.grey[500],
                       fontSize: 14,
@@ -647,7 +637,7 @@ class _RealTimeVoiceChatState extends State<RealTimeVoiceChat>
     );
   }
 
-  // Helper Methods for UI
+  // Helper Methods for UI (unchanged - working fine)
   Animation<double> _getActiveAnimation() {
     switch (_currentState) {
       case VoiceState.listening:

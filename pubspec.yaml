@@ -38,6 +38,7 @@ dependencies:
   
   # 🎤 DICTAPHONE DEPENDENCIES
   flutter_sound: ^9.2.13              # Audio recording (replaced record package)
+  flutter_tts: ^4.2.3
   
   
   
