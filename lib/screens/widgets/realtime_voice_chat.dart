@@ -1,4 +1,4 @@
-// lib/screens/widgets/realtime_voice_chat.dart - FIXED with Persistent Memory
+// lib/screens/widgets/realtime_voice_chat.dart - FIXED VERSION (No Compilation Errors)
 
 import 'dart:convert';
 import 'dart:typed_data';
@@ -10,6 +10,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import 'dart:async';
 
 // 🎭 Voice states for UI
 enum VoiceState {
@@ -65,6 +66,9 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
   String? _persistentUserId;
   int _totalConversations = 0;
   bool _hasLoadedMemory = false;
+  Timer? _speechProcessingTimer;
+  String _lastProcessedText = "";
+  bool _isCurrentlyProcessing = false;
 
   // 🎭 Personality Configurations
   Map<String, Map<String, dynamic>> get _personalityConfig => {
@@ -112,7 +116,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         
         // Keep only last 20 conversations to prevent memory bloat
         if (_conversationHistory.length > 20) {
-          _conversationHistory = _conversationHistory.takeLast(20).toList();
+          _conversationHistory = _conversationHistory.sublist(_conversationHistory.length - 20);
           await _savePersistentMemory();
         }
         
@@ -206,7 +210,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
       
       // Keep only last 20 conversations in memory
       if (_conversationHistory.length > 20) {
-        _conversationHistory = _conversationHistory.takeLast(20).toList();
+        _conversationHistory = _conversationHistory.sublist(_conversationHistory.length - 20);
       }
     });
     
@@ -292,10 +296,6 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         _currentStatus = "Listening... speak now!";
       });
       _listeningController.repeat(reverse: true);
-    } else if (status == "done" || status == "notListening") {
-      if (_currentState == VoiceState.listening) {
-        _processUserInput(_wordsSpoken);
-      }
     }
   }
 
@@ -330,7 +330,9 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
             _confidenceLevel = result.confidence;
           });
           
-          if (result.finalResult) {
+          if (result.finalResult && !_isCurrentlyProcessing && _wordsSpoken != _lastProcessedText) {
+            _isCurrentlyProcessing = true;
+            _lastProcessedText = _wordsSpoken;
             _processUserInput(_wordsSpoken);
           }
         },
@@ -430,7 +432,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         
         await _simulateVoice(mockResponse);
       }
-
+      _isCurrentlyProcessing = false; // Reset processing flag
     } catch (e) {
       print("❌ Error processing input: $e");
       setState(() {
@@ -450,14 +452,15 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
       }
 
       // Prepare conversation history for backend (last 10 messages)
-      final recentHistory = _conversationHistory.takeLast(10).map((entry) => {
-        'role': entry['user'] != null ? 'user' : 'assistant',
-        'content': entry['user'] ?? entry['assistant'],
-      }).toList();
+      final recentHistory = _conversationHistory.length > 10 
+          ? _conversationHistory.sublist(_conversationHistory.length - 10)
+          : _conversationHistory;
       
       // Flatten conversation history properly
       final flatHistory = <Map<String, String>>[];
-      for (final entry in _conversationHistory.takeLast(5)) {
+      for (final entry in (_conversationHistory.length > 5 
+          ? _conversationHistory.sublist(_conversationHistory.length - 5)
+          : _conversationHistory)) {
         if (entry['user'] != null) {
           flatHistory.add({'role': 'user', 'content': entry['user']!});
         }
@@ -519,12 +522,11 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
       
       print("🎵 ElevenLabs audio starting playback...");
       
-      // Create a temporary file for audio playback
-      final player = AudioPlayer();
-      await player.playBytes(audioBytes);
-      
+      // Play audio once
+      await _audioPlayer.play(BytesSource(audioBytes));
+
       // Wait for playback to complete
-      await player.onPlayerComplete.first;
+      await _audioPlayer.onPlayerComplete.first;
       
       print("✅ ElevenLabs audio playback completed");
       

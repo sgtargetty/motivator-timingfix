@@ -511,9 +511,9 @@ class _AIConversationCard extends StatelessWidget {
                         onPressed: loading ? null : () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => RealTimeVoiceChat(
+                              builder: (context) => RealtimeVoiceChat(
                                 personality: 'Lana Croft',
-                                userId: 'user_${DateTime.now().millisecondsSinceEpoch}',
+                                baseUrl: 'https://motivator-ai-backend.onrender.com',
                               ),
                             ),
                           );
