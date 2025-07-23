@@ -1,7 +1,8 @@
-// lib/screens/widgets/realtime_voice_chat.dart - FIXED VERSION (No Compilation Errors)
+// lib/screens/widgets/realtime_voice_chat.dart - Complete Voice System with Backchannel
 
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -18,6 +19,7 @@ enum VoiceState {
   listening,
   processing,
   speaking,
+  backchanneling,
   error
 }
 
@@ -41,6 +43,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
   // 🎤 Voice Recognition
   late stt.SpeechToText _speechToText;
   late AudioPlayer _audioPlayer;
+  late AudioPlayer _backchannelPlayer; // Separate player for instant clips
   late FlutterTts _flutterTts;
   bool _speechEnabled = false;
   bool _isListening = false;
@@ -52,11 +55,13 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
   late AnimationController _listeningController;
   late AnimationController _speakingController;
   late AnimationController _thinkingController;
+  late AnimationController _backchannelController;
   
   late Animation<double> _pulseScale;
   late Animation<double> _listeningPulse;
   late Animation<double> _speakingBounce;
   late Animation<double> _thinkingRotation;
+  late Animation<double> _backchannelPulse;
   
   // 🧠 PERSISTENT MEMORY & CONVERSATION STATE
   String _currentStatus = "Ready to chat!";
@@ -69,6 +74,15 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
   Timer? _speechProcessingTimer;
   String _lastProcessedText = "";
   bool _isCurrentlyProcessing = false;
+
+  // 🎵 BACKCHANNEL AUDIO SYSTEM
+  List<String> _backchannelClips = [];
+  List<String> _emotionClips = [];
+  List<String> _greetingClips = [];
+  bool _isBackchannelPlaying = false;
+  String? _queuedRealResponse;
+  Timer? _backchannelTimer;
+  int _conversationTurn = 0;
 
   // 🎭 Personality Configurations
   Map<String, Map<String, dynamic>> get _personalityConfig => {
@@ -84,12 +98,215 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     },
   };
 
+  // 🎵 BACKCHANNEL AUDIO CLIPS CONFIGURATION
+  Map<String, List<String>> get _audioClipsByType => {
+    'acknowledgment': [
+      'assets/audio/backchannel/mhmm_1.mp3',
+      'assets/audio/backchannel/mhmm_2.mp3', 
+      'assets/audio/backchannel/right_1.mp3',
+      'assets/audio/backchannel/right_2.mp3',
+      'assets/audio/backchannel/yeah_1.mp3',
+      'assets/audio/backchannel/yeah_2.mp3',
+    ],
+    'understanding': [
+      'assets/audio/backchannel/i_see_1.mp3',
+      'assets/audio/backchannel/totally_1.mp3',
+      'assets/audio/backchannel/totally_2.mp3',
+      'assets/audio/backchannel/got_it_1.mp3',
+    ],
+    'curiosity': [
+      'assets/audio/backchannel/oh_1.mp3',
+      'assets/audio/backchannel/interesting_1.mp3',
+      'assets/audio/backchannel/tell_me_more_1.mp3',
+    ],
+    'agreement': [
+      'assets/audio/backchannel/absolutely_1.mp3',
+      'assets/audio/backchannel/exactly_1.mp3',
+      'assets/audio/backchannel/for_sure_1.mp3',
+    ],
+    'thinking': [
+      'assets/audio/backchannel/hmm_1.mp3',
+      'assets/audio/backchannel/hmm_2.mp3',
+      'assets/audio/backchannel/let_me_think_1.mp3',
+    ],
+    'excitement': [
+      'assets/audio/emotions/excited_1.mp3',
+      'assets/audio/emotions/excited_2.mp3',
+      'assets/audio/emotions/wow_1.mp3',
+    ],
+    'empathy': [
+      'assets/audio/emotions/oh_no_1.mp3',
+      'assets/audio/emotions/i_understand_1.mp3',
+      'assets/audio/emotions/that_sucks_1.mp3',
+    ]
+  };
+
   @override
   void initState() {
     super.initState();
     _initializeVoiceChat();
     _setupAnimations();
-    _loadPersistentMemory(); // Load memory on startup
+    _loadPersistentMemory();
+    _preloadAudioClips();
+    
+    // 🚀 Auto-start ChatGPT-style listening after initialization
+    Timer(Duration(seconds: 3), () {
+      if (mounted && _speechEnabled) {
+        print("🎤 Auto-starting ChatGPT-style voice system...");
+        setState(() {
+          _currentStatus = "Ready to chat - just start speaking!";
+        });
+        _startListening();
+      }
+    });
+  }
+
+  // 🎵 PRELOAD AUDIO CLIPS FOR INSTANT PLAYBACK
+  Future<void> _preloadAudioClips() async {
+    try {
+      print("🎵 Preloading backchannel audio clips...");
+      
+      // Preload acknowledgment clips (most common)
+      for (String clipPath in _audioClipsByType['acknowledgment']!) {
+        try {
+          await _backchannelPlayer.setSource(AssetSource(clipPath.replaceFirst('assets/', '')));
+          print("✅ Preloaded: $clipPath");
+        } catch (e) {
+          print("⚠️ Failed to preload $clipPath: $e");
+        }
+      }
+      
+      print("🎵 Backchannel clips preloaded successfully");
+      
+    } catch (e) {
+      print("❌ Error preloading audio clips: $e");
+    }
+  }
+
+  // 🧠 ML-BASED CLIP SELECTION
+  String _selectBackchannelClip(String userMessage, int conversationTurn) {
+    final message = userMessage.toLowerCase();
+    final clips = _audioClipsByType;
+    
+    print("🧠 ML selecting clip for: '$userMessage' (turn $conversationTurn)");
+    
+    // 🎯 CONTEXT-BASED SELECTION
+    
+    // First turn - more acknowledgment
+    if (conversationTurn <= 2) {
+      return _getRandomClip(clips['acknowledgment']!);
+    }
+    
+    // Detect emotional context
+    if (message.contains('problem') || message.contains('issue') || 
+        message.contains('stuck') || message.contains('wrong')) {
+      return _getRandomClip(clips['empathy']!);
+    }
+    
+    // Detect excitement
+    if (message.contains('awesome') || message.contains('amazing') || 
+        message.contains('great') || message.contains('love')) {
+      return _getRandomClip(clips['excitement']!);
+    }
+    
+    // Detect questions or curiosity
+    if (message.contains('?') || message.contains('what') || 
+        message.contains('how') || message.contains('why')) {
+      return _getRandomClip(clips['curiosity']!);
+    }
+    
+    // Detect agreement/confirmation
+    if (message.contains('exactly') || message.contains('yes') || 
+        message.contains('right') || message.contains('agree')) {
+      return _getRandomClip(clips['agreement']!);
+    }
+    
+    // Detect thinking/complex topics
+    if (message.length > 50 || message.contains('complex') || 
+        message.contains('difficult') || message.contains('think')) {
+      return _getRandomClip(clips['thinking']!);
+    }
+    
+    // Default to understanding
+    return _getRandomClip(clips['understanding']!);
+  }
+
+  String _getRandomClip(List<String> clips) {
+    final random = math.Random();
+    return clips[random.nextInt(clips.length)];
+  }
+
+  // 🎵 INSTANT BACKCHANNEL RESPONSE
+  Future<void> _playBackchannelClip(String userMessage) async {
+    if (_isBackchannelPlaying) return;
+    
+    setState(() {
+      _currentState = VoiceState.backchanneling;
+      _currentStatus = "Listening and responding naturally...";
+      _isBackchannelPlaying = true;
+    });
+    
+    try {
+      // Select appropriate clip using ML
+      final clipPath = _selectBackchannelClip(userMessage, _conversationTurn);
+      print("🎵 Playing backchannel clip: $clipPath");
+      
+      _backchannelController.repeat(reverse: true);
+      
+      // Play the instant response clip
+      final assetPath = clipPath.replaceFirst('assets/', '');
+      await _backchannelPlayer.play(AssetSource(assetPath));
+      
+      // Wait for clip to finish
+      await _backchannelPlayer.onPlayerComplete.first;
+      
+      print("✅ Backchannel clip completed");
+      
+    } catch (e) {
+      print("❌ Error playing backchannel clip: $e");
+    } finally {
+      setState(() {
+        _isBackchannelPlaying = false;
+      });
+      _backchannelController.stop();
+    }
+  }
+
+  // 🗣️ Check for filler words
+  bool _isJustFillerWords(String text) {
+    final fillers = ['um', 'umm', 'uh', 'uhh', 'hmm', 'ah', 'er', 'like'];
+    final words = text.toLowerCase().trim().split(' ');
+    
+    final meaningfulWords = words.where((word) => 
+      word.length > 2 && !fillers.contains(word)
+    ).toList();
+    
+    return meaningfulWords.isEmpty || text.trim().length < 5;
+  }
+
+  // 🔄 Auto-restart method with conversation tracking
+  Future<void> _resetToIdleAndRestart() async {
+    setState(() {
+      _currentState = VoiceState.idle;
+      _currentStatus = "Ready for next conversation...";
+    });
+    
+    _thinkingController.stop();
+    _speakingController.stop();
+    _listeningController.stop();
+    _backchannelController.stop();
+    
+    _isCurrentlyProcessing = false;
+    _conversationTurn++; // Track conversation progress
+    
+    print("🔄 Conversation turn: $_conversationTurn, restarting in 1s...");
+    
+    await Future.delayed(Duration(seconds: 1));
+    
+    if (mounted && _speechEnabled) {
+      print("🎤 Auto-restarting ChatGPT-style listening...");
+      _startListening();
+    }
   }
 
   // 🧠 PERSISTENT MEMORY MANAGEMENT
@@ -97,7 +314,6 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     try {
       final prefs = await SharedPreferences.getInstance();
       
-      // Get or create persistent user ID
       _persistentUserId = prefs.getString('persistent_user_id');
       if (_persistentUserId == null) {
         _persistentUserId = const Uuid().v4();
@@ -107,14 +323,12 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         print("🆔 Loaded existing user ID: $_persistentUserId");
       }
       
-      // Load conversation history
       final historyJson = prefs.getString('conversation_history_${widget.personality}');
       if (historyJson != null) {
         final historyList = json.decode(historyJson) as List;
         _conversationHistory = historyList.map((item) => 
           Map<String, String>.from(item)).toList();
         
-        // Keep only last 20 conversations to prevent memory bloat
         if (_conversationHistory.length > 20) {
           _conversationHistory = _conversationHistory.sublist(_conversationHistory.length - 20);
           await _savePersistentMemory();
@@ -123,10 +337,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         print("📚 Loaded ${_conversationHistory.length} previous conversations");
       }
       
-      // Load total conversation count
       _totalConversations = prefs.getInt('total_conversations_${widget.personality}') ?? 0;
-      
-      // Load backend memory stats
       await _loadBackendMemory();
       
       setState(() {
@@ -152,13 +363,11 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     try {
       final prefs = await SharedPreferences.getInstance();
       
-      // Save conversation history
       await prefs.setString(
         'conversation_history_${widget.personality}',
         json.encode(_conversationHistory)
       );
       
-      // Save total conversation count
       await prefs.setInt('total_conversations_${widget.personality}', _totalConversations);
       
       print("💾 Saved conversation history: ${_conversationHistory.length} conversations");
@@ -185,9 +394,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
           print("☁️ Backend memory loaded:");
           print("   - Total conversations: ${memory['totalConversations']}");
           print("   - Recent patterns: ${memory['recentPatterns']}");
-          print("   - Favorite topics: ${stats['favoriteTopics']}");
           
-          // Update local state with backend data
           _totalConversations = memory['totalConversations'] ?? 0;
         }
       }
@@ -208,13 +415,11 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
       _conversationHistory.add(conversationEntry);
       _totalConversations++;
       
-      // Keep only last 20 conversations in memory
       if (_conversationHistory.length > 20) {
         _conversationHistory = _conversationHistory.sublist(_conversationHistory.length - 20);
       }
     });
     
-    // Save to persistent storage
     _savePersistentMemory();
   }
 
@@ -250,11 +455,21 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     _thinkingRotation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _thinkingController, curve: Curves.linear),
     );
+
+    // 🎵 NEW: Backchannel animation
+    _backchannelController = AnimationController(
+      duration: Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _backchannelPulse = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _backchannelController, curve: Curves.easeInOut),
+    );
   }
 
   Future<void> _initializeVoiceChat() async {
     _speechToText = stt.SpeechToText();
     _audioPlayer = AudioPlayer();
+    _backchannelPlayer = AudioPlayer(); // Separate player for instant clips
     _flutterTts = FlutterTts();
     
     await _flutterTts.setLanguage("en-US");
@@ -265,7 +480,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     _flutterTts.setCompletionHandler(() {
       print("🎵 TTS completed");
       if (mounted) {
-        _resetToIdle();
+        _resetToIdleAndRestart();
       }
     });
     
@@ -293,7 +508,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     if (status == "listening") {
       setState(() {
         _currentState = VoiceState.listening;
-        _currentStatus = "Listening... speak now!";
+        _currentStatus = "Listening... speak naturally!";
       });
       _listeningController.repeat(reverse: true);
     }
@@ -303,25 +518,30 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     print("❌ Speech error: $error");
     setState(() {
       _currentState = VoiceState.error;
-      _currentStatus = "Didn't catch that. Tap to try again!";
+      _currentStatus = "Voice error - will retry automatically!";
     });
-    _resetToIdle();
+    
+    Timer(Duration(seconds: 3), () {
+      _resetToIdleAndRestart();
+    });
   }
 
-  // 🎤 Start Listening
+  // 🎤 CHATGPT-STYLE: Start Listening with Backchannel Support
   Future<void> _startListening() async {
     if (!_speechEnabled || _currentState != VoiceState.idle) return;
 
     try {
       setState(() {
         _currentState = VoiceState.listening;
-        _currentStatus = "Listening... speak now!";
+        _currentStatus = "Listening... start speaking anytime!";
         _wordsSpoken = "";
       });
 
       HapticFeedback.lightImpact();
       _pulseController.stop();
       _listeningController.repeat(reverse: true);
+
+      print("🎤 Starting ChatGPT-style auto-listening...");
 
       await _speechToText.listen(
         onResult: (result) {
@@ -330,14 +550,42 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
             _confidenceLevel = result.confidence;
           });
           
-          if (result.finalResult && !_isCurrentlyProcessing && _wordsSpoken != _lastProcessedText) {
-            _isCurrentlyProcessing = true;
-            _lastProcessedText = _wordsSpoken;
-            _processUserInput(_wordsSpoken);
+          print("🗣️ Speech result: '${result.recognizedWords}' (final: ${result.finalResult})");
+          
+          // 🎵 TRIGGER BACKCHANNEL RESPONSE during speech (if meaningful content)
+          if (!_isBackchannelPlaying && 
+              result.recognizedWords.length > 10 && 
+              !_isJustFillerWords(result.recognizedWords) &&
+              _conversationTurn > 0) {
+            
+            print("🎵 Triggering backchannel response during speech");
+            _playBackchannelClip(result.recognizedWords);
+          }
+          
+          // 🎯 SMART PROCESSING: Only process after real content + silence
+          if (result.finalResult && 
+              !_isCurrentlyProcessing && 
+              _wordsSpoken.trim().length > 5 && 
+              !_isJustFillerWords(_wordsSpoken)) {
+            
+            print("🤔 Potential complete thought detected, waiting 2s to confirm...");
+            
+            Timer(Duration(seconds: 2), () {
+              if (_wordsSpoken.trim() == result.recognizedWords.trim() && 
+                  !_isCurrentlyProcessing) {
+                
+                print("✅ User finished speaking, processing: '$_wordsSpoken'");
+                _isCurrentlyProcessing = true;
+                _lastProcessedText = _wordsSpoken;
+                _processUserInput(_wordsSpoken);
+              } else {
+                print("🔄 User continued speaking, waiting longer...");
+              }
+            });
           }
         },
-        listenFor: Duration(seconds: 12),
-        pauseFor: Duration(seconds: 4),
+        listenFor: Duration(minutes: 10),
+        pauseFor: Duration(seconds: 20),
         partialResults: true,
         localeId: "en_US",
         cancelOnError: true,
@@ -347,31 +595,19 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
       print("❌ Error starting listening: $e");
       setState(() {
         _currentState = VoiceState.error;
-        _currentStatus = "Error starting voice recognition. Try again!";
+        _currentStatus = "Voice error - will retry automatically!";
       });
-      _resetToIdle();
+      
+      Timer(Duration(seconds: 3), () {
+        _resetToIdleAndRestart();
+      });
     }
   }
 
-  Future<void> _stopListening() async {
-    try {
-      if (_speechToText.isListening) {
-        await _speechToText.stop();
-        setState(() {
-          _currentStatus = "Processing what you said...";
-        });
-        _resetToIdle();
-      }
-    } catch (e) {
-      print("❌ Error stopping listening: $e");
-      _resetToIdle();
-    }
-  }
-
-  // 🧠 Process User Input WITH MEMORY
+  // 🧠 Process User Input with Backchannel Integration
   Future<void> _processUserInput(String userText) async {
     if (userText.trim().isEmpty) {
-      _resetToIdle();
+      _resetToIdleAndRestart();
       return;
     }
 
@@ -387,7 +623,11 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     try {
       print("🧠 Processing: '$userText' with ${widget.personality}");
       
-      // Call backend with conversation history and persistent user ID
+      // 🎵 Play thinking backchannel if no backchannel played yet
+      if (!_isBackchannelPlaying && _conversationTurn > 0) {
+        _playBackchannelClip("thinking about: " + userText);
+      }
+      
       final backendResponse = await _callBackendAPIWithMemory(userText);
       
       if (backendResponse != null && backendResponse['success'] == true) {
@@ -399,14 +639,21 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
           _lastAiResponse = aiResponse;
         });
         
-        // Add to conversation history
         _addToConversationHistory(userText, aiResponse);
         
         print("🎯 AI Response: '$aiResponse'");
         print("🧠 Memory Stats: $memoryStats");
         print("🔊 Audio URL received: ${audioUrl != null ? 'Yes' : 'No'}");
         
-        // Play real ElevenLabs voice or fallback to TTS
+        // 🎵 WAIT for any backchannel to finish before playing real response
+        if (_isBackchannelPlaying) {
+          print("🎵 Waiting for backchannel to finish...");
+          while (_isBackchannelPlaying && mounted) {
+            await Future.delayed(Duration(milliseconds: 100));
+          }
+        }
+        
+        // Play real response
         if (audioUrl != null) {
           await _playElevenLabsAudio(audioUrl);
         } else {
@@ -414,7 +661,6 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
           await _simulateVoice(aiResponse);
         }
         
-        // Update status with memory info
         if (memoryStats != null && memoryStats['totalConversations'] > 0) {
           setState(() {
             _currentStatus = "💭 ${memoryStats['totalConversations']} conversations remembered";
@@ -422,7 +668,6 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         }
         
       } else {
-        // Fallback to mock response
         print("🎯 Backend failed, using smart mock response");
         final mockResponse = _getSmartMockResponse(userText);
         
@@ -431,15 +676,19 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         });
         
         await _simulateVoice(mockResponse);
+        _resetToIdleAndRestart();
       }
-      _isCurrentlyProcessing = false; // Reset processing flag
+      
     } catch (e) {
       print("❌ Error processing input: $e");
       setState(() {
         _currentState = VoiceState.error;
-        _currentStatus = "Oops! Something went wrong. Try again.";
+        _currentStatus = "Oops! Something went wrong. Restarting...";
       });
-      _resetToIdle();
+      
+      Timer(Duration(seconds: 2), () {
+        _resetToIdleAndRestart();
+      });
     }
   }
 
@@ -451,12 +700,6 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         return null;
       }
 
-      // Prepare conversation history for backend (last 10 messages)
-      final recentHistory = _conversationHistory.length > 10 
-          ? _conversationHistory.sublist(_conversationHistory.length - 10)
-          : _conversationHistory;
-      
-      // Flatten conversation history properly
       final flatHistory = <Map<String, String>>[];
       for (final entry in (_conversationHistory.length > 5 
           ? _conversationHistory.sublist(_conversationHistory.length - 5)
@@ -473,7 +716,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         'userId': _persistentUserId,
         'personality': widget.personality,
         'userMessage': userText,
-        'conversationHistory': flatHistory,  // Send conversation history
+        'conversationHistory': flatHistory,
         'hasMemory': _conversationHistory.isNotEmpty,
         'totalConversations': _totalConversations,
       };
@@ -505,7 +748,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     }
   }
 
-  // 🎵 Play ElevenLabs Audio
+  // 🎵 Play ElevenLabs Audio (UPDATED for auto-restart)
   Future<void> _playElevenLabsAudio(String audioUrl) async {
     try {
       setState(() {
@@ -516,34 +759,29 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
       _thinkingController.stop();
       _speakingController.repeat(reverse: true);
       
-      // Decode base64 audio
       final base64Audio = audioUrl.split(',')[1];
       final audioBytes = base64Decode(base64Audio);
       
       print("🎵 ElevenLabs audio starting playback...");
       
-      // Play audio once
       await _audioPlayer.play(BytesSource(audioBytes));
-
-      // Wait for playback to complete
       await _audioPlayer.onPlayerComplete.first;
       
       print("✅ ElevenLabs audio playback completed");
       
       setState(() {
-        _currentStatus = "Memory updated! Tap to continue...";
+        _currentStatus = "Memory updated! Ready for next conversation...";
       });
       
-      _resetToIdle();
+      _resetToIdleAndRestart();
       
     } catch (e) {
       print("❌ Error playing ElevenLabs audio: $e");
-      // Fallback to TTS
       await _simulateVoice(_lastAiResponse);
     }
   }
 
-  // 🎵 Fallback TTS
+  // 🎵 Fallback TTS (UPDATED for auto-restart)
   Future<void> _simulateVoice(String text) async {
     setState(() {
       _currentState = VoiceState.speaking;
@@ -554,10 +792,11 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     _speakingController.repeat(reverse: true);
     
     try {
+      print("🎵 TTS speaking: '$text'");
       await _flutterTts.speak(text);
     } catch (e) {
       print("❌ TTS error: $e");
-      _resetToIdle();
+      _resetToIdleAndRestart();
     }
   }
 
@@ -565,7 +804,6 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
   String _getSmartMockResponse(String userInput) {
     final input = userInput.toLowerCase();
     
-    // Use memory-aware responses
     if (_conversationHistory.isNotEmpty) {
       final lastConversation = _conversationHistory.last;
       if (lastConversation['user']?.toLowerCase().contains('hello') == true ||
@@ -586,33 +824,9 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         : "I'm great! I've been thinking about our last conversation.";
     }
     
-    if (input.contains('remember') || input.contains('recall')) {
-      return _conversationHistory.isEmpty
-        ? "This is our first conversation, but I'll remember everything we discuss!"
-        : "Absolutely! I remember our ${_conversationHistory.length} previous conversations.";
-    }
-    
     return _conversationHistory.isEmpty
-      ? "That's interesting! Tell me more - I'm building my memory of our conversations."
+      ? "That's interesting! Tell me more."
       : "Based on what we've discussed before, that's a fascinating point.";
-  }
-
-  void _resetToIdle() {
-    setState(() {
-      _currentState = VoiceState.idle;
-      if (!_hasLoadedMemory) {
-        _currentStatus = "Loading your memory...";
-      } else if (_conversationHistory.isNotEmpty) {
-        _currentStatus = "💭 ${_conversationHistory.length} conversations remembered. Tap to continue!";
-      } else {
-        _currentStatus = "Tap to start your first conversation!";
-      }
-    });
-    
-    _pulseController.repeat(reverse: true);
-    _listeningController.stop();
-    _speakingController.stop();
-    _thinkingController.stop();
   }
 
   @override
@@ -652,71 +866,76 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
               ),
             ),
           
-          // Voice Interface
+          // 🎤 Voice Interface with Backchannel Indicator
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Animated Voice Button
-                GestureDetector(
-                  onTap: _currentState == VoiceState.idle ? _startListening : _stopListening,
-                  child: AnimatedBuilder(
-                    animation: Listenable.merge([
-                      _pulseScale,
-                      _listeningPulse,
-                      _speakingBounce,
-                      _thinkingRotation,
-                    ]),
-                    builder: (context, child) {
-                      double scale = 1.0;
-                      Widget icon = Icon(Icons.mic, size: 48, color: Colors.white);
-                      
-                      switch (_currentState) {
-                        case VoiceState.idle:
-                          scale = _pulseScale.value;
-                          break;
-                        case VoiceState.listening:
-                          scale = _listeningPulse.value;
-                          icon = Icon(Icons.mic, size: 48, color: Colors.white);
-                          break;
-                        case VoiceState.processing:
-                          scale = 1.0;
-                          icon = Transform.rotate(
-                            angle: _thinkingRotation.value * 2 * 3.14159,
-                            child: Icon(Icons.psychology, size: 48, color: Colors.white),
-                          );
-                          break;
-                        case VoiceState.speaking:
-                          scale = _speakingBounce.value;
-                          icon = Icon(Icons.volume_up, size: 48, color: Colors.white);
-                          break;
-                        case VoiceState.error:
-                          scale = 1.0;
-                          icon = Icon(Icons.error_outline, size: 48, color: Colors.white);
-                          break;
-                      }
-                      
-                      return Transform.scale(
-                        scale: scale,
-                        child: Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: color.withOpacity(0.3),
-                                blurRadius: 20,
-                                spreadRadius: 5,
-                              ),
-                            ],
-                          ),
-                          child: icon,
+                // Animated Voice Indicator
+                AnimatedBuilder(
+                  animation: Listenable.merge([
+                    _pulseScale,
+                    _listeningPulse,
+                    _speakingBounce,
+                    _thinkingRotation,
+                    _backchannelPulse,
+                  ]),
+                  builder: (context, child) {
+                    double scale = 1.0;
+                    Widget icon = Icon(Icons.mic, size: 48, color: Colors.white);
+                    Color circleColor = color;
+                    
+                    switch (_currentState) {
+                      case VoiceState.idle:
+                        scale = _pulseScale.value;
+                        icon = Icon(Icons.mic, size: 48, color: Colors.white);
+                        break;
+                      case VoiceState.listening:
+                        scale = _listeningPulse.value;
+                        icon = Icon(Icons.mic, size: 48, color: Colors.white);
+                        break;
+                      case VoiceState.processing:
+                        scale = 1.0;
+                        icon = Transform.rotate(
+                          angle: _thinkingRotation.value * 2 * 3.14159,
+                          child: Icon(Icons.psychology, size: 48, color: Colors.white),
+                        );
+                        break;
+                      case VoiceState.speaking:
+                        scale = _speakingBounce.value;
+                        icon = Icon(Icons.volume_up, size: 48, color: Colors.white);
+                        break;
+                      case VoiceState.backchanneling:
+                        scale = _backchannelPulse.value;
+                        icon = Icon(Icons.hearing, size: 48, color: Colors.white);
+                        circleColor = Colors.green; // Different color for backchannel
+                        break;
+                      case VoiceState.error:
+                        scale = 1.0;
+                        icon = Icon(Icons.error_outline, size: 48, color: Colors.white);
+                        break;
+                    }
+                    
+                    return Transform.scale(
+                      scale: scale,
+                      child: Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: circleColor,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: circleColor.withOpacity(0.3),
+                              blurRadius: 20,
+                              spreadRadius: 5,
+                            ),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                        child: icon,
+                      ),
+                    );
+                  },
                 ),
                 
                 SizedBox(height: 32),
@@ -733,6 +952,59 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
                 ),
                 
                 SizedBox(height: 16),
+                
+                // 🎵 Backchannel Status Indicator
+                if (_isBackchannelPlaying)
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.green.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.hearing, color: Colors.green, size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          "Responding naturally...",
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                
+                // Conversation Flow Indicator
+                if (_currentState == VoiceState.listening)
+                  Container(
+                    margin: EdgeInsets.only(top: 16),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: color.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.hearing, color: color, size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          "Always listening - speak naturally",
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 
                 // Last Response
                 if (_lastAiResponse.isNotEmpty)
@@ -762,11 +1034,15 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
 
   @override
   void dispose() {
+    _speechProcessingTimer?.cancel();
+    _backchannelTimer?.cancel();
     _pulseController.dispose();
     _listeningController.dispose();
     _speakingController.dispose();
     _thinkingController.dispose();
+    _backchannelController.dispose();
     _audioPlayer.dispose();
+    _backchannelPlayer.dispose();
     super.dispose();
   }
 }
