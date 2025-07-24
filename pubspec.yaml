@@ -53,6 +53,16 @@ flutter:
   
   assets:
     - assets/voices/premium/
+    - assets/audio/backchannel/of_course_yeah.mp3
+    - assets/audio/backchannel/Hey_you_GoodMorning.mp3
+    - assets/audio/backchannel/damn_no_i_get_it.mp3
+    - assets/audio/backchannel/mhmm_let_me_think.mp3
+    - assets/audio/backchannel/mhmm_let_me_think_2.mp3
+    - assets/audio/backchannel/oh_no_way.mp3
+    - assets/audio/backchannel/happy_laugh_yearight.mp3
+    - assets/audio/backchannel/laughs_yearight.mp3
+    - assets/audio/backchannel/happy_birthday_no_sing.mp3
+    - assets/audio/backchannel/Happy_Birthday_sing.mp3
 
 dependency_overrides:
   awesome_notifications: ^0.10.1

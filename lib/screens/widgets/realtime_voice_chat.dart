@@ -101,43 +101,30 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
   // 🎵 BACKCHANNEL AUDIO CLIPS CONFIGURATION
   Map<String, List<String>> get _audioClipsByType => {
     'acknowledgment': [
-      'assets/audio/backchannel/mhmm_1.mp3',
-      'assets/audio/backchannel/mhmm_2.mp3', 
-      'assets/audio/backchannel/right_1.mp3',
-      'assets/audio/backchannel/right_2.mp3',
-      'assets/audio/backchannel/yeah_1.mp3',
-      'assets/audio/backchannel/yeah_2.mp3',
+      'assets/audio/backchannel/of_course_yeah.mp3',
+      'assets/audio/backchannel/Hey_you_GoodMorning.mp3',
     ],
     'understanding': [
-      'assets/audio/backchannel/i_see_1.mp3',
-      'assets/audio/backchannel/totally_1.mp3',
-      'assets/audio/backchannel/totally_2.mp3',
-      'assets/audio/backchannel/got_it_1.mp3',
+      'assets/audio/backchannel/damn_no_i_get_it.mp3',
     ],
     'curiosity': [
-      'assets/audio/backchannel/oh_1.mp3',
-      'assets/audio/backchannel/interesting_1.mp3',
-      'assets/audio/backchannel/tell_me_more_1.mp3',
+      'assets/audio/backchannel/oh_no_way.mp3',
     ],
     'agreement': [
-      'assets/audio/backchannel/absolutely_1.mp3',
-      'assets/audio/backchannel/exactly_1.mp3',
-      'assets/audio/backchannel/for_sure_1.mp3',
+      'assets/audio/backchannel/of_course_yeah.mp3',
     ],
     'thinking': [
-      'assets/audio/backchannel/hmm_1.mp3',
-      'assets/audio/backchannel/hmm_2.mp3',
-      'assets/audio/backchannel/let_me_think_1.mp3',
+      'assets/audio/backchannel/mhmm_let_me_think.mp3',
+      'assets/audio/backchannel/mhmm_let_me_think_2.mp3',
     ],
     'excitement': [
-      'assets/audio/emotions/excited_1.mp3',
-      'assets/audio/emotions/excited_2.mp3',
-      'assets/audio/emotions/wow_1.mp3',
+      'assets/audio/backchannel/happy_laugh_yearight.mp3',
+      'assets/audio/backchannel/laughs_yearight.mp3',
+      'assets/audio/backchannel/happy_birthday_no_sing.mp3',
+      'assets/audio/backchannel/Happy_Birthday_sing.mp3',
     ],
     'empathy': [
-      'assets/audio/emotions/oh_no_1.mp3',
-      'assets/audio/emotions/i_understand_1.mp3',
-      'assets/audio/emotions/that_sucks_1.mp3',
+      'assets/audio/backchannel/oh_no_way.mp3',
     ]
   };
 
@@ -553,14 +540,14 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
           print("🗣️ Speech result: '${result.recognizedWords}' (final: ${result.finalResult})");
           
           // 🎵 TRIGGER BACKCHANNEL RESPONSE during speech (if meaningful content)
-          if (!_isBackchannelPlaying && 
-              result.recognizedWords.length > 10 && 
-              !_isJustFillerWords(result.recognizedWords) &&
-              _conversationTurn > 0) {
+         // if (!_isBackchannelPlaying && 
+            // result.recognizedWords.length > 10 && 
+             // !_isJustFillerWords(result.recognizedWords) &&
+             // _conversationTurn > 0) {
             
-            print("🎵 Triggering backchannel response during speech");
-            _playBackchannelClip(result.recognizedWords);
-          }
+          //  print("🎵 Triggering backchannel response during speech");
+          //  _playBackchannelClip(result.recognizedWords);
+      //    }
           
           // 🎯 SMART PROCESSING: Only process after real content + silence
           if (result.finalResult && 
@@ -575,9 +562,10 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
                   !_isCurrentlyProcessing) {
                 
                 print("✅ User finished speaking, processing: '$_wordsSpoken'");
+
                 _isCurrentlyProcessing = true;
                 _lastProcessedText = _wordsSpoken;
-                _processUserInput(_wordsSpoken);
+                _processUserInputWithBackchannel(_wordsSpoken);
               } else {
                 print("🔄 User continued speaking, waiting longer...");
               }
@@ -602,6 +590,29 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         _resetToIdleAndRestart();
       });
     }
+  }
+  // 🎵 NEW: Process with instant backchannel response
+  Future<void> _processUserInputWithBackchannel(String userText) async {
+    if (userText.trim().isEmpty) {
+      _resetToIdleAndRestart();
+      return;
+    }
+
+    // 🎵 Play instant backchannel response FIRST
+    if (userText.length > 10 && !_isJustFillerWords(userText)) {
+      try {
+        print("🎵 Playing backchannel for: '$userText'");
+        await _playBackchannelClip(userText);
+        
+        // Small delay to let backchannel finish
+        await Future.delayed(Duration(milliseconds: 800));
+      } catch (e) {
+        print("⚠️ Backchannel failed, continuing: $e");
+      }
+    }
+
+    // Continue with normal processing
+    await _processUserInput(userText);
   }
 
   // 🧠 Process User Input with Backchannel Integration
