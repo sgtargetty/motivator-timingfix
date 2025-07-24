@@ -13,6 +13,106 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
 
+// 🧠 ENHANCED ML SELECTION WITH VARIETY TRACKING
+class BackchannelSelector {
+  static List<String> _recentlyUsed = [];
+  static int _maxHistorySize = 5;
+
+  // 🎯 ADVANCED CONTEXT-AWARE SELECTION
+  static String selectBackchannelClip(String userMessage, int conversationTurn, Map<String, List<String>> clips) {
+    final message = userMessage.toLowerCase();
+    
+    print("🧠 Enhanced ML selecting clip for: '$userMessage' (turn $conversationTurn)");
+    
+    // 🔥 MULTI-FACTOR CONTEXT ANALYSIS
+    
+    // First few turns - establish rapport
+    if (conversationTurn <= 2) {
+      return _getVariedClip(clips['acknowledgment']!, 'acknowledgment');
+    }
+    
+    // 😢 EMOTIONAL DISTRESS DETECTION
+    if (_containsAny(message, ['problem', 'issue', 'stuck', 'wrong', 'bad', 'terrible', 'awful', 'hate', 'frustrated', 'angry', 'sad', 'depressed'])) {
+      return _getVariedClip(clips['empathy']!, 'empathy');
+    }
+    
+    // 🎉 EXCITEMENT & SUCCESS DETECTION
+    if (_containsAny(message, ['awesome', 'amazing', 'great', 'love', 'fantastic', 'incredible', 'perfect', 'yes!', 'finally', 'success', 'won', 'achieved'])) {
+      return _getVariedClip(clips['excitement']!, 'excitement');
+    }
+    
+    // ❓ QUESTIONS & CURIOSITY
+    if (message.contains('?') || _containsAny(message, ['what', 'how', 'why', 'when', 'where', 'tell me', 'explain', 'help me understand'])) {
+      return _getVariedClip(clips['curiosity']!, 'curiosity');
+    }
+    
+    // ✅ AGREEMENT & CONFIRMATION
+    if (_containsAny(message, ['exactly', 'yes', 'right', 'agree', 'correct', 'true', 'definitely', 'absolutely', 'you bet', 'for sure'])) {
+      return _getVariedClip(clips['agreement']!, 'agreement');
+    }
+    
+    // 🤔 COMPLEX THINKING REQUIRED
+    if (message.length > 100 || _containsAny(message, ['complex', 'difficult', 'think about', 'analyze', 'consider', 'strategy', 'plan', 'solution', 'algorithm', 'technical'])) {
+      return _getVariedClip(clips['thinking']!, 'thinking');
+    }
+    
+    // 🔄 FILLER TRANSITIONS (When user pauses or transitions)
+    if (_containsAny(message, ['so', 'well', 'actually', 'basically', 'anyway', 'moving on', 'another thing'])) {
+      return _getVariedClip(clips['filler_transitions']!, 'filler_transitions');
+    }
+    
+    // 🎭 PLAYFUL CONTEXT (Detect humor, flirting, casual)
+    if (_containsAny(message, ['funny', 'joke', 'haha', 'lol', 'cute', 'sweet', 'interesting choice']) && clips.containsKey('playful')) {
+      return _getVariedClip(clips['playful']!, 'playful');
+    }
+    
+    // 📈 CONVERSATION FLOW ADAPTATION
+    if (conversationTurn > 10) {
+      // Later in conversation - more varied responses
+      final categories = ['understanding', 'curiosity', 'agreement', 'thinking'];
+      final randomCategory = categories[math.Random().nextInt(categories.length)];
+      return _getVariedClip(clips[randomCategory]!, randomCategory);
+    }
+    
+    // 🎯 DEFAULT: Understanding with variety
+    return _getVariedClip(clips['understanding']!, 'understanding');
+  }
+
+  // 🔄 VARIETY TRACKING - Prevents Repetition
+  static String _getVariedClip(List<String> clips, String category) {
+    // Filter out recently used clips
+    final availableClips = clips.where((clip) => !_recentlyUsed.contains(clip)).toList();
+    
+    String selectedClip;
+    if (availableClips.isNotEmpty) {
+      selectedClip = availableClips[math.Random().nextInt(availableClips.length)];
+    } else {
+      // If all clips used recently, clear history and pick any
+      _recentlyUsed.clear();
+      selectedClip = clips[math.Random().nextInt(clips.length)];
+    }
+    
+    // Track usage
+    _recentlyUsed.add(selectedClip);
+    if (_recentlyUsed.length > _maxHistorySize) {
+      _recentlyUsed.removeAt(0);
+    }
+    
+    print("🎵 Selected from $category: ${selectedClip.split('/').last}");
+    return selectedClip;
+  }
+
+  // 🎯 HELPER: Check if message contains any keywords
+  static bool _containsAny(String message, List<String> keywords) {
+    return keywords.any((keyword) => message.contains(keyword));
+  }
+}
+
+// For non-blocking async calls
+void unawaited(Future<void> future) {
+  // Explicitly ignore the future
+}
+
 // 🎭 Voice states for UI
 enum VoiceState {
   idle,
@@ -98,34 +198,98 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     },
   };
 
-  // 🎵 BACKCHANNEL AUDIO CLIPS CONFIGURATION
+  // 🎵 COMPREHENSIVE BACKCHANNEL AUDIO CLIPS CONFIGURATION
   Map<String, List<String>> get _audioClipsByType => {
+    // ✅ QUICK ACKNOWLEDGMENTS (Most Frequent)
     'acknowledgment': [
-      'assets/audio/backchannel/of_course_yeah.mp3',
-      'assets/audio/backchannel/Hey_you_GoodMorning.mp3',
+      'assets/audio/backchannel/stronger_Mmhmm_acknowledgement.mp3',
+      'assets/audio/backchannel/happy_Mmhmm_acknowledgement.mp3',
+      'assets/audio/backchannel/clearing_throat_choking_Mhmm.mp3',
+      'assets/audio/backchannel/Got_It_Acknowledge.mp3',
+      'assets/audio/backchannel/Lively_Right_Acknowledge.mp3',
+      'assets/audio/backchannel/Average_I_Get_It.mp3',
+      'assets/audio/backchannel/sarcastic_Mmhmm.mp3', // For variety!
     ],
+
+    // 🧠 UNDERSTANDING & PROCESSING
     'understanding': [
-      'assets/audio/backchannel/damn_no_i_get_it.mp3',
+      'assets/audio/backchannel/I_see_caring.mp3',
+      'assets/audio/backchannel/Average_That_Makes_Sense.mp3',
+      'assets/audio/backchannel/Average_Totally.mp3',
+      'assets/audio/backchannel/Average_Of_Course.mp3',
+      'assets/audio/backchannel/Average_For_Sure.mp3',
+      'assets/audio/backchannel/Average_Absolutely_Version_2.mp3',
     ],
+
+    // 🤔 CURIOSITY & QUESTIONS
     'curiosity': [
-      'assets/audio/backchannel/oh_no_way.mp3',
+      'assets/audio/backchannel/Curious_Really.mp3',
+      'assets/audio/backchannel/Oh_Wow.mp3',
+      'assets/audio/backchannel/Surprised_OOooh.mp3',
+      'assets/audio/backchannel/Very_Intrigued_Thats_a_Good_Question.mp3',
+      'assets/audio/backchannel/Seriously_Question.mp3',
+      'assets/audio/backchannel/No_Way.mp3',
+      'assets/audio/backchannel/Breathing_Whoa_No_Kidding.mp3',
+      'assets/audio/backchannel/I_Had_No_Idea.mp3',
     ],
+
+    // 🎯 AGREEMENT & CONFIRMATION
     'agreement': [
-      'assets/audio/backchannel/of_course_yeah.mp3',
+      'assets/audio/backchannel/Agreement_Exactly.mp3',
+      'assets/audio/backchannel/Totally_Agree.mp3',
+      'assets/audio/backchannel/Youre_Right.mp3',
+      'assets/audio/backchannel/100_Percent.mp3',
+      'assets/audio/backchannel/Definitely.mp3',
+      'assets/audio/backchannel/Upbeat_Absolutely.mp3',
     ],
+
+    // 🤯 THINKING & PROCESSING (Complex Topics)
     'thinking': [
-      'assets/audio/backchannel/mhmm_let_me_think.mp3',
-      'assets/audio/backchannel/mhmm_let_me_think_2.mp3',
+      'assets/audio/backchannel/OH_Let_Me_Process_That.mp3',
+      'assets/audio/backchannel/Laughing_Let_Me_Think_About_That.mp3',
+      'assets/audio/backchannel/Breathing_Chuckle_Let_Me_Think_About_That.mp3',
+      'assets/audio/backchannel/Genuine_Laughing_While_Saying_Let_Me_Think_About_That.mp3',
+      'assets/audio/backchannel/Flirty_Laughing_Let_Me_Think_About_That_Thats_Good_Question.mp3',
+      'assets/audio/backchannel/filler_quick_hmm.mp3',
     ],
+
+    // 🎉 EXCITEMENT & POSITIVE REACTIONS
     'excitement': [
-      'assets/audio/backchannel/happy_laugh_yearight.mp3',
-      'assets/audio/backchannel/laughs_yearight.mp3',
-      'assets/audio/backchannel/happy_birthday_no_sing.mp3',
-      'assets/audio/backchannel/Happy_Birthday_sing.mp3',
+      'assets/audio/backchannel/excited_YEAH.mp3',
+      'assets/audio/backchannel/Thats_Amazing.mp3',
+      'assets/audio/backchannel/Thats_Wild.mp3',
+      'assets/audio/backchannel/Cool.mp3',
+      'assets/audio/backchannel/small_chuckle_yeah.mp3',
     ],
+
+    // 💙 EMPATHY & CARING
     'empathy': [
-      'assets/audio/backchannel/oh_no_way.mp3',
-    ]
+      'assets/audio/backchannel/That_Sucks.mp3',
+      'assets/audio/backchannel/Caring_Empathetic_Oh_Man.mp3',
+      'assets/audio/backchannel/Caring_I_Feel_You.mp3',
+      'assets/audio/backchannel/Caring_I_Understand.mp3',
+      'assets/audio/backchannel/Caring_Thats_Tough.mp3',
+    ],
+
+    // 🔄 FILLER TRANSITIONS (Natural Flow)
+    'filler_transitions': [
+      'assets/audio/backchannel/Filler_Soo.mp3',
+      'assets/audio/backchannel/Filler_The_Way_I_See_It.mp3',
+      'assets/audio/backchannel/Filler_Wellll.mp3',
+      'assets/audio/backchannel/Filler_Yeah_Well.mp3',
+      'assets/audio/backchannel/Filler_Actually.mp3',
+      'assets/audio/backchannel/Filler_I_Mean.mp3',
+      'assets/audio/backchannel/Filer_Heres_The_Thing.mp3',
+      'assets/audio/backchannel/Filler_Mmm_Okay.mp3',
+      'assets/audio/backchannel/Filler_Huh_Lets_See.mp3',
+      'assets/audio/backchannel/Filler_Slightly_Annoyed_Yea_Well.mp3',
+    ],
+
+    // 🎭 PLAYFUL & PERSONALITY
+    'playful': [
+      'assets/audio/backchannel/Filler_Playful_Mmmmm.mp3',
+      'assets/audio/backchannel/Sensual_Moan_Explicit.mp3', // Interesting choice! 😏
+    ],
   };
 
   @override
@@ -151,27 +315,35 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
   // 🎵 PRELOAD AUDIO CLIPS FOR INSTANT PLAYBACK
   Future<void> _preloadAudioClips() async {
     try {
-      print("🎵 Preloading backchannel audio clips...");
+      print("🎵 Preloading ALL backchannel audio clips...");
       
-      // Preload acknowledgment clips (most common)
-      for (String clipPath in _audioClipsByType['acknowledgment']!) {
-        try {
-          await _backchannelPlayer.setSource(AssetSource(clipPath.replaceFirst('assets/', '')));
-          print("✅ Preloaded: $clipPath");
-        } catch (e) {
-          print("⚠️ Failed to preload $clipPath: $e");
+      int totalClips = 0;
+      for (String category in _audioClipsByType.keys) {
+        for (String clipPath in _audioClipsByType[category]!) {
+          try {
+            await _backchannelPlayer.setSource(AssetSource(clipPath.replaceFirst('assets/', '')));
+            totalClips++;
+            print("✅ Preloaded: ${clipPath.split('/').last}");
+          } catch (e) {
+            print("⚠️ Failed to preload $clipPath: $e");
+          }
         }
       }
       
-      print("🎵 Backchannel clips preloaded successfully");
+      print("🎵 Successfully preloaded $totalClips backchannel clips!");
       
     } catch (e) {
       print("❌ Error preloading audio clips: $e");
     }
   }
 
-  // 🧠 ML-BASED CLIP SELECTION
+  // 🧠 ENHANCED ML-BASED CLIP SELECTION
   String _selectBackchannelClip(String userMessage, int conversationTurn) {
+    return BackchannelSelector.selectBackchannelClip(userMessage, conversationTurn, _audioClipsByType);
+  }
+
+  // 🧠 FALLBACK: SIMPLE ML-BASED CLIP SELECTION (If Enhanced Fails)
+  String _selectBackchannelClipSimple(String userMessage, int conversationTurn) {
     final message = userMessage.toLowerCase();
     final clips = _audioClipsByType;
     
@@ -223,39 +395,55 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     return clips[random.nextInt(clips.length)];
   }
 
-  // 🎵 INSTANT BACKCHANNEL RESPONSE
+  // 🎵 INSTANT BACKCHANNEL RESPONSE (Non-blocking)
   Future<void> _playBackchannelClip(String userMessage) async {
     if (_isBackchannelPlaying) return;
     
     setState(() {
+      if (!mounted) return;
       _currentState = VoiceState.backchanneling;
-      _currentStatus = "Listening and responding naturally...";
+      _currentStatus = "Responding naturally...";
       _isBackchannelPlaying = true;
     });
     
     try {
-      // Select appropriate clip using ML
+      // Select appropriate clip using Enhanced ML
       final clipPath = _selectBackchannelClip(userMessage, _conversationTurn);
-      print("🎵 Playing backchannel clip: $clipPath");
+      print("🚀 INSTANT: Playing backchannel clip: $clipPath");
       
       _backchannelController.repeat(reverse: true);
       
-      // Play the instant response clip
+      // Play the instant response clip (non-blocking)
       final assetPath = clipPath.replaceFirst('assets/', '');
-      await _backchannelPlayer.play(AssetSource(assetPath));
+      unawaited(_backchannelPlayer.play(AssetSource(assetPath)));
       
-      // Wait for clip to finish
-      await _backchannelPlayer.onPlayerComplete.first;
-      
-      print("✅ Backchannel clip completed");
+      // Don't wait for completion - let it play while backend processes
+      _backchannelPlayer.onPlayerComplete.first.then((_) {
+        print("✅ Backchannel clip completed in background");
+        if (mounted) {
+          setState(() {
+            _isBackchannelPlaying = false;
+          });
+          _backchannelController.stop();
+        }
+      }).catchError((e) {
+        print("❌ Backchannel completion error: $e");
+        if (mounted) {
+          setState(() {
+            _isBackchannelPlaying = false;
+          });
+          _backchannelController.stop();
+        }
+      });
       
     } catch (e) {
       print("❌ Error playing backchannel clip: $e");
-    } finally {
-      setState(() {
-        _isBackchannelPlaying = false;
-      });
-      _backchannelController.stop();
+      if (mounted) {
+        setState(() {
+          _isBackchannelPlaying = false;
+        });
+        _backchannelController.stop();
+      }
     }
   }
 
@@ -539,16 +727,6 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
           
           print("🗣️ Speech result: '${result.recognizedWords}' (final: ${result.finalResult})");
           
-          // 🎵 TRIGGER BACKCHANNEL RESPONSE during speech (if meaningful content)
-         // if (!_isBackchannelPlaying && 
-            // result.recognizedWords.length > 10 && 
-             // !_isJustFillerWords(result.recognizedWords) &&
-             // _conversationTurn > 0) {
-            
-          //  print("🎵 Triggering backchannel response during speech");
-          //  _playBackchannelClip(result.recognizedWords);
-      //    }
-          
           // 🎯 SMART PROCESSING: Only process after real content + silence
           if (result.finalResult && 
               !_isCurrentlyProcessing && 
@@ -591,28 +769,36 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
       });
     }
   }
-  // 🎵 NEW: Process with instant backchannel response
+
+  // 🎵 NEW: Instant backchannel with parallel processing  
   Future<void> _processUserInputWithBackchannel(String userText) async {
     if (userText.trim().isEmpty) {
       _resetToIdleAndRestart();
       return;
     }
 
-    // 🎵 Play instant backchannel response FIRST
+    // 🚀 INSTANT: Start backchannel and backend call simultaneously
     if (userText.length > 10 && !_isJustFillerWords(userText)) {
       try {
-        print("🎵 Playing backchannel for: '$userText'");
-        await _playBackchannelClip(userText);
+        print("🚀 Starting INSTANT backchannel + backend call in parallel");
         
-        // Small delay to let backchannel finish
-        await Future.delayed(Duration(milliseconds: 800));
+        // Start both immediately - no waiting!
+        final backchannelFuture = _playBackchannelClip(userText);
+        final backendFuture = _processUserInput(userText);
+        
+        // Let them run in parallel - don't wait for backchannel to finish
+        unawaited(backchannelFuture); // Fire and forget
+        await backendFuture; // Wait for the real processing
+        
       } catch (e) {
-        print("⚠️ Backchannel failed, continuing: $e");
+        print("⚠️ Parallel processing error: $e");
+        // Fallback to normal processing
+        await _processUserInput(userText);
       }
+    } else {
+      // Short messages skip backchannel
+      await _processUserInput(userText);
     }
-
-    // Continue with normal processing
-    await _processUserInput(userText);
   }
 
   // 🧠 Process User Input with Backchannel Integration
@@ -634,11 +820,6 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     try {
       print("🧠 Processing: '$userText' with ${widget.personality}");
       
-      // 🎵 Play thinking backchannel if no backchannel played yet
-      if (!_isBackchannelPlaying && _conversationTurn > 0) {
-        _playBackchannelClip("thinking about: " + userText);
-      }
-      
       final backendResponse = await _callBackendAPIWithMemory(userText);
       
       if (backendResponse != null && backendResponse['success'] == true) {
@@ -655,29 +836,37 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         print("🎯 AI Response: '$aiResponse'");
         print("🧠 Memory Stats: $memoryStats");
         print("🔊 Audio URL received: ${audioUrl != null ? 'Yes' : 'No'}");
-        
-        // 🎵 WAIT for any backchannel to finish before playing real response
+
+        // 🎵 SMART WAIT: Only wait if backchannel is still playing after backend is ready
         if (_isBackchannelPlaying) {
-          print("🎵 Waiting for backchannel to finish...");
-          while (_isBackchannelPlaying && mounted) {
+          print("🎵 Backend ready, waiting for backchannel to finish naturally...");
+          
+          // Wait max 3 seconds for backchannel to finish
+          int waitCount = 0;
+          while (_isBackchannelPlaying && mounted && waitCount < 30) {
             await Future.delayed(Duration(milliseconds: 100));
+            waitCount++;
           }
+          
+          print("🔍 DEBUG: Backchannel wait completed. Still playing: $_isBackchannelPlaying");
         }
-        
-        // Play real response
-        if (audioUrl != null) {
-          await _playElevenLabsAudio(audioUrl);
+
+        // Play real response - ENSURE THIS ALWAYS HAPPENS
+        if (audioUrl != null && mounted) {
+          print("🎵 Starting ElevenLabs audio playback...");
+          try {
+            await _playElevenLabsAudio(audioUrl);
+            print("✅ ElevenLabs audio completed successfully");
+          } catch (e) {
+            print("❌ ElevenLabs audio failed: $e");
+            print("🎵 Falling back to TTS");
+            await _simulateVoice(aiResponse);
+          }
         } else {
-          print("🎵 No audio URL, using fallback TTS");
+          print("🎵 No audio URL or not mounted, using fallback TTS");
           await _simulateVoice(aiResponse);
         }
-        
-        if (memoryStats != null && memoryStats['totalConversations'] > 0) {
-          setState(() {
-            _currentStatus = "💭 ${memoryStats['totalConversations']} conversations remembered";
-          });
-        }
-        
+
       } else {
         print("🎯 Backend failed, using smart mock response");
         final mockResponse = _getSmartMockResponse(userText);
