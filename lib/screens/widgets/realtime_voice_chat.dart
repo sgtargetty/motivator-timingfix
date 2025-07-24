@@ -13,73 +13,138 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
 
-// 🧠 ENHANCED ML SELECTION WITH VARIETY TRACKING
+// 🧠 ENHANCED BACKCHANNEL SELECTOR WITH DEEPER EMOTIONAL INTELLIGENCE
 class BackchannelSelector {
   static List<String> _recentlyUsed = [];
-  static int _maxHistorySize = 5;
+  static int _maxHistorySize = 8; // Increased for better variety tracking
+  static Map<String, int> _categoryUsage = {}; // Track category frequency
 
-  // 🎯 ADVANCED CONTEXT-AWARE SELECTION
+  // 🎯 ADVANCED MULTI-LAYER CONTEXT ANALYSIS
   static String selectBackchannelClip(String userMessage, int conversationTurn, Map<String, List<String>> clips) {
     final message = userMessage.toLowerCase();
     
-    print("🧠 Enhanced ML selecting clip for: '$userMessage' (turn $conversationTurn)");
+    print("🧠 ENHANCED ML analyzing: '$userMessage' (turn $conversationTurn)");
     
-    // 🔥 MULTI-FACTOR CONTEXT ANALYSIS
+    // 🚀 PRIORITY EMOTIONAL DETECTION (Most Important First)
     
-    // First few turns - establish rapport
-    if (conversationTurn <= 2) {
-      return _getVariedClip(clips['acknowledgment']!, 'acknowledgment');
+    // 😢 HIGH PRIORITY: Emotional Distress - immediate empathy
+    if (_detectEmotionalDistress(message)) {
+      return _selectWithVariety(clips['empathy']!, 'empathy');
     }
     
-    // 😢 EMOTIONAL DISTRESS DETECTION
-    if (_containsAny(message, ['problem', 'issue', 'stuck', 'wrong', 'bad', 'terrible', 'awful', 'hate', 'frustrated', 'angry', 'sad', 'depressed'])) {
-      return _getVariedClip(clips['empathy']!, 'empathy');
+    // 🎉 HIGH PRIORITY: Excitement & Success - celebrate with them
+    if (_detectExcitement(message)) {
+      return _selectWithVariety(clips['excitement']!, 'excitement');
     }
     
-    // 🎉 EXCITEMENT & SUCCESS DETECTION
-    if (_containsAny(message, ['awesome', 'amazing', 'great', 'love', 'fantastic', 'incredible', 'perfect', 'yes!', 'finally', 'success', 'won', 'achieved'])) {
-      return _getVariedClip(clips['excitement']!, 'excitement');
+    // 💕 ROMANTIC/INTIMATE - handle specially 
+    if (_detectIntimateContext(message)) {
+      if (clips.containsKey('playful') && clips['playful']!.isNotEmpty) {
+        return _selectWithVariety(clips['playful']!, 'playful');
+      }
+      return _selectWithVariety(clips['excitement']!, 'excitement');
     }
     
-    // ❓ QUESTIONS & CURIOSITY
-    if (message.contains('?') || _containsAny(message, ['what', 'how', 'why', 'when', 'where', 'tell me', 'explain', 'help me understand'])) {
-      return _getVariedClip(clips['curiosity']!, 'curiosity');
+    // ❓ QUESTIONS & CURIOSITY - show engagement
+    if (_detectQuestion(message)) {
+      return _selectWithVariety(clips['curiosity']!, 'curiosity');
     }
     
-    // ✅ AGREEMENT & CONFIRMATION
-    if (_containsAny(message, ['exactly', 'yes', 'right', 'agree', 'correct', 'true', 'definitely', 'absolutely', 'you bet', 'for sure'])) {
-      return _getVariedClip(clips['agreement']!, 'agreement');
+    // ✅ AGREEMENT & CONFIRMATION - validate their thoughts
+    if (_detectAgreement(message)) {
+      return _selectWithVariety(clips['agreement']!, 'agreement');
     }
     
-    // 🤔 COMPLEX THINKING REQUIRED
-    if (message.length > 100 || _containsAny(message, ['complex', 'difficult', 'think about', 'analyze', 'consider', 'strategy', 'plan', 'solution', 'algorithm', 'technical'])) {
-      return _getVariedClip(clips['thinking']!, 'thinking');
+    // 🤔 COMPLEX THINKING - give thoughtful response
+    if (_detectComplexThinking(message)) {
+      return _selectWithVariety(clips['thinking']!, 'thinking');
     }
     
-    // 🔄 FILLER TRANSITIONS (When user pauses or transitions)
-    if (_containsAny(message, ['so', 'well', 'actually', 'basically', 'anyway', 'moving on', 'another thing'])) {
-      return _getVariedClip(clips['filler_transitions']!, 'filler_transitions');
-    }
-    
-    // 🎭 PLAYFUL CONTEXT (Detect humor, flirting, casual)
-    if (_containsAny(message, ['funny', 'joke', 'haha', 'lol', 'cute', 'sweet', 'interesting choice']) && clips.containsKey('playful')) {
-      return _getVariedClip(clips['playful']!, 'playful');
+    // 🔄 CONVERSATION TRANSITIONS - natural flow
+    if (_detectTransition(message)) {
+      return _selectWithVariety(clips['filler_transitions']!, 'filler_transitions');
     }
     
     // 📈 CONVERSATION FLOW ADAPTATION
-    if (conversationTurn > 10) {
-      // Later in conversation - more varied responses
-      final categories = ['understanding', 'curiosity', 'agreement', 'thinking'];
-      final randomCategory = categories[math.Random().nextInt(categories.length)];
-      return _getVariedClip(clips[randomCategory]!, randomCategory);
+    if (conversationTurn <= 3) {
+      // Early conversation - more acknowledgment with variety
+      return _mixedResponse(['acknowledgment', 'understanding'], clips);
+    } else if (conversationTurn > 8) {
+      // Deep conversation - more varied emotional responses
+      return _mixedResponse(['understanding', 'curiosity', 'thinking', 'agreement'], clips);
     }
     
-    // 🎯 DEFAULT: Understanding with variety
-    return _getVariedClip(clips['understanding']!, 'understanding');
+    // 🎯 DEFAULT: Smart understanding with emotional awareness
+    return _selectWithVariety(clips['understanding']!, 'understanding');
   }
 
-  // 🔄 VARIETY TRACKING - Prevents Repetition
-  static String _getVariedClip(List<String> clips, String category) {
+  // 🔍 ENHANCED EMOTION DETECTION METHODS
+  
+  static bool _detectEmotionalDistress(String message) {
+    final distressKeywords = [
+      'problem', 'issue', 'stuck', 'wrong', 'bad', 'terrible', 'awful', 'hate', 
+      'frustrated', 'angry', 'sad', 'depressed', 'upset', 'worried', 'stressed',
+      'difficult', 'hard', 'tough', 'struggle', 'can\'t', 'won\'t work', 'broken'
+    ];
+    return _containsAny(message, distressKeywords);
+  }
+
+  static bool _detectExcitement(String message) {
+    final excitementKeywords = [
+      'awesome', 'amazing', 'great', 'love', 'fantastic', 'incredible', 'perfect',
+      'yes!', 'finally', 'success', 'won', 'achieved', 'brilliant', 'excellent',
+      'wonderful', 'thrilled', 'excited', 'can\'t wait', 'so good', 'best'
+    ];
+    return _containsAny(message, excitementKeywords);
+  }
+
+  static bool _detectIntimateContext(String message) {
+    final intimateKeywords = [
+      'hold hands', 'together', 'date', 'romantic', 'dinner', 'kiss', 'love',
+      'together maybe', 'just us', 'intimate', 'close', 'sweet', 'cute',
+      'stop calling it virtual' // User's specific hint about wanting real connection
+    ];
+    return _containsAny(message, intimateKeywords);
+  }
+
+  static bool _detectQuestion(String message) {
+    return message.contains('?') || _containsAny(message, [
+      'what', 'how', 'why', 'when', 'where', 'which', 'who',
+      'tell me', 'explain', 'help me understand', 'do you think',
+      'what about you', 'your thoughts', 'what do you'
+    ]);
+  }
+
+  static bool _detectAgreement(String message) {
+    final agreementKeywords = [
+      'exactly', 'yes', 'right', 'agree', 'correct', 'true', 'definitely',
+      'absolutely', 'you bet', 'for sure', 'totally', 'sounds good',
+      'sounds like a plan', 'that works', 'perfect'
+    ];
+    return _containsAny(message, agreementKeywords);
+  }
+
+  static bool _detectComplexThinking(String message) {
+    return message.length > 80 || _containsAny(message, [
+      'complex', 'analyze', 'consider', 'strategy', 'plan', 'solution',
+      'algorithm', 'technical', 'think about', 'philosophy', 'theory',
+      'complicated', 'sophisticated', 'detailed'
+    ]);
+  }
+
+  static bool _detectTransition(String message) {
+    final transitionKeywords = [
+      'so', 'well', 'actually', 'basically', 'anyway', 'moving on',
+      'another thing', 'by the way', 'speaking of', 'that reminds me'
+    ];
+    return _containsAny(message, transitionKeywords);
+  }
+
+  // 🎲 SMART VARIETY SELECTION WITH CATEGORY BALANCING
+  static String _selectWithVariety(List<String> clips, String category) {
+    // Track category usage for better variety
+    _categoryUsage[category] = (_categoryUsage[category] ?? 0) + 1;
+    
     // Filter out recently used clips
     final availableClips = clips.where((clip) => !_recentlyUsed.contains(clip)).toList();
     
@@ -87,22 +152,39 @@ class BackchannelSelector {
     if (availableClips.isNotEmpty) {
       selectedClip = availableClips[math.Random().nextInt(availableClips.length)];
     } else {
-      // If all clips used recently, clear history and pick any
+      // If all clips used recently, clear oldest and pick any
       _recentlyUsed.clear();
       selectedClip = clips[math.Random().nextInt(clips.length)];
     }
     
-    // Track usage
+    // Advanced tracking
     _recentlyUsed.add(selectedClip);
     if (_recentlyUsed.length > _maxHistorySize) {
       _recentlyUsed.removeAt(0);
     }
     
-    print("🎵 Selected from $category: ${selectedClip.split('/').last}");
+    print("🎵 SMART SELECTION: $category → ${selectedClip.split('/').last}");
+    print("🎭 Category usage: $_categoryUsage");
     return selectedClip;
   }
 
-  // 🎯 HELPER: Check if message contains any keywords
+  // 🎯 MIXED RESPONSE FOR CONVERSATIONAL VARIETY
+  static String _mixedResponse(List<String> categories, Map<String, List<String>> clips) {
+    // Choose category with least recent usage
+    String chosenCategory = categories.first;
+    int minUsage = _categoryUsage[chosenCategory] ?? 0;
+    
+    for (String category in categories) {
+      int usage = _categoryUsage[category] ?? 0;
+      if (usage < minUsage) {
+        minUsage = usage;
+        chosenCategory = category;
+      }
+    }
+    
+    return _selectWithVariety(clips[chosenCategory]!, chosenCategory);
+  }
+
   static bool _containsAny(String message, List<String> keywords) {
     return keywords.any((keyword) => message.contains(keyword));
   }
@@ -312,6 +394,82 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     });
   }
 
+  // 🧹 CLEAN AI RESPONSE TEXT - Remove Emotion Markers
+  String _cleanAIResponseText(String aiResponse) {
+    String cleanedText = aiResponse;
+    
+    // List of common emotion markers to remove
+    final emotionMarkers = [
+      // Laughter
+      r'\[Laughs?\]',
+      r'\[Chuckles?\]',
+      r'\[Giggles?\]',
+      r'\[Snickers?\]',
+      r'\[Cackles?\]',
+      
+      // Vocal expressions
+      r'\[Sighs?\]',
+      r'\[Gasps?\]',
+      r'\[Whispers?\]',
+      r'\[Mutters?\]',
+      r'\[Hums?\]',
+      
+      // Physical actions
+      r'\[Smiles?\]',
+      r'\[Grins?\]',
+      r'\[Nods?\]',
+      r'\[Shrugs?\]',
+      r'\[Winks?\]',
+      
+      // Pauses and timing
+      r'\[Pauses?\]',
+      r'\[Long pause\]',
+      r'\[Brief pause\]',
+      r'\[Silence\]',
+      
+      // Emotional states
+      r'\[Excited\]',
+      r'\[Surprised\]',
+      r'\[Confused\]',
+      r'\[Thoughtful\]',
+      r'\[Curious\]',
+      
+      // Generic patterns - catches any [word] or [multiple words]
+      r'\[[A-Za-z\s]+\]',
+      
+      // Asterisk actions like *laughs* or *chuckles*
+      r'\*[A-Za-z\s]+\*',
+      
+      // Parenthetical actions like (laughs) or (chuckles)
+      r'\([A-Za-z\s]*(?:laughs?|chuckles?|sighs?|smiles?|grins?)[A-Za-z\s]*\)',
+    ];
+    
+    // Remove all emotion markers using regex
+    for (String pattern in emotionMarkers) {
+      cleanedText = cleanedText.replaceAll(RegExp(pattern, caseSensitive: false), '');
+    }
+    
+    // Clean up extra spaces and formatting
+    cleanedText = cleanedText
+        .replaceAll(RegExp(r'\s+'), ' ')  // Multiple spaces → single space
+        .replaceAll(RegExp(r'\s*,\s*'), ', ')  // Fix comma spacing
+        .replaceAll(RegExp(r'\s*\.\s*'), '. ')  // Fix period spacing
+        .replaceAll(RegExp(r'\s*!\s*'), '! ')   // Fix exclamation spacing
+        .replaceAll(RegExp(r'\s*\?\s*'), '? ')  // Fix question spacing
+        .trim();
+    
+    // Remove empty sentences that might be left behind
+    cleanedText = cleanedText
+        .replaceAll(RegExp(r'\.\s*\.'), '.')
+        .replaceAll(RegExp(r'^\s*[.,!?]\s*'), '')
+        .trim();
+    
+    print("🧹 Original text: '$aiResponse'");
+    print("🧹 Cleaned text: '$cleanedText'");
+    
+    return cleanedText;
+  }
+
   // 🎵 PRELOAD AUDIO CLIPS FOR INSTANT PLAYBACK
   Future<void> _preloadAudioClips() async {
     try {
@@ -339,7 +497,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
 
   // 🧠 ENHANCED ML-BASED CLIP SELECTION
   String _selectBackchannelClip(String userMessage, int conversationTurn) {
-    return BackchannelSelector.selectBackchannelClip(userMessage, conversationTurn, _audioClipsByType);
+   return BackchannelSelector.selectBackchannelClip(userMessage, conversationTurn, _audioClipsByType);
   }
 
   // 🧠 FALLBACK: SIMPLE ML-BASED CLIP SELECTION (If Enhanced Fails)
@@ -395,57 +553,62 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     return clips[random.nextInt(clips.length)];
   }
 
-  // 🎵 INSTANT BACKCHANNEL RESPONSE (Non-blocking)
+  // 🎵 ENHANCED BACKCHANNEL PLAYBACK (Replace your existing method)
   Future<void> _playBackchannelClip(String userMessage) async {
     if (_isBackchannelPlaying) return;
-    
+  
+    // Safer state management
+    if (!mounted) return;
     setState(() {
-      if (!mounted) return;
       _currentState = VoiceState.backchanneling;
       _currentStatus = "Responding naturally...";
       _isBackchannelPlaying = true;
     });
-    
+  
     try {
-      // Select appropriate clip using Enhanced ML
+      // Enhanced clip selection with new ML
       final clipPath = _selectBackchannelClip(userMessage, _conversationTurn);
       print("🚀 INSTANT: Playing backchannel clip: $clipPath");
-      
+    
+      // Smoother animation
       _backchannelController.repeat(reverse: true);
-      
-      // Play the instant response clip (non-blocking)
+    
+      // NON-BLOCKING audio playback
       final assetPath = clipPath.replaceFirst('assets/', '');
       unawaited(_backchannelPlayer.play(AssetSource(assetPath)));
-      
-      // Don't wait for completion - let it play while backend processes
+    
+      // Improved completion handling
       _backchannelPlayer.onPlayerComplete.first.then((_) {
-        print("✅ Backchannel clip completed in background");
+        print("✅ Backchannel completed smoothly");
         if (mounted) {
           setState(() {
             _isBackchannelPlaying = false;
-          });
-          _backchannelController.stop();
-        }
-      }).catchError((e) {
-        print("❌ Backchannel completion error: $e");
-        if (mounted) {
-          setState(() {
-            _isBackchannelPlaying = false;
-          });
-          _backchannelController.stop();
-        }
-      });
-      
-    } catch (e) {
-      print("❌ Error playing backchannel clip: $e");
+            if (_currentState == VoiceState.backchanneling) {
+              _currentState = VoiceState.processing; // Smooth transition
+            }
+        });
+        _backchannelController.stop();
+      }
+    }).catchError((e) {
+      print("❌ Backchannel error: $e");
       if (mounted) {
         setState(() {
           _isBackchannelPlaying = false;
         });
         _backchannelController.stop();
       }
+    });
+    
+  } catch (e) {
+    print("❌ Error playing backchannel: $e");
+    if (mounted) {
+      setState(() {
+        _isBackchannelPlaying = false;
+      });
+      _backchannelController.stop();
     }
   }
+}
 
   // 🗣️ Check for filler words
   bool _isJustFillerWords(String text) {
@@ -828,7 +991,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         final memoryStats = backendResponse['memoryStats'];
         
         setState(() {
-          _lastAiResponse = aiResponse;
+          _lastAiResponse = _cleanAIResponseText(aiResponse);  // 🧹 Clean the text!
         });
         
         _addToConversationHistory(userText, aiResponse);
@@ -919,6 +1082,9 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         'conversationHistory': flatHistory,
         'hasMemory': _conversationHistory.isNotEmpty,
         'totalConversations': _totalConversations,
+        'responseStyle': 'conversational_short',
+        'maxResponseLength': 100,
+        'preferBrevity': true,
       };
 
       print("🌐 Sending request with memory:");
@@ -992,8 +1158,9 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
     _speakingController.repeat(reverse: true);
     
     try {
-      print("🎵 TTS speaking: '$text'");
-      await _flutterTts.speak(text);
+      final cleanedText = _cleanAIResponseText(text);  // 🧹 Clean before TTS
+      print("🎵 TTS speaking: '$cleanedText'");
+      await _flutterTts.speak(cleanedText);
     } catch (e) {
       print("❌ TTS error: $e");
       _resetToIdleAndRestart();
@@ -1008,25 +1175,29 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
       final lastConversation = _conversationHistory.last;
       if (lastConversation['user']?.toLowerCase().contains('hello') == true ||
           lastConversation['user']?.toLowerCase().contains('hi') == true) {
-        return "Good to see you again! What's on your mind today?";
+        final mockResponse = "Good to see you again! What's on your mind today?";
+        return _cleanAIResponseText(mockResponse);  // 🧹 Clean mock responses too
       }
     }
     
     if (input.contains('hello') || input.contains('hi')) {
-      return _conversationHistory.isEmpty 
+      final mockResponse = _conversationHistory.isEmpty 
         ? "Hello! I'm ${widget.personality}. Great to meet you!"
         : "Welcome back! I remember our previous conversations.";
+      return _cleanAIResponseText(mockResponse);  // 🧹 Clean mock responses too
     }
     
     if (input.contains('how are you')) {
-      return _conversationHistory.isEmpty
+      final mockResponse = _conversationHistory.isEmpty
         ? "I'm doing well and excited to get to know you!"
         : "I'm great! I've been thinking about our last conversation.";
+      return _cleanAIResponseText(mockResponse);  // 🧹 Clean mock responses too
     }
     
-    return _conversationHistory.isEmpty
+    final mockResponse = _conversationHistory.isEmpty
       ? "That's interesting! Tell me more."
       : "Based on what we've discussed before, that's a fascinating point.";
+    return _cleanAIResponseText(mockResponse);  // 🧹 Clean mock responses too
   }
 
   @override

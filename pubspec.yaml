@@ -53,6 +53,8 @@ flutter:
   
   assets:
     - assets/voices/premium/
+    # 🎵 COMPREHENSIVE BACKCHANNEL AUDIO LIBRARY
+    # Original files (keep these)
     - assets/audio/backchannel/of_course_yeah.mp3
     - assets/audio/backchannel/Hey_you_GoodMorning.mp3
     - assets/audio/backchannel/damn_no_i_get_it.mp3
@@ -63,6 +65,79 @@ flutter:
     - assets/audio/backchannel/laughs_yearight.mp3
     - assets/audio/backchannel/happy_birthday_no_sing.mp3
     - assets/audio/backchannel/Happy_Birthday_sing.mp3
+    
+    # ✅ ACKNOWLEDGMENT CLIPS
+    - assets/audio/backchannel/stronger_Mmhmm_acknowledgement.mp3
+    - assets/audio/backchannel/happy_Mmhmm_acknowledgement.mp3
+    - assets/audio/backchannel/clearing_throat_choking_Mhmm.mp3
+    - assets/audio/backchannel/Got_It_Acknowledge.mp3
+    - assets/audio/backchannel/Lively_Right_Acknowledge.mp3
+    - assets/audio/backchannel/Average_I_Get_It.mp3
+    - assets/audio/backchannel/sarcastic_Mmhmm.mp3
+    
+    # 🧠 UNDERSTANDING & PROCESSING
+    - assets/audio/backchannel/I_see_caring.mp3
+    - assets/audio/backchannel/Average_That_Makes_Sense.mp3
+    - assets/audio/backchannel/Average_Totally.mp3
+    - assets/audio/backchannel/Average_Of_Course.mp3
+    - assets/audio/backchannel/Average_For_Sure.mp3
+    - assets/audio/backchannel/Average_Absolutely_Version_2.mp3
+    
+    # 🤔 CURIOSITY & QUESTIONS
+    - assets/audio/backchannel/Curious_Really.mp3
+    - assets/audio/backchannel/Oh_Wow.mp3
+    - assets/audio/backchannel/Surprised_OOooh.mp3
+    - assets/audio/backchannel/Very_Intrigued_Thats_a_Good_Question.mp3
+    - assets/audio/backchannel/Seriously_Question.mp3
+    - assets/audio/backchannel/No_Way.mp3
+    - assets/audio/backchannel/Breathing_Whoa_No_Kidding.mp3
+    - assets/audio/backchannel/I_Had_No_Idea.mp3
+    
+    # 🎯 AGREEMENT & CONFIRMATION
+    - assets/audio/backchannel/Agreement_Exactly.mp3
+    - assets/audio/backchannel/Totally_Agree.mp3
+    - assets/audio/backchannel/Youre_Right.mp3
+    - assets/audio/backchannel/100_Percent.mp3
+    - assets/audio/backchannel/Definitely.mp3
+    - assets/audio/backchannel/Upbeat_Absolutely.mp3
+    
+    # 🤯 THINKING & PROCESSING (Complex Topics)
+    - assets/audio/backchannel/OH_Let_Me_Process_That.mp3
+    - assets/audio/backchannel/Laughing_Let_Me_Think_About_That.mp3
+    - assets/audio/backchannel/Breathing_Chuckle_Let_Me_Think_About_That.mp3
+    - assets/audio/backchannel/Genuine_Laughing_While_Saying_Let_Me_Think_About_That.mp3
+    - assets/audio/backchannel/Flirty_Laughing_Let_Me_Think_About_That_Thats_Good_Question.mp3
+    - assets/audio/backchannel/filler_quick_hmm.mp3
+    
+    # 🎉 EXCITEMENT & POSITIVE REACTIONS
+    - assets/audio/backchannel/excited_YEAH.mp3
+    - assets/audio/backchannel/Thats_Amazing.mp3
+    - assets/audio/backchannel/Thats_Wild.mp3
+    - assets/audio/backchannel/Cool.mp3
+    - assets/audio/backchannel/small_chuckle_yeah.mp3
+    
+    # 💙 EMPATHY & CARING
+    - assets/audio/backchannel/That_Sucks.mp3
+    - assets/audio/backchannel/Caring_Empathetic_Oh_Man.mp3
+    - assets/audio/backchannel/Caring_I_Feel_You.mp3
+    - assets/audio/backchannel/Caring_I_Understand.mp3
+    - assets/audio/backchannel/Caring_Thats_Tough.mp3
+    
+    # 🔄 FILLER TRANSITIONS (Natural Flow)
+    - assets/audio/backchannel/Filler_Soo.mp3
+    - assets/audio/backchannel/Filler_The_Way_I_See_It.mp3
+    - assets/audio/backchannel/Filler_Wellll.mp3
+    - assets/audio/backchannel/Filler_Yeah_Well.mp3
+    - assets/audio/backchannel/Filler_Actually.mp3
+    - assets/audio/backchannel/Filler_I_Mean.mp3
+    - assets/audio/backchannel/Filer_Heres_The_Thing.mp3
+    - assets/audio/backchannel/Filler_Mmm_Okay.mp3
+    - assets/audio/backchannel/Filler_Huh_Lets_See.mp3
+    - assets/audio/backchannel/Filler_Slightly_Annoyed_Yea_Well.mp3
+    
+    # 🎭 PLAYFUL & PERSONALITY
+    - assets/audio/backchannel/Filler_Playful_Mmmm.mp3
+    - assets/audio/backchannel/Sensual_Moan_Explicit.mp3
 
 dependency_overrides:
   awesome_notifications: ^0.10.1
