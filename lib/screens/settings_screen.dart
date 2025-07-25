@@ -1217,6 +1217,10 @@ class _MemoryRelationshipManagerState extends State<MemoryRelationshipManager>
   Map<String, dynamic> _relationshipData = {};
   Map<String, dynamic> _memoryStats = {};
   List<Map<String, dynamic>> _customMemories = []; // 🧠 NEW: Custom memories
+  // 🔍 Search functionality
+  String _currentSearchQuery = '';
+  List<Map<String, dynamic>> _filteredConversations = [];
+  bool _isSearching = false;
   bool _isLoading = true;
   
   // 🎭 Relationship Levels
@@ -1548,7 +1552,7 @@ class _MemoryRelationshipManagerState extends State<MemoryRelationshipManager>
     return ListView(
       padding: EdgeInsets.all(20),
       children: [
-        // Stats Card
+        // Stats Card with Search
         Container(
           width: double.infinity,
           padding: EdgeInsets.all(16),
@@ -1564,46 +1568,185 @@ class _MemoryRelationshipManagerState extends State<MemoryRelationshipManager>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Conversation Statistics',
+                    _isSearching ? 'Search Results' : 'Conversation Statistics',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  GestureDetector(
-                    onTap: _showSearchDialog,
-                    child: Container(
-                      padding: EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Color(0xFF4A90E2).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
+                  Row(
+                    children: [
+                      if (_isSearching) ...[
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isSearching = false;
+                              _filteredConversations.clear();
+                              _currentSearchQuery = '';
+                            });
+                          },
+                          child: Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(Icons.clear, color: Colors.orange, size: 20),
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                      ],
+                      GestureDetector(
+                        onTap: _showSearchDialog,
+                        child: Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Color(0xFF4A90E2).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(Icons.search, color: Color(0xFF4A90E2), size: 20),
+                        ),
                       ),
-                      child: Icon(Icons.search, color: Color(0xFF4A90E2), size: 20),
-                    ),
+                    ],
                   ),
                 ],
               ),
               SizedBox(height: 12),
-              Text(
-                'Total Conversations: ${_memoryStats['totalConversations']}',
-                style: TextStyle(color: Color(0xFF8B9DC3)),
-              ),
-              Text(
-                'Local History: ${_memoryStats['localConversations']} stored',
-                style: TextStyle(color: Color(0xFF8B9DC3)),
-              ),
-              Text(
-                'Days Chatting: ${_memoryStats['daysSinceFirstChat']}',
-                style: TextStyle(color: Color(0xFF8B9DC3)),
-              ),
+              if (_isSearching) ...[
+                Text(
+                  'Searching for: "$_currentSearchQuery"',
+                  style: TextStyle(color: Color(0xFF8B9DC3), fontSize: 14),
+                ),
+                Text(
+                  'Found ${_filteredConversations.length} matches',
+                  style: TextStyle(color: Color(0xFF4A90E2), fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ] else ...[
+                _buildMemoryStatRow('Total Conversations', '${_memoryStats['totalConversations']}'),
+                _buildMemoryStatRow('Total Messages', '${_memoryStats['totalMessages']}'),
+                _buildMemoryStatRow('Days Since First Chat', '${_memoryStats['daysSinceFirstChat']}'),
+                _buildMemoryStatRow('Avg Messages/Conversation', '${_memoryStats['averageConversationLength']}'),
+              ],
             ],
           ),
         ),
-        
-        SizedBox(height: 20),
-        
-        // Conversation List Header
+        SizedBox(height: 16),
+        _isSearching ? _buildSearchResults() : _buildConversationList(),
+      ],
+    );
+  }
+
+  Widget _buildSearchResults() {
+    if (_filteredConversations.isEmpty) {
+      return Container(
+        padding: EdgeInsets.all(40),
+        child: Column(
+          children: [
+            Icon(Icons.search_off, color: Color(0xFF8B9DC3), size: 48),
+            SizedBox(height: 16),
+            Text(
+              'No matches found',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Try searching for different keywords',
+              style: TextStyle(color: Color(0xFF8B9DC3), fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Search Results',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        SizedBox(height: 12),
+        ..._filteredConversations.map((result) {
+          return Container(
+            margin: EdgeInsets.only(bottom: 12),
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Color(0xFF4A90E2).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Color(0xFF4A90E2).withOpacity(0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Conversation ${result['conversationIndex']}',
+                      style: TextStyle(
+                        color: Color(0xFF4A90E2),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      _formatTimestamp(DateTime.tryParse(result['timestamp'] ?? '') ?? DateTime.now()),
+                      style: TextStyle(color: Color(0xFF8B9DC3), fontSize: 12),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+                ...result['matchedContent'].map<Widget>((content) {
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      content,
+                      style: TextStyle(color: Colors.white, fontSize: 13),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  Widget _buildConversationList() {
+    if (_conversationHistory.isEmpty) {
+      return Container(
+        padding: EdgeInsets.all(40),
+        child: Column(
+          children: [
+            Icon(Icons.chat_bubble_outline, color: Color(0xFF8B9DC3), size: 48),
+            SizedBox(height: 16),
+            Text(
+              'No conversations yet',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Start chatting to see your history here',
+              style: TextStyle(color: Color(0xFF8B9DC3), fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Text(
           'Recent Conversations',
           style: TextStyle(
@@ -1613,74 +1756,50 @@ class _MemoryRelationshipManagerState extends State<MemoryRelationshipManager>
           ),
         ),
         SizedBox(height: 12),
-        
-        // Conversation List
-        if (_conversationHistory.isEmpty)
-          Container(
-            padding: EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Icon(Icons.chat_bubble_outline, color: Color(0xFF8B9DC3), size: 48),
-                SizedBox(height: 12),
-                Text(
-                  'No local conversation history found',
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Backend shows ${_memoryStats['totalConversations']} total conversations.\nLocal history may be stored differently.',
-                  style: TextStyle(color: Color(0xFF8B9DC3), fontSize: 14),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+        ..._conversationHistory.map((conversation) {
+          final index = _conversationHistory.indexOf(conversation);
+          return Container(
+            margin: EdgeInsets.only(bottom: 8),
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white.withOpacity(0.1)),
             ),
-          )
-        else
-          // Conversation items - directly in the ListView
-          ..._conversationHistory.map((conversation) {
-            final index = _conversationHistory.indexOf(conversation);
-            return Container(
-              margin: EdgeInsets.only(bottom: 8),
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Conversation ${index + 1}',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                      GestureDetector(
-                        onTap: () => _deleteConversation(conversation),
-                        child: Icon(Icons.delete, color: Colors.red.withOpacity(0.7), size: 16),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    conversation['timestamp'] ?? 'Unknown time',
-                    style: TextStyle(color: Color(0xFF8B9DC3), fontSize: 12),
-                  ),
-                  if (conversation['user'] != null) ...[
-                    SizedBox(height: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
                     Text(
-                      'You: ${conversation['user']}',
-                      style: TextStyle(color: Color(0xFF8B9DC3)),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      'Conversation ${index + 1}',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    GestureDetector(
+                      onTap: () => _deleteConversation(conversation),
+                      child: Icon(Icons.delete, color: Colors.red.withOpacity(0.7), size: 16),
                     ),
                   ],
+                ),
+                SizedBox(height: 4),
+                Text(
+                  conversation['timestamp'] ?? 'Unknown time',
+                  style: TextStyle(color: Color(0xFF8B9DC3), fontSize: 12),
+                ),
+                if (conversation['user'] != null) ...[
+                  SizedBox(height: 8),
+                  Text(
+                    'You: ${conversation['user']}',
+                    style: TextStyle(color: Color(0xFF8B9DC3)),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
-              ),
-            );
-          }).toList(),
+              ],
+            ),
+          );
+        }).toList(),
       ],
     );
   }
@@ -1970,52 +2089,7 @@ class _MemoryRelationshipManagerState extends State<MemoryRelationshipManager>
           SizedBox(height: 20),
         ],
         
-        // Backend Memory Insights
-        if (_relationshipData.isNotEmpty) ...[
-          Text(
-            'Backend Memory Insights',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Color(0xFF4A90E2).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Color(0xFF4A90E2).withOpacity(0.3)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '🧠 AI Memory Status',
-                  style: TextStyle(
-                    color: Color(0xFF4A90E2),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  '• Memory tracking: Active\n• Learning patterns: Enabled\n• Conversation context: Preserved\n• Emotional mapping: In progress',
-                  style: TextStyle(
-                    color: Color(0xFF8B9DC3),
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: 20),
-        ],
-        
-        // Topics Mentioned (from backend logs)
+        // Recent Topics (from backend logs)
         Text(
           'Recent Topics',
           style: TextStyle(
@@ -2096,109 +2170,6 @@ class _MemoryRelationshipManagerState extends State<MemoryRelationshipManager>
           Colors.blue,
           _exportData,
         ),
-        SizedBox(height: 20),
-        
-        // Privacy Controls Section
-        Text(
-          'Privacy Controls',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        SizedBox(height: 12),
-        Container(
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Memory Learning',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Text(
-                          'Allow AI to learn from conversations',
-                          style: TextStyle(
-                            color: Color(0xFF8B9DC3),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    value: true, // TODO: Make this configurable
-                    onChanged: (value) {
-                      // TODO: Implement memory learning toggle
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Memory learning ${value ? 'enabled' : 'disabled'}'),
-                          backgroundColor: value ? Colors.green : Colors.orange,
-                        ),
-                      );
-                    },
-                    activeColor: Color(0xFFFF5722),
-                  ),
-                ],
-              ),
-              SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Relationship Progression',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Text(
-                          'Enable automatic relationship development',
-                          style: TextStyle(
-                            color: Color(0xFF8B9DC3),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    value: true, // TODO: Make this configurable
-                    onChanged: (value) {
-                      // TODO: Implement relationship progression toggle
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Relationship progression ${value ? 'enabled' : 'disabled'}'),
-                          backgroundColor: value ? Colors.green : Colors.orange,
-                        ),
-                      );
-                    },
-                    activeColor: Color(0xFFFF5722),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -2237,65 +2208,7 @@ class _MemoryRelationshipManagerState extends State<MemoryRelationshipManager>
     );
   }
 
-  Future<void> _showDeleteAllDialog() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Color(0xFF1a2332),
-        title: Text('Delete All Conversations', style: TextStyle(color: Colors.white)),
-        content: Text('This will permanently delete ALL conversations. Continue?', style: TextStyle(color: Color(0xFF8B9DC3))),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Delete', style: TextStyle(color: Colors.red))),
-        ],
-      ),
-    ) ?? false;
-    
-    if (confirmed) {
-      setState(() => _conversationHistory.clear());
-      await _saveMemoryData();
-      _generateMemoryStats();
-    }
-  }
-
-  Future<void> _showResetRelationshipDialog() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Color(0xFF1a2332),
-        title: Text('Reset Relationship', style: TextStyle(color: Colors.white)),
-        content: Text('Reset relationship with ${widget.selectedPersona} to Acquaintance level?', style: TextStyle(color: Color(0xFF8B9DC3))),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Reset', style: TextStyle(color: Colors.orange))),
-        ],
-      ),
-    ) ?? false;
-    
-    if (confirmed) {
-      setState(() {
-        _relationshipData['points'] = 0;
-        _relationshipData['level'] = 'Acquaintance';
-      });
-      await _saveMemoryData();
-      _generateMemoryStats();
-    }
-  }
-
-  Future<void> _exportData() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('📤 Export feature coming soon'), backgroundColor: Colors.blue),
-    );
-  }
-
-  Future<void> _saveMemoryData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('conversation_history_${widget.selectedPersona}', json.encode(_conversationHistory));
-    await prefs.setString('relationship_data_${widget.selectedPersona}', json.encode(_relationshipData));
-  }
-
-  // 🔍 MISSING METHODS - Add all the missing functionality
-
+  // SEARCH AND DIALOG METHODS
   Future<void> _showSearchDialog() async {
     final searchController = TextEditingController();
     
@@ -2331,51 +2244,74 @@ class _MemoryRelationshipManagerState extends State<MemoryRelationshipManager>
   }
 
   void _performSearch(String query) {
-    // TODO: Implement search functionality
+    if (query.trim().isEmpty) {
+      setState(() {
+        _isSearching = false;
+        _filteredConversations.clear();
+        _currentSearchQuery = '';
+      });
+      return;
+    }
+
+    final lowerQuery = query.toLowerCase().trim();
+    final results = <Map<String, dynamic>>[];
+
+    // Search through all conversations
+    for (int i = 0; i < _conversationHistory.length; i++) {
+      final conversation = _conversationHistory[i];
+      bool hasMatch = false;
+      List<String> matchedContent = [];
+
+      // Search in user message
+      final userMessage = conversation['user']?.toString().toLowerCase() ?? '';
+      if (userMessage.contains(lowerQuery)) {
+        hasMatch = true;
+        matchedContent.add('You: ${conversation['user']}');
+      }
+
+      // Search in assistant message  
+      final assistantMessage = conversation['assistant']?.toString().toLowerCase() ?? '';
+      if (assistantMessage.contains(lowerQuery)) {
+        hasMatch = true;
+        matchedContent.add('${widget.selectedPersona}: ${conversation['assistant']}');
+      }
+
+      if (hasMatch) {
+        results.add({
+          ...conversation,
+          'conversationIndex': i + 1,
+          'matchedContent': matchedContent,
+        });
+      }
+    }
+
+    setState(() {
+      _isSearching = true;
+      _filteredConversations = results;
+      _currentSearchQuery = query;
+    });
+
+    // Show results
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('🔍 Search for "$query" - Feature coming soon!'),
-        backgroundColor: Color(0xFF4A90E2),
+        content: Text('🔍 Found ${results.length} conversations containing "$query"'),
+        backgroundColor: results.isEmpty ? Colors.orange : Color(0xFF4A90E2),
+        action: results.isEmpty ? null : SnackBarAction(
+          label: 'Clear',
+          textColor: Colors.white,
+          onPressed: () {
+            setState(() {
+              _isSearching = false;
+              _filteredConversations.clear();
+              _currentSearchQuery = '';
+            });
+          },
+        ),
       ),
     );
   }
 
-  Future<void> _deleteConversation(Map<String, dynamic> conversation) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Color(0xFF1a2332),
-        title: Text('Delete Conversation', style: TextStyle(color: Colors.white)),
-        content: Text('Are you sure you want to delete this conversation?', style: TextStyle(color: Color(0xFF8B9DC3))),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: Color(0xFF8B9DC3))),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    ) ?? false;
-    
-    if (confirmed) {
-      setState(() {
-        _conversationHistory.remove(conversation);
-      });
-      await _saveMemoryData();
-      _generateMemoryStats();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('🗑️ Conversation deleted'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
+  // MEMORY MANAGEMENT METHODS
   Future<void> _showAddMemoryDialog() async {
     final memoryController = TextEditingController();
     final categoryController = TextEditingController();
@@ -2459,8 +2395,6 @@ class _MemoryRelationshipManagerState extends State<MemoryRelationshipManager>
   }
 
   List<Map<String, dynamic>> _getCustomMemories() {
-    // Load custom memories from SharedPreferences
-    // This is a synchronous method, so we'll need to load this data during _loadMemoryData
     return _customMemories;
   }
 
@@ -2503,6 +2437,99 @@ class _MemoryRelationshipManagerState extends State<MemoryRelationshipManager>
       setState(() {});
       _loadMemoryData(); // Refresh all data
     }
+  }
+
+  Future<void> _deleteConversation(Map<String, dynamic> conversation) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Color(0xFF1a2332),
+        title: Text('Delete Conversation', style: TextStyle(color: Colors.white)),
+        content: Text('Are you sure you want to delete this conversation?', style: TextStyle(color: Color(0xFF8B9DC3))),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: TextStyle(color: Color(0xFF8B9DC3))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    ) ?? false;
+    
+    if (confirmed) {
+      setState(() {
+        _conversationHistory.remove(conversation);
+      });
+      await _saveMemoryData();
+      _generateMemoryStats();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🗑️ Conversation deleted'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _showDeleteAllDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Color(0xFF1a2332),
+        title: Text('Delete All Conversations', style: TextStyle(color: Colors.white)),
+        content: Text('This will permanently delete ALL conversations. Continue?', style: TextStyle(color: Color(0xFF8B9DC3))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    ) ?? false;
+    
+    if (confirmed) {
+      setState(() => _conversationHistory.clear());
+      await _saveMemoryData();
+      _generateMemoryStats();
+    }
+  }
+
+  Future<void> _showResetRelationshipDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Color(0xFF1a2332),
+        title: Text('Reset Relationship', style: TextStyle(color: Colors.white)),
+        content: Text('Reset relationship with ${widget.selectedPersona} to Acquaintance level?', style: TextStyle(color: Color(0xFF8B9DC3))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text('Reset', style: TextStyle(color: Colors.orange))),
+        ],
+      ),
+    ) ?? false;
+    
+    if (confirmed) {
+      setState(() {
+        _relationshipData['points'] = 0;
+        _relationshipData['level'] = 'Acquaintance';
+      });
+      await _saveMemoryData();
+      _generateMemoryStats();
+    }
+  }
+
+  Future<void> _exportData() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('📤 Export feature coming soon'), backgroundColor: Colors.blue),
+    );
+  }
+
+  Future<void> _saveMemoryData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('conversation_history_${widget.selectedPersona}', json.encode(_conversationHistory));
+    await prefs.setString('relationship_data_${widget.selectedPersona}', json.encode(_relationshipData));
   }
 
   String _formatTimestamp(DateTime timestamp) {

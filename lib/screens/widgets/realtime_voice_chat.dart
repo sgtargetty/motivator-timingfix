@@ -737,6 +737,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
   String _currentStatus = "Ready to chat!";
   String _lastAiResponse = "";
   List<Map<String, String>> _conversationHistory = [];
+  List<Map<String, dynamic>> _customMemories = [];
   VoiceState _currentState = VoiceState.idle;
   String? _persistentUserId;
   int _totalConversations = 0;
@@ -1199,6 +1200,8 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         
         print("📚 Loaded ${_conversationHistory.length} previous conversations");
       }
+      // 🧠 NEW: Load custom memories too!
+    await _loadCustomMemories();
       
       _totalConversations = prefs.getInt('total_conversations_${widget.personality}') ?? 0;
       await _loadBackendMemory();
@@ -1206,7 +1209,10 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
       setState(() {
         _hasLoadedMemory = true;
         if (_conversationHistory.isNotEmpty) {
-          _currentStatus = "${widget.personality} remembers your ${_conversationHistory.length} previous conversations!";
+          final memorySummary = _customMemories.isNotEmpty 
+            ? " + ${_customMemories.length} custom memories"
+            : "";
+          _currentStatus = "${widget.personality} remembers your ${_conversationHistory.length} conversations$memorySummary!";
         } else {
           _currentStatus = "${widget.personality} is ready to start building memories with you!";
         }
@@ -1219,6 +1225,18 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         _hasLoadedMemory = true;
         _currentStatus = "Ready to chat!";
       });
+    }
+  }
+  // 🧠 NEW: Load custom memories from SharedPreferences  
+  Future<void> _loadCustomMemories() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final customMemoriesJson = prefs.getString('custom_memories_${widget.personality}') ?? '[]';
+      _customMemories = List<Map<String, dynamic>>.from(json.decode(customMemoriesJson));
+      print("🧠 Loaded ${_customMemories.length} custom memories");
+    } catch (e) {
+      print("❌ Error loading custom memories: $e");
+      _customMemories = [];
     }
   }
 
@@ -1605,6 +1623,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
         'personality': widget.personality,
         'userMessage': userText,
         'conversationHistory': flatHistory,
+        'customMemories': _customMemories, // 🧠 ADD CUSTOM MEMORIES!
         'hasMemory': _conversationHistory.isNotEmpty,
         'totalConversations': _totalConversations,
         'responseStyle': 'conversational_short',
@@ -1616,6 +1635,7 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
       print("   - User ID: $_persistentUserId");
       print("   - Conversation history: ${flatHistory.length} messages");
       print("   - Total conversations: $_totalConversations");
+      print("   - Custom memories: ${_customMemories.length} entries");
 
       final response = await http.post(
         Uri.parse('${widget.baseUrl}/voice-conversation/text-only'),
