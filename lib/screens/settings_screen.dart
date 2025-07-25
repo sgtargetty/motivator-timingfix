@@ -8,7 +8,6 @@ import '../services/privacy_control_service.dart';
 import '../screens/learning_debug_screen.dart';
 import '../services/complete_voice_manager.dart';
 
-
 class SettingsScreen extends StatefulWidget {
   final String? currentTaskType;
   final Map<String, dynamic>? currentTaskConfig;
@@ -50,21 +49,66 @@ class _SettingsScreenState extends State<SettingsScreen>
   // Controllers for the name input
   late TextEditingController _nameController;
 
-  // Enhanced voice settings
-  String _selectedVoiceCategory = 'characters'; // Default to characters
-  String _selectedVoiceStyle = 'Lana Croft';
-  String _selectedToneStyle = 'Balanced';
-
-  // 🎤 NEW: Voice preview manager
+  // 🎭 NEW: Simplified AI Persona System (CLEANED UP!)
+  String _selectedPersona = 'Lana Croft'; // Default persona
+  
+  // 🎤 Voice preview manager (keep existing functionality)
   final CompleteVoiceManager _voiceManager = CompleteVoiceManager();
   String? _currentlyPlayingVoice;
-  String? _currentlyPlayingTone;
 
-  // 🎭 NEW: Reflection settings
+  // 🎭 Reflection settings (keep existing)
   final ReflectionSettingsService _reflectionSettings = ReflectionSettingsService();
   bool _hasShownReflectionOnboarding = false;
 
-  // Task type options
+  // 🎭 AI Persona Catalog - Clean & Simple (REPLACES old voice catalog)
+  final Map<String, Map<String, dynamic>> _aiPersonas = {
+    'Lana Croft': {
+      'name': 'Lana Croft',
+      'gender': 'Female',
+      'accent': 'British',
+      'personality': 'Adventurous & Flirty',
+      'description': 'Ready for an adventure? Let\'s explore together!',
+      'icon': Icons.explore,
+      'color': Color(0xFFD4AF37), // Gold
+      'voiceId': 'cgSgspJ2msm6clMCkdW9', // ElevenLabs voice ID
+      'defaultRelationshipTrack': 'romantic',
+    },
+    'Baxter Jordan': {
+      'name': 'Baxter Jordan',
+      'gender': 'Male', 
+      'accent': 'American',
+      'personality': 'Analytical & Wise',
+      'description': 'Let\'s analyze this situation and find the best path forward.',
+      'icon': Icons.psychology,
+      'color': Color(0xFF4A90E2), // Blue
+      'voiceId': 'pNInz6obpgDQGcFmaJgB', // ElevenLabs voice ID
+      'defaultRelationshipTrack': 'mentor',
+    },
+    'Sophie Chen': {
+      'name': 'Sophie Chen',
+      'gender': 'Female',
+      'accent': 'Asian-American', 
+      'personality': 'Bubbly & Sisterly',
+      'description': 'OMG, this is going to be so much fun! Tell me everything!',
+      'icon': Icons.favorite,
+      'color': Color(0xFFFF6B9D), // Pink
+      'voiceId': 'TBD', // TODO: Get ElevenLabs voice ID
+      'defaultRelationshipTrack': 'platonic',
+    },
+    'Marcus Thompson': {
+      'name': 'Marcus Thompson',
+      'gender': 'Male',
+      'accent': 'Black American',
+      'personality': 'Chill & Loyal', 
+      'description': 'Yo, I got your back. Let\'s figure this out together, bro.',
+      'icon': Icons.support,
+      'color': Color(0xFF34C759), // Green
+      'voiceId': 'TBD', // TODO: Get ElevenLabs voice ID  
+      'defaultRelationshipTrack': 'platonic',
+    },
+  };
+
+  // Task type options (keep existing)
   final Map<String, Map<String, dynamic>> _taskTypeOptions = {
     'Study': {
       'icon': Icons.school,
@@ -93,99 +137,41 @@ class _SettingsScreenState extends State<SettingsScreen>
     },
   };
 
-  // Tone style options - CLEANED: Only Balanced and Drill Instructor
-  final List<Map<String, dynamic>> _toneStyles = [
-    {
-      'name': 'Balanced',
-      'description': 'Even mix of support and challenge',
-      'icon': Icons.balance,
-      'color': Colors.blue,
-      'example': '"You\'ve got this! Take it step by step."',
-    },
-    {
-      'name': 'Drill Instructor',
-      'description': 'Tough, no-nonsense military motivation',
-      'icon': Icons.military_tech,
-      'color': Colors.red,
-      'example': '"DROP AND GIVE ME 20! NO EXCUSES!"',
-    },
-  ];
-
-  // Voice catalog - CLEANED: Only your 3 custom favorites
-  final Map<String, List<Map<String, dynamic>>> _voiceCatalog = {
-    'characters': [
-      // 🎭 YOUR 3 CUSTOM ELEVENLABS FAVORITES ONLY
-      {'name': 'Lana Croft', 'description': 'Fearless adventurer, tomb raider spirit', 'icon': Icons.explore},
-      {'name': 'Baxter Jordan', 'description': 'Dark analyst, methodical precision', 'icon': Icons.psychology},
-      {'name': 'Argent', 'description': 'Advanced AI assistant, JARVIS-like', 'icon': Icons.computer},
-    ],
-  };
-
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
-    _loadSettings();
-    _loadUserPreferences();
-    _loadCurrentVoiceSettings(); // 🔧 NEW: Load voice settings properly
+    _initAnimations();
     _loadCurrentSettings();
+    _loadPersonaSettings(); // 🎭 NEW: Load persona instead of complex voice settings
+    _loadUserSettings();
   }
 
-  void _initializeAnimations() {
+  void _initAnimations() {
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    
-    _pulseController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
+    _slideAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _slideController, curve: Curves.easeOutQuart),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _slideController, curve: Curves.easeInOut),
     );
 
-    _slideAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeOutCubic,
-    ));
-
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeInOut,
-    ));
-
-    _pulseAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.1,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    );
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
 
     _slideController.forward();
     _pulseController.repeat(reverse: true);
-  }
 
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
-      _bypassSilentMode = prefs.getBool('bypass_silent_mode') ?? false;
-      _hapticFeedback = prefs.getBool('haptic_feedback') ?? true;
-      _dailyReminders = prefs.getBool('daily_reminders') ?? true;
-      _reminderTime = prefs.getString('reminder_time') ?? '9:00 AM';
-      _hasShownReflectionOnboarding = prefs.getBool('reflection_onboarding_shown') ?? false;
-    });
-  }
-
-  Future<void> _loadUserPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _userName = prefs.getString('user_name') ?? 'Champion';
+      _selectedTaskType = widget.currentTaskType ?? 'Study';
+      _userName = 'Champion';
     });
     
     _nameController = TextEditingController(text: _userName);
@@ -198,122 +184,160 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   void _loadCurrentSettings() {
     _selectedTaskType = widget.currentTaskType;
-    
-    if (widget.currentVoice != null) {
-      _parseVoiceSetting(widget.currentVoice!);
-    }
-    
-    _selectedToneStyle = widget.currentToneStyle ?? 'Balanced';
   }
 
-  void _parseVoiceSetting(String voiceSetting) {
-    if (voiceSetting.contains(':')) {
-      final parts = voiceSetting.split(':');
-      _selectedVoiceCategory = parts[0];
-      _selectedVoiceStyle = parts[1];
-    } else {
-      if (voiceSetting.contains('Female') || voiceSetting.contains('Woman')) {
-        _selectedVoiceCategory = 'female';
-      } else if (voiceSetting.contains('Robot') || voiceSetting.contains('Pirate')) {
-        _selectedVoiceCategory = 'characters';
-      } else {
-        _selectedVoiceCategory = 'male';
-      }
-      _selectedVoiceStyle = voiceSetting;
-    }
-  }
-
-  void _selectVoiceCategory(String category) async {
-    setState(() {
-      _selectedVoiceCategory = category;
-      if (_voiceCatalog[category]!.isNotEmpty) {
-        _selectedVoiceStyle = _voiceCatalog[category]!.first['name'];
-      }
-    });
-    
-    // 🎯 IMMEDIATELY save the voice selection
-    await _saveVoiceSelection();
-    HapticFeedback.selectionClick();
-  }
-  void _selectVoiceStyle(String style) async {
-    setState(() {
-      _selectedVoiceStyle = style;
-    });
-    
-    // 🎯 IMMEDIATELY save the voice selection
-    await _saveVoiceSelection();
-    HapticFeedback.selectionClick();
-  }
-  Future<void> _saveVoiceSelection() async {
-    final prefs = await SharedPreferences.getInstance();
-    final combinedVoiceSetting = '$_selectedVoiceCategory:$_selectedVoiceStyle';
-    
-    // Save to the SAME key that reflection screen reads from
-    await prefs.setString('selected_voice', combinedVoiceSetting);
-    await prefs.setString('voice_category', _selectedVoiceCategory);
-    await prefs.setString('voice_style', _selectedVoiceStyle);
-    
-    print('🎤 Voice IMMEDIATELY saved: $combinedVoiceSetting');
-    print('📂 Category: $_selectedVoiceCategory, Style: $_selectedVoiceStyle');
-  }
-  void _selectToneStyle(String style) async {
-    setState(() {
-      _selectedToneStyle = style;
-    });
-    
-    // 🎯 IMMEDIATELY save the tone selection
-    await _saveToneSelection();
-    HapticFeedback.selectionClick();
-  }
-
-Future<void> _saveToneSelection() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString('selected_tone', _selectedToneStyle);
-  await prefs.setString('tone_style', _selectedToneStyle); // Backup key
-  
-  print('🎭 Tone IMMEDIATELY saved: $_selectedToneStyle');
-}
-  Future<void> _loadCurrentVoiceSettings() async {
+  // 🎭 NEW: Simplified persona loading (replaces complex voice parsing)
+  Future<void> _loadPersonaSettings() async {
     final prefs = await SharedPreferences.getInstance();
     
-    // Try to load from saved settings
-    final savedVoice = prefs.getString('selected_voice');
-    final savedCategory = prefs.getString('voice_category');
-    final savedStyle = prefs.getString('voice_style');
-    final savedTone = prefs.getString('selected_tone') ?? prefs.getString('tone_style');
+    // Try to load saved persona
+    final savedPersona = prefs.getString('selected_persona');
+    final savedVoice = prefs.getString('selected_voice'); // Legacy fallback
     
-    print('🔍 Loading saved voice settings...');
-    print('🎵 Saved Voice: $savedVoice');
-    print('📂 Saved Category: $savedCategory');
-    print('🎭 Saved Style: $savedStyle');
+    print('🎭 Loading persona settings...');
+    print('🎯 Saved Persona: $savedPersona');
+    print('🔄 Legacy Voice: $savedVoice');
     
-    if (savedVoice != null && savedVoice.contains(':')) {
-      final parts = savedVoice.split(':');
+    if (savedPersona != null && _aiPersonas.containsKey(savedPersona)) {
       setState(() {
-        _selectedVoiceCategory = parts[0];
-        _selectedVoiceStyle = parts[1];
-        if (savedTone != null) _selectedToneStyle = savedTone;
+        _selectedPersona = savedPersona;
       });
-      print('✅ Voice settings loaded from combined: $_selectedVoiceCategory:$_selectedVoiceStyle');
-    } else if (savedCategory != null && savedStyle != null) {
+      print('✅ Persona loaded: $_selectedPersona');
+    } else if (savedVoice != null) {
+      // 🔄 Legacy migration: convert old voice settings to persona
+      final migratedPersona = _migrateOldVoiceToPersona(savedVoice);
       setState(() {
-        _selectedVoiceCategory = savedCategory;
-        _selectedVoiceStyle = savedStyle;
+        _selectedPersona = migratedPersona;
       });
-      print('✅ Voice settings loaded from separate keys: $_selectedVoiceCategory:$_selectedVoiceStyle');
+      // Save the migrated persona
+      await _savePersonaSelection();
+      print('🔄 Migrated legacy voice to persona: $_selectedPersona');
     } else {
-      // Fallback to widget params or defaults
-      if (widget.currentVoice != null) {
-        _parseVoiceSetting(widget.currentVoice!);
-        print('✅ Voice settings loaded from widget: ${widget.currentVoice}');
+      // Default to Lana Croft
+      setState(() {
+        _selectedPersona = 'Lana Croft';
+      });
+      await _savePersonaSelection();
+      print('✅ Defaulted to persona: $_selectedPersona');
+    }
+  }
+
+  // 🔄 Helper: Migrate old voice settings to new persona system
+  String _migrateOldVoiceToPersona(String oldVoice) {
+    final lowerVoice = oldVoice.toLowerCase();
+    
+    if (lowerVoice.contains('lana') || lowerVoice.contains('british') || lowerVoice.contains('female')) {
+      return 'Lana Croft';
+    } else if (lowerVoice.contains('baxter') || lowerVoice.contains('american') || lowerVoice.contains('male')) {
+      return 'Baxter Jordan';
+    } else if (lowerVoice.contains('sophie') || lowerVoice.contains('asian')) {
+      return 'Sophie Chen';
+    } else if (lowerVoice.contains('marcus') || lowerVoice.contains('black')) {
+      return 'Marcus Thompson';
+    }
+    
+    // Default fallback
+    return 'Lana Croft';
+  }
+
+  // 🎭 NEW: Simple persona selection (replaces complex voice selection)
+  void _selectPersona(String persona) async {
+    if (!_aiPersonas.containsKey(persona)) return;
+    
+    setState(() {
+      _selectedPersona = persona;
+    });
+    
+    await _savePersonaSelection();
+    HapticFeedback.selectionClick();
+    
+    print('🎭 Persona selected: $persona');
+  }
+
+  // 🎭 NEW: Save persona selection
+  Future<void> _savePersonaSelection() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_persona', _selectedPersona);
+    
+    // Also save in legacy format for compatibility
+    final personaData = _aiPersonas[_selectedPersona]!;
+    final legacyVoice = '${personaData['gender']}:${personaData['name']}';
+    await prefs.setString('selected_voice', legacyVoice);
+    
+    print('💾 Persona saved: $_selectedPersona');
+    print('🔄 Legacy compatibility: $legacyVoice');
+  }
+
+  // 🎤 Voice preview functionality (updated for persona system)
+  Future<void> _previewPersonaVoice(String persona) async {
+    if (!_aiPersonas.containsKey(persona)) return;
+    
+    final personaData = _aiPersonas[persona]!;
+    final voiceId = personaData['voiceId'];
+    
+    if (voiceId == 'TBD') {
+      _showVoiceComingSoonSnackBar(persona);
+      return;
+    }
+    
+    setState(() {
+      _currentlyPlayingVoice = persona;
+    });
+    
+    try {
+      // Use the correct method signature from CompleteVoiceManager
+      final success = await _voiceManager.playVoicePreview(
+        voiceStyle: 'characters:$persona',  // Format it correctly
+        toneStyle: 'Balanced',             // Default tone
+        userName: _userName,               // Use current user name
+      );
+      
+      if (success) {
+        print('✅ Voice preview started for $persona');
       } else {
+        print('❌ Voice preview failed for $persona');
+        _showVoiceComingSoonSnackBar(persona);
+      }
+      
+      // Reset playing state after preview
+      if (mounted) {
         setState(() {
-          _selectedVoiceCategory = 'male';
-          _selectedVoiceStyle = 'Default Male';
+          _currentlyPlayingVoice = null;
         });
-        print('✅ Voice settings defaulted to: male:Default Male');
       }
+    } catch (e) {
+      print('❌ Voice preview error: $e');
+      if (mounted) {
+        setState(() {
+          _currentlyPlayingVoice = null;
+        });
+      }
+      _showVoiceComingSoonSnackBar(persona);
     }
+  }
+
+  void _showVoiceComingSoonSnackBar(String persona) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('🎤 $persona\'s voice is coming soon!'),
+        backgroundColor: _aiPersonas[persona]!['color'],
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _loadUserSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+      _bypassSilentMode = prefs.getBool('bypass_silent_mode') ?? false;
+      _hapticFeedback = prefs.getBool('haptic_feedback') ?? true;
+      _dailyReminders = prefs.getBool('daily_reminders') ?? true;
+      _reminderTime = prefs.getString('reminder_time') ?? '9:00 AM';
+      _userName = prefs.getString('user_name') ?? 'Champion';
+    });
+    
+    _nameController.text = _userName;
   }
 
   @override
@@ -321,7 +345,7 @@ Future<void> _saveToneSelection() async {
     _slideController.dispose();
     _pulseController.dispose();
     _nameController.dispose();
-    _voiceManager.dispose(); // 🎤 NEW: Cleanup voice manager
+    _voiceManager.dispose();
     super.dispose();
   }
 
@@ -371,36 +395,30 @@ Future<void> _saveToneSelection() async {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
-        border: Border(
-          bottom: BorderSide(
-            color: const Color(0xFFD4AF37).withOpacity(0.1),
-            width: 1,
-          ),
-        ),
-      ),
+      padding: const EdgeInsets.all(20),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFD4AF37).withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.settings,
-              color: Color(0xFFD4AF37),
-              size: 24,
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.arrow_back_ios,
+                color: Color(0xFFD4AF37),
+                size: 20,
+              ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           const Text(
             'Settings',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 24,
+              fontSize: 28,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -411,77 +429,173 @@ Future<void> _saveToneSelection() async {
 
   Widget _buildSettingsContent() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 👤 Personalization section
-          _buildSectionHeader('Personalization'),
-          _buildPersonalizationSection(),
+          _buildUserIdentitySection(),
           const SizedBox(height: 20),
-
-          // 📋 Task Type section
-          _buildSectionHeader('Default Task Focus'),
-          _buildTaskTypeSection(),
+          _buildTaskFocusSection(),
           const SizedBox(height: 20),
-
-          // 🎤 Voice section
-          _buildSectionHeader('Voice & Character'),
-          _buildVoiceSectionWithPreview(), // 🎤 NEW: Use enhanced voice section
+          _buildAICompanionSection(), // 🎭 NEW: Replaces complex voice section
           const SizedBox(height: 20),
-
-          // 🎭 Tone section
-          _buildSectionHeader('Motivational Tone'),
-          _buildToneStyleSection(),
+          _buildSmartReflectionSection(),
           const SizedBox(height: 20),
-          
-          // 🎭 NEW: Smart Reflections section  
-          _buildSectionHeader('Smart Reflections'),
-          ReflectionSettingsSection(),
+          _buildPrivacyAndAIControlSection(),
           const SizedBox(height: 20),
-          
-          // 🛡️ NEW: Privacy & AI Controls Section
-          _buildSectionHeader('Privacy & AI Controls'),
-          PrivacyControlsSection(),
-          const SizedBox(height: 20),
-          
-          // 📱 Notification section
-          _buildSectionHeader('Notifications'),
           _buildNotificationSection(),
           const SizedBox(height: 20),
-
-          // ⏰ Daily Reminders section
-          _buildSectionHeader('Daily Reminders'),
-          _buildDailyRemindersSection(),
-          const SizedBox(height: 20),
-          
-          // ⚙️ Advanced section
-          _buildSectionHeader('Advanced'),
           _buildAdvancedSection(),
-          const SizedBox(height: 30),
-          _buildSaveButton(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 100),
         ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: Color(0xFFD4AF37),
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-        ),
+  // 🎭 NEW: Beautiful AI Companion Section (replaces complex voice selection)
+  Widget _buildAICompanionSection() {
+    return _buildSettingsCard(
+      title: 'AI Companion',
+      icon: Icons.smart_toy,
+      color: const Color(0xFFD4AF37),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Choose your AI companion personality. Your relationship will develop naturally through conversation.',
+            style: TextStyle(
+              color: const Color(0xFF8B9DC3).withOpacity(0.8),
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          
+          // 🎭 Persona Cards Grid
+          ..._aiPersonas.entries.map((entry) {
+            final persona = entry.key;
+            final data = entry.value;
+            final isSelected = _selectedPersona == persona;
+            final isPlaying = _currentlyPlayingVoice == persona;
+            
+            return Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => _selectPersona(persona),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: isSelected 
+                          ? (data['color'] as Color).withOpacity(0.15)
+                          : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSelected 
+                            ? (data['color'] as Color)
+                            : Colors.white.withOpacity(0.1),
+                        width: isSelected ? 2 : 1,
+                      ),
+                      boxShadow: isSelected ? [
+                        BoxShadow(
+                          color: (data['color'] as Color).withOpacity(0.3),
+                          blurRadius: 12,
+                          spreadRadius: 0,
+                        ),
+                      ] : null,
+                    ),
+                    child: Row(
+                      children: [
+                        // Persona Icon
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: (data['color'] as Color).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            data['icon'] as IconData,
+                            color: data['color'] as Color,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        
+                        // Persona Details
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Name
+                              Text(
+                                data['name'],
+                                style: TextStyle(
+                                  color: isSelected ? Colors.white : const Color(0xFF8B9DC3),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              
+                              // Demographics
+                              Text(
+                                '${data['accent']} • ${data['gender']} • ${data['personality']}',
+                                style: TextStyle(
+                                  color: isSelected 
+                                      ? (data['color'] as Color) 
+                                      : const Color(0xFF8B9DC3).withOpacity(0.7),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              
+                              // Description Quote
+                              Text(
+                                '"${data['description']}"',
+                                style: TextStyle(
+                                  color: const Color(0xFF8B9DC3).withOpacity(0.9),
+                                  fontSize: 14,
+                                  fontStyle: FontStyle.italic,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        // Preview Button
+                        GestureDetector(
+                          onTap: () => _previewPersonaVoice(persona),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isPlaying 
+                                  ? (data['color'] as Color)
+                                  : (data['color'] as Color).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              isPlaying ? Icons.stop : Icons.play_arrow,
+                              color: isPlaying ? Colors.white : (data['color'] as Color),
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ],
       ),
     );
   }
 
-  Widget _buildPersonalizationSection() {
+  Widget _buildUserIdentitySection() {
     return _buildSettingsCard(
       title: 'Your Identity',
       icon: Icons.person,
@@ -498,48 +612,46 @@ Future<void> _saveToneSelection() async {
             ),
           ),
           const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFF8B9DC3).withOpacity(0.2),
-                width: 1,
-              ),
+          TextField(
+            controller: _nameController,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
-            child: TextField(
-              controller: _nameController,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-              decoration: InputDecoration(
-                hintText: 'Enter your name...',
-                hintStyle: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
-                  fontSize: 16,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.all(16),
-                prefixIcon: Icon(
-                  Icons.badge,
-                  color: const Color(0xFFD4AF37).withOpacity(0.7),
-                ),
+            decoration: InputDecoration(
+              hintText: 'Enter your name',
+              hintStyle: TextStyle(
+                color: const Color(0xFF8B9DC3).withOpacity(0.5),
               ),
+              filled: true,
+              fillColor: Colors.white.withOpacity(0.08),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
+            onChanged: (value) async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('user_name', value);
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTaskTypeSection() {
+  Widget _buildTaskFocusSection() {
     return _buildSettingsCard(
       title: 'Task Focus',
-      icon: Icons.track_changes,
-      color: const Color(0xFFD4AF37),
+      icon: Icons.gps_fixed,
+      color: const Color(0xFF4A90E2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Choose your primary focus area:',
+            'What type of tasks do you want to focus on?',
             style: TextStyle(
               color: const Color(0xFF8B9DC3).withOpacity(0.9),
               fontSize: 14,
@@ -550,30 +662,29 @@ Future<void> _saveToneSelection() async {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: _taskTypeOptions.entries.map((entry) {
-              final taskType = entry.key;
-              final config = entry.value;
+            children: _taskTypeOptions.keys.map((taskType) {
+              final config = _taskTypeOptions[taskType]!;
               final isSelected = _selectedTaskType == taskType;
               
               return GestureDetector(
                 onTap: () {
                   setState(() {
-                    _selectedTaskType = isSelected ? null : taskType;
+                    _selectedTaskType = taskType;
                   });
+                  widget.onSettingsChanged(_selectedTaskType, config, null, null);
                   HapticFeedback.selectionClick();
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: isSelected
+                    color: isSelected 
                         ? config['color'].withOpacity(0.2)
                         : Colors.white.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isSelected
-                          ? config['color']
-                          : const Color(0xFF8B9DC3).withOpacity(0.2),
-                      width: isSelected ? 2 : 1,
+                      color: isSelected 
+                          ? config['color'] 
+                          : Colors.white.withOpacity(0.2),
                     ),
                   ),
                   child: Row(
@@ -604,366 +715,56 @@ Future<void> _saveToneSelection() async {
     );
   }
 
-  // 🎤 NEW: Enhanced voice section with preview
-  Widget _buildVoiceSectionWithPreview() {
+  Widget _buildSmartReflectionSection() {
     return _buildSettingsCard(
-      title: 'Voice Settings',
-      icon: Icons.record_voice_over,
-      color: const Color(0xFFD4AF37),
+      title: 'Smart Reflection',
+      icon: Icons.psychology,
+      color: const Color(0xFF9C27B0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Voice Category',
+            'AI learns from your patterns and provides personalized insights.',
             style: TextStyle(
               color: const Color(0xFF8B9DC3).withOpacity(0.9),
               fontSize: 14,
               fontWeight: FontWeight.w400,
             ),
           ),
-          const SizedBox(height: 12),
-          
-          // Voice category selection
+          const SizedBox(height: 16),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: _buildCategoryChip('male', 'Male', Icons.man, const Color(0xFFD4AF37)),
+              const Text(
+                'Enable Smart Reflection',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCategoryChip('female', 'Female', Icons.woman, const Color(0xFFD4AF37)),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCategoryChip('characters', 'Characters', Icons.theater_comedy, const Color(0xFFD4AF37)),
+              Switch(
+                value: true, // Always enabled for now
+                onChanged: null, // Disabled for now
+                activeColor: const Color(0xFF9C27B0),
               ),
             ],
-          ),
-          
-          const SizedBox(height: 20),
-          
-          Text(
-            'Voice Style',
-            style: TextStyle(
-              color: const Color(0xFF8B9DC3).withOpacity(0.9),
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          const SizedBox(height: 12),
-          
-          // Enhanced voice style selection with preview buttons
-          ...(_voiceCatalog[_selectedVoiceCategory] ?? []).map((voice) {
-            final voiceStyle = '$_selectedVoiceCategory:${voice['name']}';
-            final isSelected = _selectedVoiceStyle == voice['name'];
-            final isPlaying = _currentlyPlayingVoice == voiceStyle && 
-                            _currentlyPlayingTone == _selectedToneStyle;
-            
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => _selectVoiceStyle(voice['name']),
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isSelected 
-                          ? const Color(0xFFD4AF37).withOpacity(0.2)
-                          : Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected 
-                            ? const Color(0xFFD4AF37)
-                            : Colors.white.withOpacity(0.2),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          voice['icon'] as IconData,
-                          color: isSelected 
-                              ? const Color(0xFFD4AF37)
-                              : const Color(0xFF8B9DC3),
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                voice['name'],
-                                style: TextStyle(
-                                  color: isSelected ? Colors.white : const Color(0xFF8B9DC3),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              Text(
-                                voice['description'],
-                                style: TextStyle(
-                                  color: (isSelected ? Colors.white : const Color(0xFF8B9DC3)).withOpacity(0.7),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        
-                        // 🎤 NEW: Preview button
-                        GestureDetector(
-                          onTap: () => _toggleVoicePreview(voiceStyle, _selectedToneStyle),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: isPlaying 
-                                  ? Colors.red.withOpacity(0.2)
-                                  : const Color(0xFFD4AF37).withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isPlaying 
-                                    ? Colors.red
-                                    : const Color(0xFFD4AF37),
-                                width: 1,
-                              ),
-                            ),
-                            child: Icon(
-                              isPlaying ? Icons.stop : Icons.play_arrow,
-                              color: isPlaying ? Colors.red : const Color(0xFFD4AF37),
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-          
-          const SizedBox(height: 20),
-          
-          // Enhanced tone style section with preview
-          Text(
-            'Tone Style',
-            style: TextStyle(
-              color: const Color(0xFF8B9DC3).withOpacity(0.9),
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          const SizedBox(height: 12),
-          
-          // Tone style grid with preview buttons
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _toneStyles.map((toneStyle) {
-              final isSelected = _selectedToneStyle == toneStyle['name'];
-              final voiceStyle = '$_selectedVoiceCategory:$_selectedVoiceStyle';
-              final isPlaying = _currentlyPlayingVoice == voiceStyle && 
-                              _currentlyPlayingTone == toneStyle['name'];
-              
-              return GestureDetector(
-                onTap: () => _selectToneStyle(toneStyle['name']),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected 
-                        ? toneStyle['color'].withOpacity(0.2)
-                        : Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected 
-                          ? toneStyle['color']
-                          : Colors.white.withOpacity(0.2),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        toneStyle['icon'],
-                        color: isSelected ? toneStyle['color'] : const Color(0xFF8B9DC3),
-                        size: 16,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        toneStyle['name'],
-                        style: TextStyle(
-                          color: isSelected ? toneStyle['color'] : const Color(0xFF8B9DC3),
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w300,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      
-                      // 🎤 NEW: Tone preview button
-                      GestureDetector(
-                        onTap: () => _toggleVoicePreview(voiceStyle, toneStyle['name']),
-                        child: Icon(
-                          isPlaying ? Icons.stop_circle : Icons.play_circle,
-                          color: isPlaying ? Colors.red : toneStyle['color'].withOpacity(0.7),
-                          size: 18,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // 🎤 NEW: Quick preview all combinations button
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFD4AF37).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFFD4AF37).withOpacity(0.3),
-              ),
-            ),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.headphones,
-                  color: const Color(0xFFD4AF37),
-                  size: 28,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Preview Current Selection',
-                  style: TextStyle(
-                    color: const Color(0xFFD4AF37),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Tap the play buttons to hear voice samples instantly',
-                  style: TextStyle(
-                    color: const Color(0xFF8B9DC3).withOpacity(0.8),
-                    fontSize: 12,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
           ),
         ],
       ),
     );
   }
 
-  // 🎤 NEW: Toggle voice preview playback
-  Future<void> _toggleVoicePreview(String voiceStyle, String toneStyle) async {
-    HapticFeedback.selectionClick();
-    
-    final isCurrentlyPlaying = _currentlyPlayingVoice == voiceStyle && 
-                             _currentlyPlayingTone == toneStyle;
-    
-    if (isCurrentlyPlaying) {
-      // Stop current preview
-      await _voiceManager.stopPreview();
-      setState(() {
-        _currentlyPlayingVoice = null;
-        _currentlyPlayingTone = null;
-      });
-    } else {
-      // Start new preview
-      final success = await _voiceManager.playVoicePreview(
-        voiceStyle: voiceStyle,
-        toneStyle: toneStyle,
-        userName: _userName,
-      );
-      
-      if (success) {
-        setState(() {
-          _currentlyPlayingVoice = voiceStyle;
-          _currentlyPlayingTone = toneStyle;
-        });
-        
-        // Show success feedback
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('🎤 Playing preview: ${voiceStyle.split(':').last} (${toneStyle})'),
-            backgroundColor: const Color(0xFFD4AF37),
-            duration: Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      } else {
-        // Show fallback message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('⚠️ Preview not available for this combination'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      }
-    }
-  }
-
-  Widget _buildCategoryChip(String category, String label, IconData icon, Color color) {
-    final isSelected = _selectedVoiceCategory == category;
-    
-    return GestureDetector(
-      onTap: () => _selectVoiceCategory(category),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.2) : Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? color : const Color(0xFF8B9DC3).withOpacity(0.2),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? color : const Color(0xFF8B9DC3),
-              size: 20,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? color : const Color(0xFF8B9DC3),
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToneStyleSection() {
+  Widget _buildPrivacyAndAIControlSection() {
     return _buildSettingsCard(
-      title: 'Motivational Style',
-      icon: Icons.psychology,
-      color: const Color(0xFFD4AF37),
+      title: 'Privacy and AI Control',
+      icon: Icons.security,
+      color: const Color(0xFFFF5722),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'How should I motivate you?',
+            'Manage your data and AI behavior settings.',
             style: TextStyle(
               color: const Color(0xFF8B9DC3).withOpacity(0.9),
               fontSize: 14,
@@ -972,73 +773,106 @@ Future<void> _saveToneSelection() async {
           ),
           const SizedBox(height: 16),
           
-          ...(_toneStyles.map((tone) {
-            final isSelected = _selectedToneStyle == tone['name'];
-            
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
+          // 🧠 NEW: Human in the Loop Control - Memory & Relationship Manager
+          GestureDetector(
+            onTap: () {
+              _showMemoryManagerModal();
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? tone['color'].withOpacity(0.1)
-                    : Colors.white.withOpacity(0.02),
+                color: const Color(0xFFFF5722).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isSelected
-                      ? tone['color']
-                      : const Color(0xFF8B9DC3).withOpacity(0.2),
-                  width: isSelected ? 2 : 1,
+                  color: const Color(0xFFFF5722).withOpacity(0.3),
                 ),
               ),
-              child: ListTile(
-                leading: Icon(
-                  tone['icon'],
-                  color: isSelected ? tone['color'] : const Color(0xFF8B9DC3),
-                  size: 24,
-                ),
-                title: Text(
-                  tone['name'],
-                  style: TextStyle(
-                    color: isSelected ? tone['color'] : Colors.white,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    fontSize: 16,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.memory,
+                    color: const Color(0xFFFF5722),
+                    size: 24,
                   ),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 4),
-                    Text(
-                      tone['description'],
-                      style: TextStyle(
-                        color: const Color(0xFF8B9DC3).withOpacity(0.8),
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: tone['color'].withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        tone['example'],
-                        style: TextStyle(
-                          color: tone['color'],
-                          fontSize: 12,
-                          fontStyle: FontStyle.italic,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Memory & Relationship Manager',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'View conversation history, manage AI memories, reset relationship',
+                          style: TextStyle(
+                            color: const Color(0xFF8B9DC3).withOpacity(0.8),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    color: const Color(0xFFFF5722),
+                    size: 16,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LearningDebugScreen()),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.bug_report,
+                    color: const Color(0xFF8B9DC3),
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Learning Debug Console',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ],
-                ),
-                trailing: isSelected
-                    ? Icon(Icons.check_circle, color: tone['color'], size: 24)
-                    : null,
-                onTap: () => _selectToneStyle(tone['name']),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    color: const Color(0xFF8B9DC3),
+                    size: 16,
+                  ),
+                ],
               ),
-            );
-          }).toList()),
+            ),
+          ),
         ],
       ),
     );
@@ -1046,252 +880,197 @@ Future<void> _saveToneSelection() async {
 
   Widget _buildNotificationSection() {
     return _buildSettingsCard(
-      title: 'Notifications',
+      title: 'Notification Options',
       icon: Icons.notifications,
-      color: const Color(0xFFD4AF37),
+      color: const Color(0xFF4CAF50),
       child: Column(
         children: [
-          _buildToggleOption(
+          _buildNotificationToggle(
             'Enable Notifications',
-            'Receive motivational reminders',
+            'Receive AI motivation and reminders',
             _notificationsEnabled,
-            (value) => setState(() => _notificationsEnabled = value),
-            Icons.notifications_active,
+            (value) async {
+              setState(() {
+                _notificationsEnabled = value;
+              });
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('notifications_enabled', value);
+            },
           ),
           const SizedBox(height: 16),
-          _buildToggleOption(
-            'Override Silent Mode',
-            'Play audio even when phone is on silent',
+          _buildNotificationToggle(
+            'Bypass Silent Mode',
+            'Play sounds even when phone is on silent',
             _bypassSilentMode,
-            (value) => setState(() => _bypassSilentMode = value),
-            Icons.volume_up,
+            (value) async {
+              setState(() {
+                _bypassSilentMode = value;
+              });
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('bypass_silent_mode', value);
+            },
           ),
           const SizedBox(height: 16),
-          _buildToggleOption(
+          _buildNotificationToggle(
             'Haptic Feedback',
-            'Feel vibrations for interactions',
+            'Feel vibrations with interactions',
             _hapticFeedback,
-            (value) => setState(() => _hapticFeedback = value),
-            Icons.vibration,
+            (value) async {
+              setState(() {
+                _hapticFeedback = value;
+              });
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('haptic_feedback', value);
+            },
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDailyRemindersSection() {
-    return _buildSettingsCard(
-      title: 'Daily Reminders',
-      icon: Icons.schedule,
-      color: const Color(0xFFD4AF37),
-      child: Column(
-        children: [
-          _buildToggleOption(
-            'Daily Motivation',
-            'Get a daily dose of motivation',
-            _dailyReminders,
-            (value) => setState(() => _dailyReminders = value),
-            Icons.wb_sunny,
-          ),
-          if (_dailyReminders) ...[
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(Icons.access_time, color: const Color(0xFF8B9DC3), size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Reminder Time',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Text(
-                        _reminderTime,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                GestureDetector(
-                  onTap: _showTimePicker,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD4AF37).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Change',
-                      style: TextStyle(
-                        color: Color(0xFFD4AF37),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+          const SizedBox(height: 20),
+          
+          // Daily AI Companion Reminders
+          Text(
+            'Daily AI Companion Reminders',
+            style: TextStyle(
+              color: const Color(0xFF8B9DC3).withOpacity(0.9),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
             ),
-          ],
+          ),
+          const SizedBox(height: 12),
+          _buildNotificationToggle(
+            'Daily Reminders',
+            'Get daily check-ins from your AI companion',
+            _dailyReminders,
+            (value) async {
+              setState(() {
+                _dailyReminders = value;
+              });
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('daily_reminders', value);
+            },
+          ),
         ],
       ),
     );
   }
 
   Widget _buildAdvancedSection() {
-  return _buildSettingsCard(
-    title: 'Advanced',
-    icon: Icons.settings,
-    color: Colors.grey,
-    child: Column(
-      children: [
-        _buildActionButton(
-          'Export Data',
-          'Download your settings and data',
-          Icons.download,
-          Colors.blue,
-          () => _exportData(),
-        ),
-        const SizedBox(height: 12),
-        _buildActionButton(
-          'Privacy Policy',
-          'View our privacy and data policies',
-          Icons.privacy_tip,
-          Colors.green,
-          () => _openPrivacyPolicy(),
-        ),
-        const SizedBox(height: 12),
-        // 🧠 NEW: Add debug screen access
-        _buildActionButton(
-          'AI Learning Debug',
-          'View learning patterns and test responses',
-          Icons.psychology,
-          const Color(0xFFD4AF37),
-          () => _openLearningDebug(),
-        ),
-        if (!_hasShownReflectionOnboarding) ...[
-          const SizedBox(height: 12),
-          _buildActionButton(
-            'Smart Reflections Tour',
-            'Learn about AI check-ins',
-            Icons.tour,
-            Color(0xFFD4AF37),
-            () => _showReflectionOnboarding(),
-          ),
-        ],
-      ],
-    ),
-  );
-}
-
-// Add this new method to handle debug screen navigation:
-void _openLearningDebug() {
-  Navigator.of(context).push(
-    PageRouteBuilder(
-      pageBuilder: (context, animation, secondaryAnimation) => const LearningDebugScreen(),
-      transitionDuration: const Duration(milliseconds: 300),
-      reverseTransitionDuration: const Duration(milliseconds: 300),
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        return FadeTransition(
-          opacity: Tween<double>(
-            begin: 0.0,
-            end: 1.0,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeInOut,
-          )),
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF0a1428), // Deep navy
-                  Color(0xFF1a2332), // Navy blue
-                  Color(0xFF0f1419), // Dark slate
-                  Color(0xFF000000), // Black
-                ],
-                stops: [0.0, 0.3, 0.7, 1.0],
+    return _buildSettingsCard(
+      title: 'Advanced Settings',
+      icon: Icons.settings,
+      color: const Color(0xFF607D8B),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.refresh, color: Color(0xFF8B9DC3)),
+            title: const Text(
+              'Reset All Settings',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            subtitle: Text(
+              'Return to default configuration',
+              style: TextStyle(
+                color: const Color(0xFF8B9DC3).withOpacity(0.7),
+                fontSize: 12,
               ),
             ),
-            child: child,
+            onTap: _showResetConfirmation,
           ),
-        );
-      },
-    ),
-  );
-}
-
-  Widget _buildSettingsCard({
-    required String title,
-    required IconData icon,
-    required Color color,
-    required Widget child,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withOpacity(0.1),
-          width: 1,
-        ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
+    );
+  }
+
+  // 🧠 NEW: Show Memory Manager Modal (placeholder for now)
+  void _showMemoryManagerModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1a2332),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Memory & Relationship Manager',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  child: Icon(icon, color: color, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.close, color: Colors.white),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              
+              // Placeholder content
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD4AF37).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFFD4AF37).withOpacity(0.3),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            child,
-          ],
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.construction,
+                      color: const Color(0xFFD4AF37),
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Coming Soon!',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Human in the Loop memory management will be available in the next update. You\'ll be able to:\n\n• View conversation history\n• Delete specific memories\n• Reset relationship progression\n• Export conversation data',
+                      style: TextStyle(
+                        color: const Color(0xFF8B9DC3),
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildToggleOption(
+  Widget _buildNotificationToggle(
     String title,
     String subtitle,
     bool value,
     Function(bool) onChanged,
-    IconData icon,
   ) {
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFF8B9DC3), size: 20),
-        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1307,8 +1086,8 @@ void _openLearningDebug() {
               Text(
                 subtitle,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 14,
+                  color: const Color(0xFF8B9DC3).withOpacity(0.7),
+                  fontSize: 12,
                 ),
               ),
             ],
@@ -1317,111 +1096,63 @@ void _openLearningDebug() {
         Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: const Color(0xFFD4AF37),
-          activeTrackColor: const Color(0xFFD4AF37).withOpacity(0.3),
+          activeColor: const Color(0xFF4CAF50),
         ),
       ],
     );
   }
 
-  Widget _buildActionButton(
-    String title,
-    String subtitle,
-    IconData icon,
-    Color color,
-    VoidCallback onPressed,
-  ) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: color.withOpacity(0.2),
-              width: 1,
+  Widget _buildSettingsCard({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required Widget child,
+  }) {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, animChild) {
+        return Transform.scale(
+          scale: _pulseAnimation.value,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.1),
+              ),
             ),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        icon,
                         color: color,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
+                        size: 20,
                       ),
                     ),
+                    const SizedBox(width: 12),
                     Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: color.withOpacity(0.7),
-                        fontSize: 14,
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios,
-                color: color.withOpacity(0.5),
-                size: 16,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSaveButton() {
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _pulseAnimation.value,
-          child: Container(
-            width: double.infinity,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFD4AF37), Color(0xFFB8941F)],
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFD4AF37).withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
+                const SizedBox(height: 16),
+                child,
               ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _saveSettings,
-                borderRadius: BorderRadius.circular(16),
-                child: const Center(
-                  child: Text(
-                    'Save Settings',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
             ),
           ),
         );
@@ -1429,742 +1160,43 @@ void _openLearningDebug() {
     );
   }
 
-  Future<void> _showTimePicker() async {
-    final TimeOfDay? picked = await showTimePicker(
+  void _showResetConfirmation() {
+    showDialog(
       context: context,
-      initialTime: _parseTime(_reminderTime),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFFD4AF37),
-              onPrimary: Colors.black,
-              surface: Color(0xFF1A1F2E),
-              onSurface: Colors.white,
-            ),
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1a2332),
+          title: const Text(
+            'Reset All Settings',
+            style: TextStyle(color: Colors.white),
           ),
-          child: child!,
+          content: const Text(
+            'This will reset all settings to their default values. This action cannot be undone.',
+            style: TextStyle(color: Color(0xFF8B9DC3)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Color(0xFF8B9DC3)),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.clear();
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                'Reset',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
         );
       },
-    );
-
-    if (picked != null) {
-      setState(() {
-        _reminderTime = _formatTime(picked);
-      });
-    }
-  }
-
-  TimeOfDay _parseTime(String timeString) {
-    final parts = timeString.split(' ');
-    final timeParts = parts[0].split(':');
-    int hour = int.parse(timeParts[0]);
-    final minute = int.parse(timeParts[1]);
-    
-    if (parts[1] == 'PM' && hour != 12) {
-      hour += 12;
-    } else if (parts[1] == 'AM' && hour == 12) {
-      hour = 0;
-    }
-    
-    return TimeOfDay(hour: hour, minute: minute);
-  }
-
-  String _formatTime(TimeOfDay time) {
-    final hour = time.hourOfPeriod;
-    final minute = time.minute.toString().padLeft(2, '0');
-    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
-    final displayHour = hour == 0 ? 12 : hour;
-    
-    return '$displayHour:$minute $period';
-  }
-
-  Future<void> _saveSettings() async {
-    HapticFeedback.heavyImpact();
-    
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Save all settings
-    await prefs.setBool('notifications_enabled', _notificationsEnabled);
-    await prefs.setBool('bypass_silent_mode', _bypassSilentMode);
-    await prefs.setBool('haptic_feedback', _hapticFeedback);
-    await prefs.setBool('daily_reminders', _dailyReminders);
-    await prefs.setString('reminder_time', _reminderTime);
-    
-    if (_userName.trim().isNotEmpty) {
-      await prefs.setString('user_name', _userName.trim());
-    }
-    
-    final updatedConfig = _selectedTaskType != null 
-        ? _taskTypeOptions[_selectedTaskType!]
-        : null;
-    
-    final combinedVoiceSetting = '$_selectedVoiceCategory:$_selectedVoiceStyle';
-    
-    widget.onSettingsChanged(_selectedTaskType, updatedConfig, combinedVoiceSetting, _selectedToneStyle);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✅ Settings saved successfully!'),
-        backgroundColor: Color(0xFFD4AF37),
-      ),
-    );
-  }
-
-  Future<void> _showResetDialog() async {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1F2E),
-        title: const Text(
-          'Reset Settings',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'This will restore all settings to their default values. This action cannot be undone.',
-          style: TextStyle(color: Colors.white),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _resetSettings();
-            },
-            child: const Text(
-              'Reset',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _resetSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    
-    setState(() {
-      _notificationsEnabled = true;
-      _bypassSilentMode = false;
-      _hapticFeedback = true;
-      _dailyReminders = true;
-      _reminderTime = '9:00 AM';
-      _userName = 'Champion';
-      _selectedTaskType = null;
-      _selectedVoiceCategory = 'male';
-      _selectedVoiceStyle = 'Default Male';
-      _selectedToneStyle = 'Balanced';
-      _nameController.text = _userName;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🔄 Settings reset to defaults'),
-        backgroundColor: Color(0xFFD4AF37),
-      ),
-    );
-  }
-
-  Future<void> _exportData() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('📤 Data export feature coming soon'),
-        backgroundColor: Color(0xFFD4AF37),
-      ),
-    );
-  }
-
-  void _openPrivacyPolicy() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🔒 Privacy policy will open in browser'),
-        backgroundColor: Color(0xFFD4AF37),
-      ),
-    );
-  }
-
-  Future<void> _showReflectionOnboarding() async {
-    showDialog(
-      context: context,
-      builder: (context) => ReflectionOnboardingDialog(
-        onAccept: () async {
-          await _reflectionSettings.setReflectionEnabled(true);
-          await _reflectionSettings.markOnboardingShown();
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('🎭 Smart Reflections enabled!'),
-              backgroundColor: Color(0xFFD4AF37),
-            ),
-          );
-        },
-        onDecline: () async {
-          await _reflectionSettings.markOnboardingShown();
-          Navigator.pop(context);
-        },
-        onLater: () {
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-}
-
-// 🎭 Reflection Settings Section Widget
-class ReflectionSettingsSection extends StatefulWidget {
-  const ReflectionSettingsSection({Key? key}) : super(key: key);
-
-  @override
-  _ReflectionSettingsSectionState createState() => _ReflectionSettingsSectionState();
-}
-
-class _ReflectionSettingsSectionState extends State<ReflectionSettingsSection> {
-  final ReflectionSettingsService _settingsService = ReflectionSettingsService();
-  
-  bool _reflectionEnabled = false;
-  ReflectionStyle _notificationStyle = ReflectionStyle.audio;
-  Map<String, dynamic> _settings = {};
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    setState(() => _loading = true);
-    
-    try {
-      final settings = await _settingsService.getAllSettings();
-      setState(() {
-        _settings = settings;
-        _reflectionEnabled = settings['enabled'] as bool;
-        _notificationStyle = settings['style'] as ReflectionStyle;
-        _loading = false;
-      });
-    } catch (e) {
-      print('Error loading reflection settings: $e');
-      setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _updateReflectionEnabled(bool enabled) async {
-    await _settingsService.setReflectionEnabled(enabled);
-    setState(() => _reflectionEnabled = enabled);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(enabled 
-          ? '✅ Smart reflections enabled'
-          : '❌ Smart reflections disabled'
-        ),
-        backgroundColor: enabled ? Color(0xFFD4AF37) : Colors.grey,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return Center(
-        child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
-      );
-    }
-
-    return Column(
-      children: [
-        _buildMainToggle(),
-        if (_reflectionEnabled) ...[
-          SizedBox(height: 16),
-          _buildAdvancedSettings(),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildMainToggle() {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 0, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Color(0xFF8B9DC3).withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: ListTile(
-        leading: Container(
-          padding: EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Color(0xFFD4AF37).withOpacity(0.2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.psychology,
-            color: Color(0xFFD4AF37),
-            size: 20,
-          ),
-        ),
-        title: Text(
-          'Smart AI Reflections',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Text(
-          'AI checks in after important tasks',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-            fontSize: 14,
-          ),
-        ),
-        trailing: Switch(
-          value: _reflectionEnabled,
-          onChanged: _updateReflectionEnabled,
-          activeColor: Color(0xFFD4AF37),
-          activeTrackColor: Color(0xFFD4AF37).withOpacity(0.3),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAdvancedSettings() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Color(0xFFD4AF37).withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '🎭 Reflection Benefits:',
-            style: TextStyle(
-              color: Color(0xFFD4AF37),
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          SizedBox(height: 8),
-          _buildBenefit('• AI learns your communication style'),
-          _buildBenefit('• Caring check-ins after medical appointments'),
-          _buildBenefit('• Celebration after achievements'),
-          _buildBenefit('• Voice-first conversations'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBenefit(String text) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 4),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: Colors.white.withOpacity(0.9),
-          fontSize: 14,
-        ),
-      ),
-    );
-  }
-}
-
-// 🛡️ Privacy Controls Section Widget
-class PrivacyControlsSection extends StatefulWidget {
-  const PrivacyControlsSection({Key? key}) : super(key: key);
-
-  @override
-  _PrivacyControlsSectionState createState() => _PrivacyControlsSectionState();
-}
-
-class _PrivacyControlsSectionState extends State<PrivacyControlsSection> {
-  late PrivacyControlService _privacyService;
-  
-  bool _dataCollectionConsent = false;
-  bool _aiLearningEnabled = false;
-  bool _debuggingConsent = false;
-  bool _humanInLoopEnabled = true;
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _privacyService = PrivacyControlService();
-    _loadPrivacySettings();
-  }
-
-  Future<void> _loadPrivacySettings() async {
-    setState(() => _loading = true);
-    
-    try {
-      final dataConsent = await _privacyService.hasDataCollectionConsent();
-      final aiLearning = await _privacyService.isAILearningEnabled();
-      final debugging = await _privacyService.hasDebuggingConsent();
-      final humanInLoop = await _privacyService.isHumanInLoopEnabled();
-      
-      setState(() {
-        _dataCollectionConsent = dataConsent;
-        _aiLearningEnabled = aiLearning;
-        _debuggingConsent = debugging;
-        _humanInLoopEnabled = humanInLoop;
-        _loading = false;
-      });
-    } catch (e) {
-      print('Error loading privacy settings: $e');
-      setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return Center(
-        child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
-      );
-    }
-
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 0),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Color(0xFF8B9DC3).withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Color(0xFFD4AF37).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    Icons.security,
-                    color: Color(0xFFD4AF37),
-                    size: 20,
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Privacy & AI Controls',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        '✅ All data stays on YOUR device only',
-                        style: TextStyle(
-                          color: Colors.green.withOpacity(0.9),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            
-            SizedBox(height: 16),
-            
-            // Privacy toggles
-            _buildPrivacyToggle(
-              'AI Learning & Personalization',
-              'Allow AI to learn your communication style',
-              _aiLearningEnabled,
-              (value) async {
-                await _privacyService.setAILearningEnabled(value);
-                setState(() => _aiLearningEnabled = value);
-              },
-              Icons.psychology,
-              Colors.purple,
-            ),
-            
-            SizedBox(height: 12),
-            
-            _buildPrivacyToggle(
-              'Human-in-the-Loop Controls',
-              'Require human approval for AI decisions',
-              _humanInLoopEnabled,
-              (value) async {
-                await _privacyService.setHumanInLoopEnabled(value);
-                setState(() => _humanInLoopEnabled = value);
-              },
-              Icons.person_pin,
-              Colors.blue,
-            ),
-            
-            SizedBox(height: 16),
-            
-            // Emergency controls
-            Row(
-              children: [
-                Expanded(
-                  child: _buildEmergencyButton(
-                    'View Data Report',
-                    Icons.visibility,
-                    Colors.blue,
-                    _showTransparencyReport,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: _buildEmergencyButton(
-                    'Kill Switch',
-                    Icons.delete_forever,
-                    Colors.red,
-                    _showKillSwitchDialog,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPrivacyToggle(
-    String title,
-    String subtitle,
-    bool value,
-    Function(bool) onChanged,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: ListTile(
-        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        leading: Icon(icon, color: color, size: 20),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
-            fontSize: 12,
-          ),
-        ),
-        trailing: Switch(
-          value: value,
-          onChanged: onChanged,
-          activeColor: color,
-          activeTrackColor: color.withOpacity(0.3),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmergencyButton(
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback onPressed,
-  ) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: color.withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: color, size: 20),
-              SizedBox(height: 4),
-              Text(
-                title,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showTransparencyReport() async {
-    final report = await _privacyService.getTransparencyReport();
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Color(0xFF1A1F2E),
-        title: Text(
-          '🔍 Privacy Report',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildReportItem('AI Learning', _aiLearningEnabled ? '✅ On' : '❌ Off'),
-            _buildReportItem('Human Controls', _humanInLoopEnabled ? '✅ On' : '❌ Off'),
-            _buildReportItem('Data Keys', '${report['storedDataKeys']} items'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Close', style: TextStyle(color: Color(0xFFD4AF37))),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReportItem(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: Colors.white)),
-          Text(value, style: TextStyle(color: Color(0xFFD4AF37))),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showKillSwitchDialog() async {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Color(0xFF1A1F2E),
-        title: Text(
-          '🚨 Kill Switch',
-          style: TextStyle(color: Colors.red),
-        ),
-        content: Text(
-          'This will delete ALL data and reset settings.\n\nThis cannot be undone.',
-          style: TextStyle(color: Colors.white),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              await _privacyService.activateKillSwitch();
-              Navigator.pop(context);
-              _loadPrivacySettings();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('🚨 All data cleared'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            },
-            child: Text('ACTIVATE', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// 🎭 Reflection Onboarding Dialog
-class ReflectionOnboardingDialog extends StatelessWidget {
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
-  final VoidCallback onLater;
-
-  const ReflectionOnboardingDialog({
-    Key? key,
-    required this.onAccept,
-    required this.onDecline,
-    required this.onLater,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Color(0xFF1A1F2E),
-      title: Text(
-        '🎭 Smart AI Reflections',
-        style: TextStyle(color: Colors.white),
-      ),
-      content: Text(
-        'Let your AI companion check in after important tasks!\n\n'
-        '• Medical appointments\n'
-        '• Work meetings\n'
-        '• Personal achievements\n\n'
-        'All conversations stay on your device.',
-        style: TextStyle(color: Colors.white),
-      ),
-      actions: [
-        TextButton(
-          onPressed: onDecline,
-          child: Text('No Thanks'),
-        ),
-        TextButton(
-          onPressed: onLater,
-          child: Text('Later'),
-        ),
-        ElevatedButton(
-          onPressed: onAccept,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Color(0xFFD4AF37),
-            foregroundColor: Colors.black,
-          ),
-          child: Text('Enable'),
-        ),
-      ],
     );
   }
 }

@@ -13,6 +13,494 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:async';
 
+// Add this class at the TOP of realtime_voice_chat.dart
+class FlexibleRelationshipManager {
+  static const Map<String, Map<String, dynamic>> _personalityConfig = {
+    'Lana Croft': {
+      'name': 'Lana Croft',
+      'gender': 'Female',
+      'accent': 'British',
+      'personality': 'Adventurous & Flirty',
+      'description': 'Ready for an adventure? Let\'s explore together!',
+      'icon': Icons.explore,
+      'color': Color(0xFFD4AF37),
+      'voiceId': 'cgSgspJ2msm6clMCkdW9',
+      'defaultRelationshipTrack': 'romantic',
+    },
+    'Baxter Jordan': {
+      'name': 'Baxter Jordan',
+      'gender': 'Male',
+      'accent': 'American',
+      'personality': 'Analytical & Wise',
+      'description': 'Let\'s analyze this situation and find the best path forward.',
+      'icon': Icons.psychology,
+      'color': Color(0xFF4A90E2),
+      'voiceId': 'pNInz6obpgDQGcFmaJgB',
+      'defaultRelationshipTrack': 'mentor',
+    },
+    'Sophie Chen': {
+      'name': 'Sophie Chen',
+      'gender': 'Female',
+      'accent': 'Asian-American',
+      'personality': 'Bubbly & Sisterly',
+      'description': 'OMG, this is going to be so much fun! Tell me everything!',
+      'icon': Icons.favorite,
+      'color': Color(0xFFFF6B9D),
+      'voiceId': 'TBD',
+      'defaultRelationshipTrack': 'platonic',
+    },
+    'Marcus Thompson': {
+      'name': 'Marcus Thompson',
+      'gender': 'Male',
+      'accent': 'Black American',
+      'personality': 'Chill & Loyal',
+      'description': 'Yo, I got your back. Let\'s figure this out together, bro.',
+      'icon': Icons.support,
+      'color': Color(0xFF34C759),
+      'voiceId': 'TBD',
+      'defaultRelationshipTrack': 'platonic',
+    },
+  };
+
+  static Map<String, dynamic>? _getPersonaConfig(String personality) {
+    return _personalityConfig[personality];
+  }
+}
+
+// 🎭 ADD THESE ENUMS HERE:
+enum RelationshipType {
+  romantic,     // Girlfriend/Boyfriend progression
+  platonic,     // Best friend progression
+  mentor,       // Wise advisor/teacher
+  sibling,      // Brother/Sister dynamic
+  companion,    // Loyal companion/pet-like (for unique personas)
+}
+
+enum RelationshipLevel {
+  acquaintance,    // 0-30 points
+  friend,          // 31-80 points  
+  closeFriend,     // 81-150 points
+  intimate,        // 151-250 points (context depends on relationship type)
+  soulmate,        // 251+ points (context depends on relationship type)
+}
+// 🎯 RELATIONSHIP TYPE SELECTOR UI
+
+class RelationshipTypeSelectorModal extends StatefulWidget {
+  final String personality;
+  final Function(RelationshipType) onRelationshipTypeSelected;
+
+  const RelationshipTypeSelectorModal({
+    Key? key,
+    required this.personality,
+    required this.onRelationshipTypeSelected,
+  }) : super(key: key);
+
+  @override
+  _RelationshipTypeSelectorModalState createState() => _RelationshipTypeSelectorModalState();
+}
+
+class _RelationshipTypeSelectorModalState extends State<RelationshipTypeSelectorModal> {
+  RelationshipType? selectedType;
+
+  @override
+  Widget build(BuildContext context) {
+    final persona = FlexibleRelationshipManager._getPersonaConfig(widget.personality);
+    final availableTypes = persona?['preferredRelationships'] as List<RelationshipType>? ?? [];    
+    return Container(
+      padding: EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: (persona?['color'] as Color? ?? Colors.grey).withOpacity(0.1),
+                child: Icon(
+                  _getPersonaIcon(widget.personality),
+                  color: persona?['color'] as Color? ?? Colors.grey,
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "How do you want to connect with ${widget.personality}?",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      "Choose the type of relationship you'd like to build",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          SizedBox(height: 24),
+          
+          // Relationship Type Options
+          ...availableTypes.map((type) => _buildRelationshipOption(type)),
+          
+          SizedBox(height: 24),
+          
+          // Action Buttons
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text("Let me decide naturally"),
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: selectedType != null 
+                    ? () {
+                        widget.onRelationshipTypeSelected(selectedType!);
+                        Navigator.pop(context);
+                      }
+                    : null,
+                  child: Text("Start Chatting"),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRelationshipOption(RelationshipType type) {
+    final isSelected = selectedType == type;
+    final info = _getRelationshipTypeInfo(type, widget.personality);
+    
+    return GestureDetector(
+      onTap: () => setState(() => selectedType = type),
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          color: isSelected ? Colors.blue.withOpacity(0.05) : Colors.transparent,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              info['icon'],
+              color: isSelected ? Colors.blue : Colors.grey[600],
+              size: 24,
+            ),
+            SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    info['title'],
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? Colors.blue : Colors.black,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    info['description'],
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                Icons.check_circle,
+                color: Colors.blue,
+                size: 20,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Map<String, dynamic> _getRelationshipTypeInfo(RelationshipType type, String personality) {
+    final persona = FlexibleRelationshipManager._getPersonaConfig(personality);
+    final gender = persona?['gender'] ?? 'Unknown';
+    
+    switch (type) {
+      case RelationshipType.romantic:
+        return {
+          'icon': Icons.favorite,
+          'title': gender == 'female' ? 'Romantic (Girlfriend)' : 'Romantic (Boyfriend)',
+          'description': 'Build a loving romantic relationship with flirtation, dates, and deep emotional connection',
+        };
+        
+      case RelationshipType.platonic:
+        return {
+          'icon': Icons.people,
+          'title': 'Best Friend',
+          'description': 'Deep friendship with emotional support, shared interests, and loyalty',
+        };
+        
+      case RelationshipType.mentor:
+        return {
+          'icon': Icons.school,
+          'title': 'Mentor & Guide',
+          'description': 'Wise advisor who helps you grow, offers guidance, and supports your goals',
+        };
+        
+      case RelationshipType.sibling:
+        return {
+          'icon': Icons.family_restroom,
+          'title': gender == 'female' ? 'Like a Sister' : 'Like a Brother',
+          'description': 'Protective, playful family-like bond with teasing and unconditional support',
+        };
+        
+      case RelationshipType.companion:
+        return {
+          'icon': Icons.pets,
+          'title': 'Loyal Companion',
+          'description': 'Devoted companion who\'s always there for you through everything',
+        };
+    }
+  }
+
+  IconData _getPersonaIcon(String personality) {
+    switch (personality) {
+      case 'Lana Croft': return Icons.explore;
+      case 'Baxter Jordan': return Icons.psychology;
+      case 'Sophie Chen': return Icons.chat;
+      case 'Marcus Thompson': return Icons.sports_basketball;
+      default: return Icons.person;
+    }
+  }
+}
+
+// 🎯 SMART PERSONA SELECTION SCREEN
+class PersonaSelectionScreen extends StatefulWidget {
+  @override
+  _PersonaSelectionScreenState createState() => _PersonaSelectionScreenState();
+}
+
+class _PersonaSelectionScreenState extends State<PersonaSelectionScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Choose Your AI Companion"),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Who would you like to talk to?",
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              "Each AI has their own personality, voice, and relationship style",
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+            ),
+            SizedBox(height: 24),
+            
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.8,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: FlexibleRelationshipManager._personalityConfig.length,
+                itemBuilder: (context, index) {
+                  final personality = FlexibleRelationshipManager._personalityConfig.keys.elementAt(index);
+                  final config = FlexibleRelationshipManager._personalityConfig[personality]!;
+                  
+                  return _buildPersonaCard(personality, config);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPersonaCard(String personality, Map<String, dynamic> config) {
+    return GestureDetector(
+      onTap: () => _selectPersona(personality),
+      child: Container(
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              config['color'].withOpacity(0.1),
+              config['color'].withOpacity(0.05),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: config['color'].withOpacity(0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Avatar
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: config['color'],
+              child: Icon(
+                _getPersonaIcon(personality),
+                color: Colors.white,
+                size: 30,
+              ),
+            ),
+            
+            SizedBox(height: 16),
+            
+            // Name
+            Text(
+              personality,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            
+            SizedBox(height: 4),
+            
+            // Gender
+            Text(
+              "${config['gender']} • ${_getMainRelationshipType(config['defaultRelationship'])}",
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            
+            SizedBox(height: 8),
+            
+            // Personality
+            Text(
+              config['personality'],
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            
+            Spacer(),
+            
+            // Relationship Types
+            Wrap(
+              spacing: 4,
+              children: (config['preferredRelationships'] as List<RelationshipType>)
+                  .take(2)
+                  .map((type) => Chip(
+                    label: Text(
+                      _getShortRelationshipName(type),
+                      style: TextStyle(fontSize: 10),
+                    ),
+                    backgroundColor: config['color'].withOpacity(0.1),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ))
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _selectPersona(String personality) {
+    // Show relationship type selector
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => RelationshipTypeSelectorModal(
+        personality: personality,
+        onRelationshipTypeSelected: (type) {
+          // Navigate to chat with selected persona and relationship type
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => RealtimeVoiceChat(                personality: personality,
+                baseUrl: 'https://motivator-ai-backend.onrender.com',
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  IconData _getPersonaIcon(String personality) {
+    switch (personality) {
+      case 'Lana Croft': return Icons.explore;
+      case 'Baxter Jordan': return Icons.psychology;
+      case 'Sophie Chen': return Icons.chat;
+      case 'Marcus Thompson': return Icons.sports_basketball;
+      default: return Icons.person;
+    }
+  }
+
+  String _getMainRelationshipType(RelationshipType type) {
+    switch (type) {
+      case RelationshipType.romantic: return 'Romantic';
+      case RelationshipType.platonic: return 'Friend';
+      case RelationshipType.mentor: return 'Mentor';
+      case RelationshipType.sibling: return 'Sibling';
+      case RelationshipType.companion: return 'Companion';
+    }
+  }
+
+  String _getShortRelationshipName(RelationshipType type) {
+    switch (type) {
+      case RelationshipType.romantic: return '💕 Romance';
+      case RelationshipType.platonic: return '👫 Friend';
+      case RelationshipType.mentor: return '🧙‍♂️ Mentor';
+      case RelationshipType.sibling: return '👨‍👩‍👧‍👦 Family';
+      case RelationshipType.companion: return '🐕 Companion';
+    }
+  }
+}
+
 // 🧠 ENHANCED BACKCHANNEL SELECTOR WITH DEEPER EMOTIONAL INTELLIGENCE
 class BackchannelSelector {
   static List<String> _recentlyUsed = [];
@@ -269,16 +757,53 @@ class _RealtimeVoiceChatState extends State<RealtimeVoiceChat>
   // 🎭 Personality Configurations
   Map<String, Map<String, dynamic>> get _personalityConfig => {
     'Lana Croft': {
-      'voiceId': 'QXEkTn58Ik1IKjIMk8QA',
-      'color': Colors.amber,
-      'greeting': 'Ready for an adventure?'
+        'voiceId': 'QXEkTn58Ik1IKjIMk8QA',
+        'color': Colors.amber,
+        'greeting': 'Ready for an adventure?',
+        'gender': 'female',
+        'preferredRelationships': [RelationshipType.romantic, RelationshipType.platonic],
+        'defaultRelationship': RelationshipType.romantic,
+        'personality': 'adventurous, confident, flirty',
+        'accent': 'British',
+        'description': 'British adventurer with a confident, flirty personality',
     },
+    
     'Baxter Jordan': {
-      'voiceId': 'pNInz6obpgDQGcFmaJgB',
-      'color': Colors.blue,
-      'greeting': 'Let\'s analyze this situation...'
+        'voiceId': 'pNInz6obpgDQGcFmaJgB', 
+        'color': Colors.blue,
+        'greeting': 'Let\'s analyze this situation...',
+        'gender': 'male',
+        'preferredRelationships': [RelationshipType.mentor, RelationshipType.platonic, RelationshipType.romantic],
+        'defaultRelationship': RelationshipType.mentor,
+        'personality': 'analytical, wise, supportive',
+        'accent': 'American',
+        'description': 'Wise American mentor with analytical thinking',
     },
-  };
+    
+    'Sophie Chen': {
+        'voiceId': 'voice_id_3', // TODO: Add actual voice ID
+        'color': Colors.pink,
+        'greeting': 'Hey girl! What\'s up?',
+        'gender': 'female',
+        'preferredRelationships': [RelationshipType.platonic, RelationshipType.sibling],
+        'defaultRelationship': RelationshipType.platonic,
+        'personality': 'bubbly, supportive, sisterly',
+        'accent': 'American',
+        'description': 'Sweet Asian-American best friend with bubbly energy',
+    },
+    
+    'Marcus Thompson': {
+        'voiceId': 'voice_id_4', // TODO: Add actual voice ID
+        'color': Colors.green,
+        'greeting': 'What\'s good, bro?',
+        'gender': 'male',
+        'preferredRelationships': [RelationshipType.platonic, RelationshipType.mentor],
+        'defaultRelationship': RelationshipType.platonic,
+        'personality': 'chill, loyal, brotherhood',
+        'accent': 'American',
+        'description': 'Cool Black American bro with chill, loyal vibe',
+    },
+ };
 
   // 🎵 COMPREHENSIVE BACKCHANNEL AUDIO CLIPS CONFIGURATION
   Map<String, List<String>> get _audioClipsByType => {
