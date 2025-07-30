@@ -20,6 +20,7 @@ import 'widgets/motivator_calendar.dart';
 import 'dictaphone_screen.dart';
 import 'widgets/app_bottom_navbar.dart'; // 📱 NEW IMPORT
 import '../services/complete_voice_manager.dart';
+import 'memory_management_screen.dart';
 
 // ✅ ViewMode enum
 enum ViewMode { calendar, dashboard, dictaphone }
@@ -93,7 +94,7 @@ class _MotivatorHomeState extends State<MotivatorHome>
   String _dailyQuote = "Success is not final, failure is not fatal: it is the courage to continue that counts.";
   String _userName = "Champion";
 
-  // 🎛️ User preferences
+  // 🎛️ User preferences - FIXED VARIABLE NAMES
   String? _currentTaskType;
   Map<String, dynamic>? _currentTaskConfig;
   String _selectedVoice = 'male:Default Male';
@@ -163,6 +164,8 @@ class _MotivatorHomeState extends State<MotivatorHome>
   void _handleTasksChanged() {
     _loadTasks();
   }
+
+  // 🔧 FIXED: Navigation handler with correct variable names
   void _handleAppNavigation(AppScreen targetScreen) {
     switch (targetScreen) {
       case AppScreen.dashboard:
@@ -170,57 +173,49 @@ class _MotivatorHomeState extends State<MotivatorHome>
           _currentView = ViewMode.dashboard;
         });
         break;
+    
       case AppScreen.calendar:
         setState(() {
           _currentView = ViewMode.calendar;
         });
-        // 🚀 CRITICAL: Refresh tasks when switching to calendar
-        _loadTasks();
         break;
+
       case AppScreen.dictaphone:
-        // Navigate to dictaphone and listen for result
-        Navigator.of(context).push(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => 
-                const DictaphoneScreen(),
-            transitionDuration: const Duration(milliseconds: 300),
-            reverseTransitionDuration: const Duration(milliseconds: 300),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.0, 0.1),
-                    end: Offset.zero,
-                  ).animate(CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeOut,
-                  )),
-                  child: child,
-                ),
-              );
-            },
-          ),
-        ).then((result) {
-          // 🔄 CRITICAL FIX: Refresh tasks when returning from dictaphone
-          if (result == true) {
-            print('🔄 Dictaphone created task - refreshing calendar');
-            _loadTasks(); // This will update _tasks and refresh calendar
-            
-            // Optional: Show success feedback
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✅ Task added to calendar!'),
-                backgroundColor: Color(0xFFD4AF37),
-                behavior: SnackBarBehavior.floating,
-                duration: Duration(seconds: 2),
-              ),
-            );
-          }
+        setState(() {
+          _currentView = ViewMode.dictaphone;
         });
         break;
+    
+      case AppScreen.memory:
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const MemoryManagementScreen(),
+          ),
+          (route) => false,
+        );
+        break;
+    
       case AppScreen.settings:
-        // Handle settings navigation
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SettingsScreen(
+              currentTaskType: _currentTaskType,        // ✅ FIXED: Use existing variable
+              currentTaskConfig: _currentTaskConfig,    // ✅ FIXED: Use existing variable
+              currentVoice: _selectedVoice,             // ✅ FIXED: Use existing variable
+              currentToneStyle: _selectedToneStyle,     // ✅ FIXED: Use existing variable
+              onSettingsChanged: (taskType, config, voice, toneStyle) {
+                setState(() {
+                  _currentTaskType = taskType;           // ✅ FIXED: Use existing variable
+                  _currentTaskConfig = config;           // ✅ FIXED: Use existing variable
+                  _selectedVoice = voice ?? _selectedVoice;              // ✅ FIXED: Use existing variable
+                  _selectedToneStyle = toneStyle ?? _selectedToneStyle; // ✅ FIXED: Use existing variable
+                });
+              },
+            ),
+          ),
+        );
         break;
     }
   }
@@ -340,69 +335,70 @@ class _MotivatorHomeState extends State<MotivatorHome>
   }
 
   // 🚀 REPLACE your existing _generateMotivation method with this:
-Future<void> _generateMotivation([String? customTask]) async {
-  print('🚀 Using ASYNC system - instant response!');
-  await _loadUserPreferences();
-  
-  setState(() => _loading = true);
-  HapticFeedback.mediumImpact();
-  
-  try {
-    final task = customTask ?? _controller.text.trim();
-    if (task.isEmpty && customTask == null) return;
+  Future<void> _generateMotivation([String? customTask]) async {
+    print('🚀 Using ASYNC system - instant response!');
+    await _loadUserPreferences();
     
-    print('🎯 Creating async task - Voice: $_selectedVoice, Tone: $_selectedToneStyle');
+    setState(() => _loading = true);
+    HapticFeedback.mediumImpact();
     
-    // 🚀 NEW: Use async system instead of old slow method
-    final result = await _api.createTaskAsync(
-      taskText: task,
-      userId: 'user_${DateTime.now().millisecondsSinceEpoch}',
-      voiceStyle: _selectedVoice,
-      toneStyle: _selectedToneStyle,
-      userName: _userName,
-    );
-    
-    if (result['success'] == true) {
-      // ⚡ INSTANT SUCCESS!
-      setState(() {
-        _generatedLine = result['motivationalText'] ?? 'Task created!';
-        _totalMotivations++;
-        _motivationStreak++;
-        if (_recentMotivations.length >= 5) {
-          _recentMotivations.removeAt(0);
-        }
-        _recentMotivations.add(_generatedLine);
-      });
-
-      _motivationController.forward();
-      _streakController.forward();
-      HapticFeedback.heavyImpact();
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('⚡ Task created instantly! Audio generating in background...'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
+    try {
+      final task = customTask ?? _controller.text.trim();
+      if (task.isEmpty && customTask == null) return;
+      
+      print('🎯 Creating async task - Voice: $_selectedVoice, Tone: $_selectedToneStyle');
+      
+      // 🚀 NEW: Use async system instead of old slow method
+      final result = await _api.createTaskAsync(
+        taskText: task,
+        userId: 'user_${DateTime.now().millisecondsSinceEpoch}',
+        voiceStyle: _selectedVoice,
+        toneStyle: _selectedToneStyle,
+        userName: _userName,
       );
       
-    } else {
-      throw Exception(result['error'] ?? 'Failed to create task');
+      if (result['success'] == true) {
+        // ⚡ INSTANT SUCCESS!
+        setState(() {
+          _generatedLine = result['motivationalText'] ?? 'Task created!';
+          _totalMotivations++;
+          _motivationStreak++;
+          if (_recentMotivations.length >= 5) {
+            _recentMotivations.removeAt(0);
+          }
+          _recentMotivations.add(_generatedLine);
+        });
+
+        _motivationController.forward();
+        _streakController.forward();
+        HapticFeedback.heavyImpact();
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚡ Task created instantly! Audio generating in background...'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+      } else {
+        throw Exception(result['error'] ?? 'Failed to create task');
+      }
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _loading = false);
     }
-    
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('❌ Error: $e'),
-        backgroundColor: Colors.red,
-      ),
-    );
-  } finally {
-    setState(() => _loading = false);
   }
-}
-    // 🗺️ Helper method to map current voice selection to personalities
+
+  // 🗺️ Helper method to map current voice selection to personalities
   String _mapVoiceToPersonality(String currentVoice) {
     switch (currentVoice) {
       // ✅ EXISTING WORKING MAPPINGS (Keep unchanged)
@@ -787,7 +783,7 @@ Future<void> _generateMotivation([String? customTask]) async {
                                           dailyQuote: _dailyQuote,
                                           onSelectQuickAction: _selectQuickAction,
                                           onGenerateMotivationForTask: _generateMotivationForTask,
-)
+                                        )
                                       : MotivatorCalendar(
                                           selectedDay: _selectedDay,
                                           tasks: _tasks,
@@ -813,7 +809,9 @@ Future<void> _generateMotivation([String? customTask]) async {
                   AppBottomNavBar(
                     currentScreen: _currentView == ViewMode.dashboard 
                         ? AppScreen.dashboard 
-                        : AppScreen.calendar,
+                        : _currentView == ViewMode.calendar
+                            ? AppScreen.calendar
+                            : AppScreen.dictaphone,
                     onScreenChanged: _handleAppNavigation, // 🚀 Use the new method
                   ),
                 ],
