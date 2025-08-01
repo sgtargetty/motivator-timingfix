@@ -1,5 +1,5 @@
 name: motivator_ai
-description: "A new Flutter project."
+description: "MOTIVATR & Co - AI-Enhanced Personal Companions"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -10,51 +10,67 @@ dependencies:
   flutter:
     sdk: flutter
     
-  # Core packages
+  # ===== CORE PACKAGES (CURRENT WORKING) =====
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.5.3
   uuid: ^4.5.1
-  http: ^0.13.6
   path_provider: ^2.1.2
   
-  # Audio and permissions
+  # ===== AUDIO & PERMISSIONS (CURRENT WORKING) =====
   just_audio: ^0.9.34
   permission_handler: ^11.0.1
   
-  # Calendar
+  # ===== CALENDAR (CURRENT WORKING) =====
   table_calendar: ^3.0.9
   
-  # Speech input + scheduling
+  # ===== SPEECH & SCHEDULING (CURRENT WORKING) =====
   speech_to_text: ^7.0.0
   flutter_datetime_picker_plus: ^2.0.1
   web_socket_channel: ^3.0.3 
   
-  # 🔔 Notification dependencies
+  # ===== NOTIFICATIONS (CURRENT WORKING) =====
   awesome_notifications: ^0.10.1
   timezone: ^0.9.2
+  wakelock_plus: ^1.2.1
   
-  # 🚨 AMBER ALERT DEPENDENCIES
-  wakelock_plus: ^1.2.1               # Keep screen on during emergency alerts (updated package)
-  
-  # 🎤 DICTAPHONE DEPENDENCIES
-  flutter_sound: ^9.2.13              # Audio recording (replaced record package)
+  # ===== AUDIO SYSTEM (CURRENT WORKING) =====
+  flutter_sound: ^9.2.13
   flutter_tts: ^4.2.3
   audioplayers: ^6.5.0
   
-  
-  
+  # ===== BASIC NETWORKING =====
+  http: ^0.13.6                      # Keep current version for stability
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
 
+dependency_overrides:
+  awesome_notifications: ^0.10.1
+
 flutter:
   uses-material-design: true
   
+  # ===== ENTERPRISE TYPOGRAPHY SYSTEM =====
+  fonts:
+    - family: Hanken Grotesk
+      fonts:
+        - asset: assets/fonts/HankenGrotesk-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/HankenGrotesk-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/HankenGrotesk-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/HankenGrotesk-Bold.ttf
+          weight: 700
+  
   assets:
+    # ===== CORE ASSETS =====
     - assets/voices/premium/
-    # 🎵 COMPREHENSIVE BACKCHANNEL AUDIO LIBRARY
-    # Original files (keep these)
+    - assets/fonts/
+    
+    # ===== AUDIO LIBRARY (CURRENT WORKING) =====
     - assets/audio/backchannel/of_course_yeah.mp3
     - assets/audio/backchannel/Hey_you_GoodMorning.mp3
     - assets/audio/backchannel/damn_no_i_get_it.mp3
@@ -138,6 +154,3 @@ flutter:
     # 🎭 PLAYFUL & PERSONALITY
     - assets/audio/backchannel/Filler_Playful_Mmmm.mp3
     - assets/audio/backchannel/Sensual_Moan_Explicit.mp3
-
-dependency_overrides:
-  awesome_notifications: ^0.10.1

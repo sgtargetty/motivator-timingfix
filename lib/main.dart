@@ -313,7 +313,11 @@ class MotivatorApp extends StatelessWidget {
       title: 'Motivator.AI',
       navigatorKey: navigatorKey, // 🚨 Global navigator key for amber alerts
       theme: ThemeData.dark().copyWith(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        useMaterial3: true, // ✅ ADD THIS LINE
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFD4AF37), // Your gold
+          brightness: Brightness.dark,
+        ),
         scaffoldBackgroundColor: Colors.black,
       ),
       home: const SplashScreen(),
